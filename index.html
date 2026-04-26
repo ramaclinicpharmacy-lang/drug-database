@@ -31,11 +31,10 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
     
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    // 2. ฟังก์ชันดึงข้อมูลจาก Database
-    async function fetchDrugs() {
+    
+    async function fetchDrugData() {
         try {
-            // คำสั่งดึงข้อมูลข้าม 6 ตาราง (Deep Relational Fetch)
+            // คำสั่ง Query แบบรวมทุกความสัมพันธ์ (Nesting)
             const { data: drugs, error } = await supabase
                 .from('drugs')
                 .select(`
@@ -47,10 +46,13 @@
                         generics (generic_name)
                     ),
                     drug_administrations (
-                        route,
                         instructions,
                         max_conc_mg_ml,
                         min_conc_mg_ml,
+                        routes (
+                            route_name,
+                            route_code
+                        ),
                         administration_fluids (
                             fluids (short_name)
                         )
@@ -58,80 +60,69 @@
                 `);
 
             if (error) throw error;
-            renderDrugs(drugs);
+            renderDisplay(drugs);
 
-        } catch (error) {
-            console.error("เกิดข้อผิดพลาด:", error);
-            document.getElementById('loading').innerHTML = `<span style="color:red">ดึงข้อมูลไม่สำเร็จ: ${error.message}</span>`;
+        } catch (err) {
+            console.error("Fetch Error:", err);
+            document.getElementById('loading').innerHTML = `<p style="color:red">ขออภัย เกิดข้อผิดพลาดในการเชื่อมต่อ: ${err.message}</p>`;
         }
     }
 
-    // 3. ฟังก์ชันนำข้อมูลมาสร้างหน้าเว็บ (DOM Manipulation)
-    function renderDrugs(drugs) {
+    function renderDisplay(drugs) {
         const container = document.getElementById('drug-container');
         document.getElementById('loading').style.display = 'none';
 
-        if (drugs.length === 0) {
-            container.innerHTML = '<p>ยังไม่มีข้อมูลยาในระบบ</p>';
+        if (!drugs || drugs.length === 0) {
+            container.innerHTML = '<center>ไม่พบข้อมูลยาในฐานข้อมูล</center>';
             return;
         }
 
-        let htmlContent = '';
-
-        drugs.forEach(drug => {
-            // --- จัดการส่วนผสมยา (Generics + Amount + Unit) ---
-            let contentsHtml = '';
-            drug.drug_contents.forEach(content => {
-                const genericName = content.generics.generic_name;
-                contentsHtml += `<li>${genericName} : <b>${content.amount} ${content.unit}</b></li>`;
-            });
-
-            // --- จัดการวิธีการบริหารยาและสารน้ำ ---
-            let adminHtml = '';
-            drug.drug_administrations.forEach(admin => {
-                // ดึงชื่อสารน้ำออกมาทำเป็น Tag
-                let fluidsHtml = '';
-                if (admin.administration_fluids.length > 0) {
-                    const fluidNames = admin.administration_fluids.map(af => af.fluids.short_name);
-                    fluidsHtml = fluidNames.map(f => `<span class="fluid-tag">${f}</span>`).join(' ');
-                    fluidsHtml = `<br><small><b>สารน้ำที่ใช้ได้:</b> ${fluidsHtml}</small>`;
-                }
-
-                // ข้อมูลความเข้มข้น (ถ้ามี)
-                let concHtml = '';
-                if (admin.max_conc_mg_ml || admin.min_conc_mg_ml) {
-                    concHtml = `<br><small style="color: #ea580c;"><b>ความเข้มข้น:</b> Min ${admin.min_conc_mg_ml || '-'} / Max ${admin.max_conc_mg_ml || '-'} mg/mL</small>`;
-                }
-
-                adminHtml += `
-                    <div style="margin-bottom: 10px;">
-                        <span class="tag">${admin.route}</span> 
-                        <span>${admin.instructions || ''}</span>
-                        ${concHtml}
-                        ${fluidsHtml}
-                    </div>
-                `;
-            });
-
-            // --- ประกอบร่างเป็นการ์ดยา ---
-            htmlContent += `
-                <div class="drug-card">
-                    <h2 class="drug-title">${drug.drug_name} <small style="color:gray; font-size:1rem;">(${drug.drug_code})</small></h2>
-                    
-                    <div class="section-title">🧪 ส่วนประกอบสำคัญ (Active Ingredients)</div>
-                    <ul>${contentsHtml || '<li>ไม่มีข้อมูลส่วนประกอบ</li>'}</ul>
-
-                    <div class="section-title">💉 วิธีการบริหารยา (Administrations)</div>
-                    <div style="margin-top: 10px;">${adminHtml || 'ไม่มีข้อมูลวิธีการบริหารยา'}</div>
+        container.innerHTML = drugs.map(drug => `
+            <div class="drug-card">
+                <div class="drug-header">
+                    <h2 class="drug-title">${drug.drug_name}</h2>
+                    <span class="drug-code">CODE: ${drug.drug_code}</span>
                 </div>
-            `;
-        });
 
-        container.innerHTML = htmlContent;
+                <span class="section-label">🧪 ส่วนประกอบและความแรง (Contents)</span>
+                <ul>
+                    ${drug.drug_contents.map(c => `
+                        <li>${c.generics.generic_name} <strong>${c.amount} ${c.unit}</strong></li>
+                    `).join('')}
+                </ul>
+
+                <span class="section-label">💉 การบริหารยา (Administration)</span>
+                <div>
+                    ${drug.drug_administrations.map(admin => {
+                        // ดึงรายชื่อสารน้ำ
+                        const fluids = admin.administration_fluids.map(af => 
+                            `<span class="fluid-chip">${af.fluids.short_name}</span>`
+                        ).join('');
+
+                        return `
+                            <div class="admin-item">
+                                <span class="route-badge">${admin.routes.route_name} (${admin.routes.route_code})</span>
+                                <span>${admin.instructions || 'ไม่มีคำแนะนำพิเศษ'}</span>
+                                
+                                ${(admin.max_conc_mg_ml || admin.min_conc_mg_ml) ? `
+                                    <span class="conc-box">
+                                        ⚠️ ความเข้มข้น: 
+                                        ${admin.min_conc_mg_ml ? `Min ${admin.min_conc_mg_ml}` : '-'} / 
+                                        ${admin.max_conc_mg_ml ? `Max ${admin.max_conc_mg_ml}` : '-'} mg/mL
+                                    </span>
+                                ` : ''}
+
+                                ${fluids ? `<div style="margin-top:8px"><strong>สารน้ำ:</strong> ${fluids}</div>` : ''}
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `).join('');
     }
 
-    // เริ่มทำงานเมื่อเปิดหน้าเว็บ
-    fetchDrugs();
+    // เรียกทำงาน
+    fetchDrugData();
 </script>
 
 </body>
