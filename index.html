@@ -225,55 +225,69 @@
     }
 
     // --- ✨ ฟังก์ชันแก้ไขบันทึกสารน้ำ (Fixed data.id) ✨ ---
-    async function addAdministration() {
-        const drug_code = document.getElementById('target-admin-drug-code').value;
-        
-        // 1. ส่งข้อมูลไปบันทึก
-        const response = await supabaseClient.from('drug_administrations').insert({ 
+async function addAdministration() {
+    const drug_code = document.getElementById('target-admin-drug-code').value;
+    
+    // 1. บันทึกข้อมูลลงตารางหลัก (drug_administrations)
+    // ต้องมี .select() เพื่อให้ Supabase ส่งข้อมูลแถวที่เพิ่งสร้างกลับมาให้เรา
+    const { data: adminData, error: adminError } = await supabaseClient
+        .from('drug_administrations')
+        .insert({ 
             drug_code: drug_code, 
             route_code: document.getElementById('select-route').value, 
             instructions: document.getElementById('input-instruction').value, 
             min_conc_mg_ml: document.getElementById('input-min-conc').value || null, 
             max_conc_mg_ml: document.getElementById('input-max-conc').value || null 
-        }).select();
-    
-        const data = response.data;
-        const error = response.error;
-    
-        if (error) {
-            alert("บันทึกวิธีใช้ไม่สำเร็จ: " + error.message);
-            return;
-        }
-    
-        // 2. ตรวจสอบว่าได้ข้อมูลกลับมาเป็น Array และไม่ว่าง
-        if (Array.isArray(data) && data.length > 0) {
-            const new_id = data.id; // <--- มั่นใจว่าเข้าถึงถูกตำแหน่ง
-            
-            // 3. ตรวจสอบ Checkbox สารน้ำ
-            const checkboxes = document.querySelectorAll('input[name="comp-fluids"]:checked');
-            const selectedFluids = Array.from(checkboxes).map(cb => ({ 
-                administration_id: new_id, 
-                fluid_short_name: cb.value 
-            }));
-    
-            if (selectedFluids.length > 0) {
-                const { error: fluidError } = await supabaseClient
-                    .from('administration_fluids')
-                    .insert(selectedFluids);
-                
-                if (fluidError) {
-                    alert("บันทึกวิธีใช้สำเร็จ แต่สารน้ำพลาด: " + fluidError.message);
-                    return;
-                }
-            }
-            
-            alert("บันทึกเรียบร้อยทุกขั้นตอน!");
-            location.reload(); // รีเฟรชเพื่อความชัวร์ว่าข้อมูลอัปเดต
-        } else {
-            console.error("Data structure error:", data);
-            alert("ระบบบันทึกสำเร็จแต่ส่ง ID กลับมาผิดรูปแบบ กรุณาเช็ค Console");
-        }
+        })
+        .select(); // <--- จุดสำคัญ: ดึงค่ากลับมาทันที
+
+    if (adminError) {
+        alert("บันทึกวิธีใช้ไม่สำเร็จ: " + adminError.message);
+        return;
     }
+
+    // 2. ตรวจสอบว่าได้ ID กลับมาจริงไหม
+    console.log("Admin Data received:", adminData); // ดูใน Console (F12) ว่ามี id ไหม
+
+    if (adminData && adminData.length > 0) {
+        // ✅ ดึง ID จากแถวแรก (index 0)
+        const new_admin_id = adminData.id; 
+        
+        // 3. เตรียมข้อมูลสารน้ำ (เฉพาะที่ถูกติ๊กเลือก)
+        const checkedFluids = document.querySelectorAll('input[name="comp-fluids"]:checked');
+        const selectedFluids = Array.from(checkedFluids).map(cb => ({ 
+            administration_id: new_admin_id, 
+            fluid_short_name: cb.value 
+        }));
+
+        // 4. บันทึกลงตารางลูก (เฉพาะถ้ามีการเลือกสารน้ำอย่างน้อย 1 ตัว)
+        if (selectedFluids.length > 0) {
+            const { error: fluidError } = await supabaseClient
+                .from('administration_fluids')
+                .insert(selectedFluids);
+            
+            if (fluidError) {
+                console.error("Fluid Error:", fluidError);
+                alert("บันทึกวิธีใช้สำเร็จ แต่สารน้ำพลาด: " + fluidError.message);
+                return;
+            }
+        }
+        
+        alert("บันทึกข้อมูลเรียบร้อยแล้ว!");
+        
+        // ล้างฟอร์ม
+        document.getElementById('input-instruction').value = '';
+        document.getElementById('input-min-conc').value = '';
+        document.getElementById('input-max-conc').value = '';
+        document.querySelectorAll('input[name="comp-fluids"]').forEach(cb => cb.checked = false);
+
+        fetchCurrentAdmins(drug_code);
+        fetchDrugs();
+    } else {
+        // กรณีบันทึกสำเร็จแต่ data เป็นค่าว่าง (มักเกิดจาก RLS Policy ฝั่ง Select ไม่ได้เปิด)
+        alert("บันทึกสำเร็จแต่ดึง ID กลับมาไม่ได้ กรุณาตรวจสอบ RLS Policy ของตาราง drug_administrations");
+    }
+}
 
     // --- Master Data Functions ---
     async function fetchGenerics() { 
