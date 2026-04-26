@@ -310,8 +310,62 @@
     async function fetchCurrentAdmins(c) { const {data}=await supabaseClient.from('drug_administrations').select('*, routes(route_name)').eq('drug_code', c); document.getElementById('current-admin-list').innerHTML=(data||[]).map(a=>`<div class="list-item"><span><b>${a.routes.route_name}:</b> ${a.instructions.substring(0,25)}...</span><button onclick="removeAdmin(${a.id}, '${c}')" style="color:red">ลบ</button></div>`).join(''); }
     async function addAdministration() {
         const drug_code = document.getElementById('target-admin-drug-code').value;
-        const { data } = await supabaseClient.from('drug_administrations').insert({ drug_code, route_code: document.getElementById('select-route').value, instructions: document.getElementById('input-instruction').value, min_conc_mg_ml: document.getElementById('input-min-conc').value||null, max_conc_mg_ml: document.getElementById('input-max-conc').value||null }).select();
-        if (data) { const fluids = Array.from(document.querySelectorAll('input[name="comp-fluids"]:checked')).map(cb => ({ administration_id: data.id, fluid_short_name: cb.value })); if (fluids.length > 0) await supabaseClient.from('administration_fluids').insert(fluids); fetchCurrentAdmins(drug_code); fetchDrugs(); }
+        const route_code = document.getElementById('select-route').value;
+        const instructions = document.getElementById('input-instruction').value;
+        const min_conc = document.getElementById('input-min-conc').value || null;
+        const max_conc = document.getElementById('input-max-conc').value || null;
+    
+        // 1. บันทึกข้อมูลการบริหารยาหลักก่อน
+        const { data: adminData, error: adminError } = await supabaseClient
+            .from('drug_administrations')
+            .insert({
+                drug_code: drug_code,
+                route_code: route_code,
+                instructions: instructions,
+                min_conc_mg_ml: min_conc,
+                max_conc_mg_ml: max_conc
+            })
+            .select(); // สำคัญมาก: ต้องใช้ .select() เพื่อเอา ID ที่เพิ่งสร้างมาใช้ต่อ
+    
+        if (adminError) {
+            console.error("Admin Insert Error:", adminError);
+            alert("บันทึกวิธีใช้ยาไม่สำเร็จ: " + adminError.message);
+            return;
+        }
+    
+        if (adminData && adminData.length > 0) {
+            const newAdminId = adminData.id; // ได้ ID ของแถวที่เพิ่งสร้าง
+    
+            // 2. ดึงค่าสารน้ำที่เลือกจาก Checkbox
+            const selectedFluids = Array.from(document.querySelectorAll('input[name="comp-fluids"]:checked'))
+                .map(cb => ({
+                    administration_id: newAdminId,
+                    fluid_short_name: cb.value
+                }));
+    
+            // 3. บันทึกลงตารางเชื่อมโยง (ถ้ามีการเลือกสารน้ำ)
+            if (selectedFluids.length > 0) {
+                const { error: fluidError } = await supabaseClient
+                    .from('administration_fluids')
+                    .insert(selectedFluids);
+    
+                if (fluidError) {
+                    console.error("Fluid Mapping Error:", fluidError);
+                    alert("บันทึกสารน้ำไม่สำเร็จ แต่บันทึกวิธีใช้แล้ว: " + fluidError.message);
+                }
+            }
+    
+            alert("บันทึกข้อมูลเรียบร้อยแล้ว!");
+            
+            // ล้างฟอร์มและรีเฟรชหน้าจอ
+            document.getElementById('input-instruction').value = '';
+            document.getElementById('input-min-conc').value = '';
+            document.getElementById('input-max-conc').value = '';
+            document.querySelectorAll('input[name="comp-fluids"]').forEach(cb => cb.checked = false);
+            
+            fetchCurrentAdmins(drug_code);
+            fetchDrugs();
+        }
     }
     async function removeAdmin(id, code) { await supabaseClient.from('drug_administrations').delete().eq('id', id); fetchCurrentAdmins(code); fetchDrugs(); }
 
