@@ -52,34 +52,41 @@
 </div>
 
 <script>
+    // 1. ตั้งค่าการเชื่อมต่อ (เปลี่ยนชื่อตัวแปรเป็น supabaseClient)
     const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // --- 1. ระบบจัดการ Authentication ---
 
     // ตรวจสอบสถานะ Login ทุกครั้งที่เปิดหน้าเว็บ
     async function checkUser() {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await supabaseClient.auth.getUser();
         if (user) {
             showAdminUI(user);
         } else {
             showGuestUI();
         }
-        fetchDrugs(); // โหลดข้อมูลยามาแสดง (ทุกคนดูได้)
+        fetchDrugs(); // โหลดข้อมูลยามาแสดง
     }
 
     async function handleLogin() {
         const email = document.getElementById('login-email').value;
         const password = document.getElementById('login-pw').value;
         
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) alert("ข้อผิดพลาด: " + error.message);
-        else location.reload();
+        console.log("กำลังพยายาม Login..."); // เพิ่ม Log เพื่อเช็คใน Console
+
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) {
+            alert("ข้อผิดพลาด: " + error.message);
+        } else {
+            alert("Login สำเร็จ!");
+            location.reload();
+        }
     }
 
     async function handleLogout() {
-        await supabase.auth.signOut();
+        await supabaseClient.auth.signOut();
         location.reload();
     }
 
@@ -88,7 +95,6 @@
         document.getElementById('main-content').classList.remove('hidden');
         document.getElementById('user-info').classList.remove('hidden');
         document.getElementById('user-email').innerText = user.email;
-        // แสดงปุ่มสำหรับ Admin
         document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
     }
 
@@ -100,7 +106,7 @@
     // --- 2. การดึงข้อมูลมาแสดงผล ---
 
     async function fetchDrugs() {
-        const { data: drugs, error } = await supabase
+        const { data: drugs, error } = await supabaseClient
             .from('drugs')
             .select(`
                 drug_code, drug_name,
@@ -126,8 +132,8 @@
             </div>
         `).join('');
         
-        // ตรวจสอบสิทธิ์อีกครั้งหลังวาดการ์ดเสร็จ เพื่อแสดงปุ่มแก้/ลบ
-        supabase.auth.getUser().then(({data}) => {
+        // ตรวจสอบสิทธิ์อีกครั้งหลังวาดการ์ดเสร็จ
+        supabaseClient.auth.getUser().then(({data}) => {
             if(data.user) document.querySelectorAll('.admin-controls').forEach(el => el.classList.remove('hidden'));
         });
     }
