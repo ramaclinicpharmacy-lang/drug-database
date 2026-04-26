@@ -3,95 +3,134 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rama Clinic Pharmacy DB - Professional System</title>
+    <title>Pharmacy Information System - Rama Clinic</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        :root { --primary: #2563eb; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --info: #06b6d4; --purple: #8b5cf6; --dark: #1e293b; }
+        :root { --primary: #2563eb; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --info: #06b6d4; --purple: #8b5cf6; --indigo: #6366f1; --dark: #1e293b; }
         body { font-family: 'Sarabun', sans-serif; background-color: #f1f5f9; margin: 0; padding: 20px; color: var(--dark); }
         .container { max-width: 1100px; margin: auto; }
+        
+        /* Layout Components */
         .navbar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); margin-bottom: 20px; }
         .search-container { background: white; padding: 20px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         .search-input { width: 100%; padding: 15px 20px; font-size: 1.1rem; border: 2px solid #e2e8f0; border-radius: 10px; transition: 0.3s; box-sizing: border-box; outline: none; }
         .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
+
+        /* Buttons & UI */
         .btn { cursor: pointer; border: none; border-radius: 8px; padding: 8px 16px; font-weight: bold; transition: 0.2s; display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; }
         .btn-primary { background: var(--primary); color: white; }
         .btn-success { background: var(--success); color: white; }
         .btn-danger { background: var(--danger); color: white; }
         .btn-outline { background: transparent; border: 1px solid #ddd; }
-        input, select, textarea { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        
+        input, select, textarea { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-family: inherit; }
+
+        /* Drug Cards */
         .drug-card { background: white; border-radius: 12px; padding: 25px; margin-bottom: 20px; border-left: 6px solid var(--primary); position: relative; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .admin-actions { position: absolute; top: 15px; right: 15px; display: flex; gap: 5px; }
+        
+        /* Modals */
         .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); overflow: auto; }
         .modal-content { background: white; margin: 5% auto; padding: 25px; border-radius: 15px; width: 95%; max-width: 650px; }
+        
+        /* Badges */
         .badge { display: inline-block; padding: 2px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; margin-right: 5px; margin-bottom: 5px; }
         .badge-route { background: var(--dark); color: white; }
         .badge-gen { background: #e0f2fe; color: #0369a1; }
         .badge-fluid { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .badge-form { background: #fef3c7; color: #92400e; }
+
         .hidden { display: none !important; }
         .list-item { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 8px; margin-bottom: 8px; }
         .section-box { background: #fdfdfd; border: 1px solid #edf2f7; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <nav class="navbar">
-        <h2 style="margin:0">💊 Rama Clinic DB</h2>
-        <div>
+        <h2 style="margin:0">💊 Rama Clinic Pharmacy DB</h2>
+        <div id="auth-section">
             <button id="login-btn" class="btn btn-outline" onclick="openModal('auth-modal')">👤 เจ้าหน้าที่</button>
             <div id="user-info" class="hidden">
-                <span id="user-email" style="font-size:0.8rem; margin-right:10px;"></span>
+                <span id="user-email" style="font-size:0.8rem; margin-right:10px; color:gray;"></span>
                 <button class="btn btn-danger" onclick="handleLogout()">Logout</button>
             </div>
         </div>
     </nav>
 
     <div class="search-container">
-        <input type="text" id="main-search" class="search-input" placeholder="🔍 ค้นหายาด้วยชื่อการค้า, ยาสามัญ (Generic), หรือรหัสยา..." onkeyup="filterDrugs()">
+        <input type="text" id="main-search" class="search-input" placeholder="🔍 ค้นหาด้วยชื่อการค้า, ยาสามัญ, ชนิดยา หรือรูปแบบการให้ยา..." onkeyup="filterDrugs()">
         <div id="search-stats" style="margin-top: 10px; font-size: 0.85rem; color: #64748b;"></div>
     </div>
 
     <div id="admin-toolbar" class="hidden" style="margin-bottom: 20px; display:flex; gap:10px; flex-wrap: wrap;">
         <button class="btn btn-success" onclick="openAddDrug()">+ เพิ่มยาใหม่</button>
         <button class="btn btn-warning" onclick="openModal('generic-master-modal')" style="background:var(--warning); color:white;">🧪 จัดการยาสามัญ</button>
-        <button class="btn btn-info" onclick="openModal('route-master-modal')" style="background:var(--info); color:white;">💉 จัดการช่องทางให้ยา</button>
+        <button class="btn btn-info" onclick="openModal('route-master-modal')" style="background:var(--info); color:white;">💉 จัดการช่องทาง</button>
         <button class="btn btn-purple" onclick="openModal('fluid-master-modal')" style="background:var(--purple); color:white;">💧 จัดการสารน้ำ</button>
+        <button class="btn" onclick="openModal('form-master-modal')" style="background:var(--indigo); color:white;">📦 จัดการชนิดยา</button>
     </div>
 
     <div id="drug-list-container">
-        <div style="text-align:center; padding:50px;">🔄 กำลังโหลดข้อมูลยา...</div>
+        <div style="text-align:center; padding:50px; color:gray;">🔄 กำลังโหลดฐานข้อมูลยา...</div>
     </div>
 </div>
 
 <div id="auth-modal" class="modal"><div class="modal-content">
     <h3>เจ้าหน้าที่เข้าสู่ระบบ</h3>
     <input type="email" id="auth-email" placeholder="Email"><input type="password" id="auth-pw" placeholder="Password">
-    <button class="btn btn-primary" style="width:100%" onclick="handleLogin()">Login</button>
+    <button class="btn btn-primary" style="width:100%" onclick="handleLogin()">เข้าสู่ระบบ</button>
+</div></div>
+
+<div id="form-master-modal" class="modal"><div class="modal-content">
+    <h3>จัดการชนิดยา (Dosage Forms Master)</h3>
+    <div class="section-box">
+        <input type="text" id="master-form-name" placeholder="ชื่อชนิดยา (เช่น Tablet, Capsule, Vial)">
+        <button class="btn btn-success" style="width:100%" onclick="saveMasterForm()">บันทึกชนิดยาใหม่</button>
+    </div>
+    <div id="master-form-list" style="max-height:200px; overflow-y:auto;"></div>
+    <button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('form-master-modal')">ปิด</button>
 </div></div>
 
 <div id="generic-master-modal" class="modal"><div class="modal-content">
     <h3>จัดการรายชื่อยาสามัญ (Generics)</h3>
     <div class="section-box"><input type="text" id="master-gen-code" placeholder="รหัส"><input type="text" id="master-gen-name" placeholder="ชื่อสามัญ"><button class="btn btn-success" style="width:100%" onclick="saveMasterGeneric()">บันทึก</button></div>
-    <div id="master-generic-list"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('generic-master-modal')">ปิด</button>
+    <div id="master-generic-list" style="max-height:200px; overflow-y:auto;"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('generic-master-modal')">ปิด</button>
 </div></div>
 
 <div id="route-master-modal" class="modal"><div class="modal-content">
-    <h3>จัดการช่องทางให้ยา (Routes)</h3>
+    <h3>จัดการช่องทาง (Routes)</h3>
     <div class="section-box"><input type="text" id="master-route-code" placeholder="รหัส"><input type="text" id="master-route-name" placeholder="ชื่อเต็ม"><button class="btn btn-success" style="width:100%" onclick="saveMasterRoute()">บันทึก</button></div>
-    <div id="master-route-list"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('route-master-modal')">ปิด</button>
+    <div id="master-route-list" style="max-height:200px; overflow-y:auto;"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('route-master-modal')">ปิด</button>
 </div></div>
 
 <div id="fluid-master-modal" class="modal"><div class="modal-content">
     <h3>จัดการสารน้ำ (Fluids)</h3>
     <div class="section-box"><input type="text" id="master-fluid-short" placeholder="ชื่อย่อ"><input type="text" id="master-fluid-full" placeholder="ชื่อเต็ม"><button class="btn btn-success" style="width:100%" onclick="saveMasterFluid()">บันทึก</button></div>
-    <div id="master-fluid-list"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('fluid-master-modal')">ปิด</button>
+    <div id="master-fluid-list" style="max-height:200px; overflow-y:auto;"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('fluid-master-modal')">ปิด</button>
+</div></div>
+
+<div id="drug-modal" class="modal"><div class="modal-content">
+    <h3 id="drug-modal-title">ข้อมูลยาหลัก</h3>
+    <input type="text" id="form-drug-code" placeholder="รหัสยา (Drug Code)">
+    <input type="text" id="form-drug-name" placeholder="ชื่อทางการค้า (Trade Name)">
+    <label>ชนิดยา (Dosage Form)</label>
+    <select id="form-drug-type"></select>
+    <button class="btn btn-success" style="width:100%; margin-top:15px;" onclick="saveDrug()">บันทึกข้อมูลหลัก</button>
+    <button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('drug-modal')">ยกเลิก</button>
 </div></div>
 
 <div id="ingredient-modal" class="modal"><div class="modal-content">
     <h3>ส่วนประกอบ: <span id="target-drug-name"></span></h3>
     <input type="hidden" id="target-drug-code">
-    <div class="section-box"><select id="select-generic"></select><div style="display:flex; gap:5px;"><input type="number" id="input-amount" placeholder="ปริมาณ"><input type="text" id="input-unit" placeholder="หน่วย"></div><button class="btn btn-primary" style="width:100%" onclick="addIngredient()">+ เพิ่ม</button></div>
+    <div class="section-box">
+        <select id="select-generic"></select>
+        <div class="grid-2"><input type="number" id="input-amount" placeholder="ปริมาณ"><input type="text" id="input-unit" placeholder="หน่วย"></div>
+        <button class="btn btn-primary" style="width:100%; margin-top:10px;" onclick="addIngredient()">+ เพิ่มส่วนประกอบ</button>
+    </div>
     <div id="current-ingredients-list"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('ingredient-modal')">ปิด</button>
 </div></div>
 
@@ -100,18 +139,13 @@
     <input type="hidden" id="target-admin-drug-code">
     <div class="section-box">
         <select id="select-route"></select>
-        <textarea id="input-instruction" placeholder="คำแนะนำวิธีใช้..."></textarea>
-        <div style="display:flex; gap:10px;"><input type="number" id="input-min-conc" placeholder="Min mg/mL"><input type="number" id="input-max-conc" placeholder="Max mg/mL"></div>
-        <label style="margin-top:10px; display:block;">สารน้ำที่ใช้ได้:</label>
-        <div id="fluid-checkbox-group" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:5px; background:#f1f5f9; padding:10px; border-radius:8px;"></div>
-        <button class="btn btn-primary" style="width:100%; margin-top:15px;" onclick="addAdministration()">+ บันทึก</button>
+        <textarea id="input-instruction" placeholder="คำแนะนำวิธีใช้ (Instructions)..."></textarea>
+        <div class="grid-2"><input type="number" id="input-min-conc" placeholder="Min mg/mL"><input type="number" id="input-max-conc" placeholder="Max mg/mL"></div>
+        <label style="margin-top:10px; display:block; font-size:0.9rem;">สารน้ำที่ใช้ได้ (Compatible Fluids):</label>
+        <div id="fluid-checkbox-group" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:5px; background:#f1f5f9; padding:10px; border-radius:8px; margin-top:5px;"></div>
+        <button class="btn btn-primary" style="width:100%; margin-top:15px;" onclick="addAdministration()">+ บันทึกวิธีใช้</button>
     </div>
     <div id="current-admin-list"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('admin-manager-modal')">ปิด</button>
-</div></div>
-
-<div id="drug-modal" class="modal"><div class="modal-content">
-    <h3 id="drug-modal-title">ข้อมูลยาหลัก</h3>
-    <input type="text" id="form-drug-code" placeholder="รหัสยา"><input type="text" id="form-drug-name" placeholder="ชื่อการค้า"><button class="btn btn-success" style="width:100%" onclick="saveDrug()">บันทึก</button><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('drug-modal')">ยกเลิก</button>
 </div></div>
 
 <script>
@@ -119,7 +153,7 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    let isAdmin = false, allDrugsRaw = [], allGenerics = [], allRoutes = [], allFluids = [];
+    let isAdmin = false, allDrugsRaw = [], allGenerics = [], allRoutes = [], allFluids = [], allDosageForms = [];
 
     async function init() {
         const { data: { session } } = await supabaseClient.auth.getSession();
@@ -134,7 +168,7 @@
     }
 
     async function loadAllData() {
-        await Promise.all([fetchDrugs(), fetchGenerics(), fetchRoutes(), fetchFluids()]);
+        await Promise.all([fetchDrugs(), fetchGenerics(), fetchRoutes(), fetchFluids(), fetchDosageForms()]);
     }
 
     // --- Authentication ---
@@ -146,32 +180,39 @@
     }
     async function handleLogout() { await supabaseClient.auth.signOut(); location.reload(); }
 
-    // --- Search Logic ---
+    // --- Search & Filter Logic ---
     function filterDrugs() {
         const query = document.getElementById('main-search').value.toLowerCase();
         const filtered = allDrugsRaw.filter(drug => 
             drug.drug_name.toLowerCase().includes(query) || 
             drug.drug_code.toLowerCase().includes(query) ||
+            (drug.dosage_form && drug.dosage_form.toLowerCase().includes(query)) ||
             drug.drug_contents.some(c => c.generics.generic_name.toLowerCase().includes(query)) ||
             drug.drug_administrations.some(a => a.routes.route_name.toLowerCase().includes(query))
         );
         renderDrugs(filtered);
-        document.getElementById('search-stats').innerText = query ? `พบข้อมูล ${filtered.length} รายการ` : '';
+        document.getElementById('search-stats').innerText = query ? `พบข้อมูลทั้งหมด ${filtered.length} รายการ` : '';
     }
 
-    // --- Data Fetching ---
+    // --- Core Data Fetching ---
     async function fetchDrugs() {
         const { data: drugs } = await supabaseClient.from('drugs').select(`
-            *, drug_contents(amount, unit, generics(generic_name, generic_code)), 
-            drug_administrations(id, instructions, min_conc_mg_ml, max_conc_mg_ml, routes(route_name), administration_fluids(fluid_short_name))
-        `);
+            *, 
+            drug_contents(amount, unit, generics(generic_name, generic_code)), 
+            drug_administrations(id, instructions, min_conc_mg_ml, max_conc_mg_ml, routes(route_name, route_code), administration_fluids(fluid_short_name))
+        `).order('drug_name');
         allDrugsRaw = drugs || [];
         renderDrugs(allDrugsRaw);
     }
 
-    // --- UI Rendering ---
+    // --- Main UI Rendering ---
     function renderDrugs(drugs) {
         const container = document.getElementById('drug-list-container');
+        if (!drugs || drugs.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding:50px; color:gray;">❌ ไม่พบข้อมูลยาที่ค้นหา</div>';
+            return;
+        }
+
         container.innerHTML = drugs.map(drug => `
             <div class="drug-card">
                 ${isAdmin ? `<div class="admin-actions">
@@ -180,28 +221,39 @@
                     <button class="btn btn-outline" onclick="openEditDrug('${drug.drug_code}', '${drug.drug_name}')">✏️</button>
                     <button class="btn btn-outline" style="color:red" onclick="deleteDrug('${drug.drug_code}')">🗑️</button>
                 </div>` : ''}
-                <h2 style="margin:0; color:var(--primary);">${drug.drug_name}</h2>
-                <small>ID: ${drug.drug_code}</small>
+                
+                <h2 style="margin:0; color:var(--primary);">
+                    ${drug.drug_name} 
+                    <span style="font-size:0.9rem; color:gray; font-weight:normal;">[${drug.dosage_form || 'Unspecified'}]</span>
+                </h2>
+                <small style="color:#64748b; font-family:monospace;">ID: ${drug.drug_code}</small>
+                
                 <div style="margin-top:15px;">
-                    <strong>🧪 ส่วนประกอบ:</strong><br>
-                    ${drug.drug_contents.map(c => `<span class="badge badge-gen">${c.generics.generic_name} ${c.amount} ${c.unit}</span>`).join('') || '-'}
+                    <strong>🧪 ส่วนประกอบสำคัญ:</strong><br>
+                    ${drug.drug_contents.length > 0 ? drug.drug_contents.map(c => `
+                        <span class="badge badge-gen">${c.generics.generic_name} ${c.amount} ${c.unit}</span>
+                    `).join('') : '<span style="color:gray; font-size:0.8rem;">ยังไม่มีข้อมูลส่วนประกอบ</span>'}
                 </div>
+
                 <div style="margin-top:15px;">
-                    <strong>💉 การบริหารยา:</strong>
-                    ${drug.drug_administrations.map(a => `
+                    <strong>💉 วิธีการบริหารยา:</strong>
+                    ${drug.drug_administrations.length > 0 ? drug.drug_administrations.map(a => `
                         <div style="background:#f8fafc; padding:12px; border-radius:8px; margin-top:8px; border:1px solid #edf2f7;">
                             <span class="badge badge-route">${a.routes.route_name}</span>
                             <span>${a.instructions || '-'}</span>
                             ${formatConcentration(a.min_conc_mg_ml, a.max_conc_mg_ml)}
-                            ${a.administration_fluids.length > 0 ? `<div style="margin-top:8px;"><b>สารน้ำ:</b> ${a.administration_fluids.map(f => `<span class="badge badge-fluid">${f.fluid_short_name}</span>`).join('')}</div>` : ''}
+                            ${a.administration_fluids.length > 0 ? `
+                                <div style="margin-top:8px;">
+                                    <b>สารน้ำที่ใช้ได้:</b> ${a.administration_fluids.map(f => `<span class="badge badge-fluid">${f.fluid_short_name}</span>`).join('')}
+                                </div>
+                            ` : ''}
                         </div>
-                    `).join('') || '<br><span style="color:gray; font-size:0.8rem;">ยังไม่มีข้อมูล</span>'}
+                    `).join('') : '<br><span style="color:gray; font-size:0.8rem;">ยังไม่มีข้อมูลวิธีการใช้</span>'}
                 </div>
             </div>
         `).join('');
     }
 
-    // ⭐ Logic ใหม่: แก้ไขการแสดงความเข้มข้นที่เจ้าของกระทู้ถาม
     function formatConcentration(min, max) {
         if (!min && !max) return '';
         let text = '<br><small style="color:var(--danger)"><b>ความเข้มข้น:</b> ';
@@ -211,72 +263,91 @@
         return text + '</small>';
     }
 
-    // --- Master Data Functions ---
+    // --- Master Data Management (CRUD) ---
     async function fetchGenerics() { 
         const {data} = await supabaseClient.from('generics').select('*').order('generic_name'); 
         allGenerics = data || []; 
         document.getElementById('select-generic').innerHTML = allGenerics.map(g => `<option value="${g.generic_code}">${g.generic_name}</option>`).join('');
-        document.getElementById('master-generic-list').innerHTML = allGenerics.map(g => `<div class="list-item"><span>${g.generic_name}</span><button onclick="deleteMaster('generics','generic_code','${g.generic_code}')" style="color:red">🗑️</button></div>`).join('');
+        document.getElementById('master-generic-list').innerHTML = allGenerics.map(g => `<div class="list-item"><span>${g.generic_name}</span><button onclick="deleteMaster('generics','generic_code','${g.generic_code}')" style="color:red; border:none; background:none; cursor:pointer;">🗑️</button></div>`).join('');
     }
     async function fetchRoutes() { 
         const {data} = await supabaseClient.from('routes').select('*').order('route_code'); 
         allRoutes = data || []; 
         document.getElementById('select-route').innerHTML = allRoutes.map(r => `<option value="${r.route_code}">${r.route_name}</option>`).join('');
-        document.getElementById('master-route-list').innerHTML = allRoutes.map(r => `<div class="list-item"><span>${r.route_name}</span><button onclick="deleteMaster('routes','route_code','${r.route_code}')" style="color:red">🗑️</button></div>`).join('');
+        document.getElementById('master-route-list').innerHTML = allRoutes.map(r => `<div class="list-item"><span>${r.route_name}</span><button onclick="deleteMaster('routes','route_code','${r.route_code}')" style="color:red; border:none; background:none; cursor:pointer;">🗑️</button></div>`).join('');
     }
     async function fetchFluids() { 
         const {data} = await supabaseClient.from('fluids').select('*').order('short_name'); 
         allFluids = data || []; 
         document.getElementById('fluid-checkbox-group').innerHTML = allFluids.map(f => `<label style="font-size:0.8rem;"><input type="checkbox" name="comp-fluids" value="${f.short_name}"> ${f.short_name}</label>`).join('');
-        document.getElementById('master-fluid-list').innerHTML = allFluids.map(f => `<div class="list-item"><span><b>${f.short_name}:</b> ${f.full_name}</span><button onclick="deleteMaster('fluids','short_name','${f.short_name}')" style="color:red">🗑️</button></div>`).join('');
+        document.getElementById('master-fluid-list').innerHTML = allFluids.map(f => `<div class="list-item"><span><b>${f.short_name}:</b> ${f.full_name}</span><button onclick="deleteMaster('fluids','short_name','${f.short_name}')" style="color:red; border:none; background:none; cursor:pointer;">🗑️</button></div>`).join('');
+    }
+    async function fetchDosageForms() {
+        const { data } = await supabaseClient.from('dosage_forms').select('*').order('form_name');
+        allDosageForms = data || [];
+        document.getElementById('form-drug-type').innerHTML = allDosageForms.map(f => `<option value="${f.form_name}">${f.form_name}</option>`).join('');
+        document.getElementById('master-form-list').innerHTML = allDosageForms.map(f => `<div class="list-item"><span>${f.form_name}</span><button onclick="deleteMaster('dosage_forms','form_name','${f.form_name}')" style="color:red; border:none; background:none; cursor:pointer;">🗑️</button></div>`).join('');
     }
 
     async function saveMasterGeneric() { await supabaseClient.from('generics').upsert({ generic_code: document.getElementById('master-gen-code').value, generic_name: document.getElementById('master-gen-name').value }); fetchGenerics(); }
     async function saveMasterRoute() { await supabaseClient.from('routes').upsert({ route_code: document.getElementById('master-route-code').value, route_name: document.getElementById('master-route-name').value }); fetchRoutes(); }
     async function saveMasterFluid() { await supabaseClient.from('fluids').upsert({ short_name: document.getElementById('master-fluid-short').value, full_name: document.getElementById('master-fluid-full').value }); fetchFluids(); }
-    async function deleteMaster(table, col, val) { if(confirm("ลบข้อมูล Master?")) { await supabaseClient.from(table).delete().eq(col, val); loadAllData(); } }
+    async function saveMasterForm() { await supabaseClient.from('dosage_forms').upsert({ form_name: document.getElementById('master-form-name').value }); fetchDosageForms(); }
 
-    // --- Ingredient Logic ---
-    async function openIngredientManager(c, n) { document.getElementById('target-drug-code').value = c; document.getElementById('target-drug-name').innerText = n; fetchCurrentIngredients(c); openModal('ingredient-modal'); }
-    async function fetchCurrentIngredients(drug_code) {
-        const { data } = await supabaseClient.from('drug_contents').select('*, generics(generic_name)').eq('drug_code', drug_code);
-        document.getElementById('current-ingredients-list').innerHTML = data.map(i => `<div class="list-item"><span>${i.generics.generic_name}: ${i.amount} ${i.unit}</span><button onclick="removeIngredient('${i.drug_code}', '${i.generic_code}')" style="color:red">ลบ</button></div>`).join('');
-    }
-    async function addIngredient() { await supabaseClient.from('drug_contents').upsert({ drug_code: document.getElementById('target-drug-code').value, generic_code: document.getElementById('select-generic').value, amount: document.getElementById('input-amount').value, unit: document.getElementById('input-unit').value }); fetchCurrentIngredients(document.getElementById('target-drug-code').value); fetchDrugs(); }
-    async function removeIngredient(d, g) { await supabaseClient.from('drug_contents').delete().match({ drug_code: d, generic_code: g }); fetchCurrentIngredients(d); fetchDrugs(); }
+    async function deleteMaster(table, col, val) { if(confirm("ยืนยันการลบข้อมูล Master นี้?")) { await supabaseClient.from(table).delete().eq(col, val); loadAllData(); } }
 
-    // --- Administration Logic ---
-    async function openAdminManager(c, n) { document.getElementById('target-admin-drug-code').value = c; document.getElementById('target-admin-drug-name').innerText = n; fetchCurrentAdmins(c); openModal('admin-manager-modal'); }
-    async function fetchCurrentAdmins(drug_code) {
-        const { data } = await supabaseClient.from('drug_administrations').select('*, routes(route_name)').eq('drug_code', drug_code);
-        document.getElementById('current-admin-list').innerHTML = data.map(a => `<div class="list-item"><span><b>${a.routes.route_name}:</b> ${a.instructions.substring(0,25)}...</span><button onclick="removeAdmin(${a.id}, '${drug_code}')" style="color:red">ลบ</button></div>`).join('');
-    }
+    // --- Mapping & Administration Logic ---
     async function addAdministration() {
         const drug_code = document.getElementById('target-admin-drug-code').value;
-        const { data } = await supabaseClient.from('drug_administrations').insert({
+        const { data, error } = await supabaseClient.from('drug_administrations').insert({
             drug_code, route_code: document.getElementById('select-route').value,
             instructions: document.getElementById('input-instruction').value,
             min_conc_mg_ml: document.getElementById('input-min-conc').value || null,
             max_conc_mg_ml: document.getElementById('input-max-conc').value || null
         }).select();
         if (data) {
-            const selectedFluids = Array.from(document.querySelectorAll('input[name="comp-fluids"]:checked')).map(cb => ({ administration_id: data.id, fluid_short_name: cb.value }));
+            const admin_id = data.id;
+            const selectedFluids = Array.from(document.querySelectorAll('input[name="comp-fluids"]:checked')).map(cb => ({ administration_id: admin_id, fluid_short_name: cb.value }));
             if (selectedFluids.length > 0) await supabaseClient.from('administration_fluids').insert(selectedFluids);
             fetchCurrentAdmins(drug_code); fetchDrugs();
         }
     }
+
+    async function openAdminManager(c, n) { document.getElementById('target-admin-drug-code').value = c; document.getElementById('target-admin-drug-name').innerText = n; fetchCurrentAdmins(c); openModal('admin-manager-modal'); }
+    async function fetchCurrentAdmins(drug_code) {
+        const { data } = await supabaseClient.from('drug_administrations').select('*, routes(route_name)').eq('drug_code', drug_code);
+        document.getElementById('current-admin-list').innerHTML = (data || []).map(a => `<div class="list-item"><span><b>${a.routes.route_name}:</b> ${a.instructions.substring(0,25)}...</span><button onclick="removeAdmin(${a.id}, '${drug_code}')" style="color:red; border:none; background:none; cursor:pointer;">ลบ</button></div>`).join('');
+    }
     async function removeAdmin(id, code) { await supabaseClient.from('drug_administrations').delete().eq('id', id); fetchCurrentAdmins(code); fetchDrugs(); }
 
-    // --- Core Drug CRUD ---
-    async function saveDrug() { await supabaseClient.from('drugs').upsert({ drug_code: document.getElementById('form-drug-code').value, drug_name: document.getElementById('form-drug-name').value }); closeModal('drug-modal'); fetchDrugs(); }
-    async function deleteDrug(code) { if(confirm("ลบยาตัวนี้?")) { await supabaseClient.from('drugs').delete().eq('drug_code', code); fetchDrugs(); } }
+    // --- Ingredients Logic ---
+    async function openIngredientManager(c, n) { document.getElementById('target-drug-code').value = c; document.getElementById('target-drug-name').innerText = n; fetchCurrentIngredients(c); openModal('ingredient-modal'); }
+    async function fetchCurrentIngredients(drug_code) {
+        const { data } = await supabaseClient.from('drug_contents').select('*, generics(generic_name)').eq('drug_code', drug_code);
+        document.getElementById('current-ingredients-list').innerHTML = (data || []).map(i => `<div class="list-item"><span>${i.generics.generic_name}: ${i.amount} ${i.unit}</span><button onclick="removeIngredient('${i.drug_code}', '${i.generic_code}')" style="color:red; border:none; background:none; cursor:pointer;">ลบ</button></div>`).join('');
+    }
+    async function addIngredient() { await supabaseClient.from('drug_contents').upsert({ drug_code: document.getElementById('target-drug-code').value, generic_code: document.getElementById('select-generic').value, amount: document.getElementById('input-amount').value, unit: document.getElementById('input-unit').value }); fetchCurrentIngredients(document.getElementById('target-drug-code').value); fetchDrugs(); }
+    async function removeIngredient(d, g) { await supabaseClient.from('drug_contents').delete().match({ drug_code: d, generic_code: g }); fetchCurrentIngredients(d); fetchDrugs(); }
 
-    // --- UI Helpers ---
+    // --- Core Drug Functions ---
+    async function saveDrug() { 
+        await supabaseClient.from('drugs').upsert({ 
+            drug_code: document.getElementById('form-drug-code').value, 
+            drug_name: document.getElementById('form-drug-name').value,
+            dosage_form: document.getElementById('form-drug-type').value 
+        }); 
+        closeModal('drug-modal'); fetchDrugs(); 
+    }
+    async function deleteDrug(code) { if(confirm("ยืนยันลบยาตัวนี้ออกจากระบบ?")) { await supabaseClient.from('drugs').delete().eq('drug_code', code); fetchDrugs(); } }
+
+    // --- Modal & UI Helpers ---
     function openModal(id) { document.getElementById(id).style.display = 'block'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-    function openAddDrug() { document.getElementById('form-drug-code').disabled=false; openModal('drug-modal'); }
+    function openAddDrug() { document.getElementById('form-drug-code').disabled=false; document.getElementById('form-drug-code').value=''; document.getElementById('form-drug-name').value=''; openModal('drug-modal'); }
     function openEditDrug(c, n) { document.getElementById('form-drug-code').value=c; document.getElementById('form-drug-code').disabled=true; document.getElementById('form-drug-name').value=n; openModal('drug-modal'); }
     
+    window.onclick = function(event) { if (event.target.className === 'modal') event.target.style.display = "none"; }
+
     init();
 </script>
 </body>
