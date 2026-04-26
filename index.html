@@ -319,36 +319,65 @@
     // --- 5. Fluid Administration & Checkbox Fix ---
     async function addAdministration() {
         const drug_code = document.getElementById('target-admin-drug-code').value;
-        const { data: adminData, error: adminError } = await supabaseClient.from('drug_administrations').insert({ 
-            drug_code: drug_code, 
-            route_code: document.getElementById('select-route').value, 
-            instructions: document.getElementById('input-instruction').value, 
-            min_conc_mg_ml: document.getElementById('input-min-conc').value || null, 
-            max_conc_mg_ml: document.getElementById('input-max-conc').value || null 
-        }).select();
-
-        if (adminError) return alert("บันทึกวิธีใช้ไม่ได้: " + adminError.message);
-
-        if (adminData && adminData.length > 0) {
-            const new_admin_id = adminData.id; // ✅ ดึง ID ได้แน่นอน
-            
-            const selectedFluids = Array.from(document.querySelectorAll('input[name="comp-fluids"]:checked'))
-                .map(cb => ({ administration_id: new_admin_id, fluid_short_name: cb.value }));
-
-            if (selectedFluids.length > 0) {
-                const { error: fluidError } = await supabaseClient.from('administration_fluids').insert(selectedFluids);
-                if (fluidError) return alert("บันทึกวิธีใช้สำเร็จ แต่สารน้ำพลาด: " + fluidError.message);
-            }
-            
-            alert("บันทึกข้อมูลสำเร็จ!");
-            document.getElementById('input-instruction').value = '';
-            document.getElementById('input-min-conc').value = '';
-            document.getElementById('input-max-conc').value = '';
-            document.querySelectorAll('input[name="comp-fluids"]').forEach(cb => cb.checked = false);
-
-            fetchCurrentAdmins(drug_code);
-            fetchDrugs();
+        
+        // 1. บันทึกวิธีใช้ยา และใช้ .select().single() เพื่อบังคับให้คืนค่าเป็น Object ชัวร์ๆ
+        const { data: adminData, error: adminError } = await supabaseClient
+            .from('drug_administrations')
+            .insert({ 
+                drug_code: drug_code, 
+                route_code: document.getElementById('select-route').value, 
+                instructions: document.getElementById('input-instruction').value, 
+                min_conc_mg_ml: document.getElementById('input-min-conc').value || null, 
+                max_conc_mg_ml: document.getElementById('input-max-conc').value || null 
+            })
+            .select()
+            .single(); // ✨ พระเอกของเรา: บังคับให้คืนค่าแถวเดียว
+    
+        if (adminError) {
+            alert("บันทึกวิธีใช้ไม่สำเร็จ: " + adminError.message);
+            return;
         }
+    
+        // 2. ดักจับ Error ขั้นเด็ดขาด: เช็คเลยว่าได้ ID กลับมาจริงไหม?
+        if (!adminData || !adminData.id) {
+            console.error("Supabase Response:", adminData);
+            alert("บันทึกสำเร็จ แต่ระบบไม่ส่ง ID กลับมา (ติด RLS SELECT Policy) โปรดเช็คใน Console");
+            return; // หยุดการทำงานทันที จะได้ไม่เกิด Error "null value" ในสารน้ำ
+        }
+    
+        // ✅ ถ้ามาถึงตรงนี้ได้ แปลว่า adminData.id มีค่าตัวเลขชัวร์ 100%
+        const new_admin_id = adminData.id; 
+        
+        // 3. เตรียมข้อมูลสารน้ำ
+        const checkedFluids = document.querySelectorAll('input[name="comp-fluids"]:checked');
+        const selectedFluids = Array.from(checkedFluids).map(cb => ({ 
+            administration_id: new_admin_id, 
+            fluid_short_name: cb.value 
+        }));
+    
+        // 4. บันทึกลงตารางสารน้ำ
+        if (selectedFluids.length > 0) {
+            const { error: fluidError } = await supabaseClient
+                .from('administration_fluids')
+                .insert(selectedFluids);
+            
+            if (fluidError) {
+                console.error("Fluid Error:", fluidError);
+                alert("บันทึกวิธีใช้สำเร็จ แต่สารน้ำพลาด: " + fluidError.message);
+                return;
+            }
+        }
+        
+        alert("บันทึกข้อมูลสำเร็จเรียบร้อย!");
+        
+        // ล้างฟอร์ม
+        document.getElementById('input-instruction').value = '';
+        document.getElementById('input-min-conc').value = '';
+        document.getElementById('input-max-conc').value = '';
+        document.querySelectorAll('input[name="comp-fluids"]').forEach(cb => cb.checked = false);
+    
+        fetchCurrentAdmins(drug_code);
+        fetchDrugs();
     }
 
     // --- 6. Form Handlers & Master Data ---
