@@ -265,9 +265,62 @@
     // --- Helper Functions อื่นๆ ---
     function openModal(id) { document.getElementById(id).style.display = 'block'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-    async function fetchRoutes() { const {data}=await supabaseClient.from('routes').select('*'); allRoutes=data||[]; document.getElementById('select-route').innerHTML=allRoutes.map(r=>`<option value="${r.route_code}">${r.route_name}</option>`).join(''); }
-    async function fetchFluids() { const {data}=await supabaseClient.from('fluids').select('*'); allFluids=data||[]; document.getElementById('fluid-checkbox-group').innerHTML=allFluids.map(f=>`<label><input type="checkbox" name="comp-fluids" value="${f.short_name}"> ${f.short_name}</label>`).join(''); }
-    async function fetchDosageForms() { const {data}=await supabaseClient.from('dosage_forms').select('*'); allDosageForms=data||[]; document.getElementById('form-drug-type').innerHTML=allDosageForms.map(f=>`<option value="${f.form_name}">${f.form_name}</option>`).join(''); }
+    async function fetchRoutes() { 
+        const { data, error } = await supabaseClient.from('routes').select('*').order('route_code'); 
+        if (error) console.error("Error Routes:", error);
+        allRoutes = data || []; 
+    
+        // อัปเดต Dropdown ในหน้าต่างบริหารยา
+        const select = document.getElementById('select-route');
+        if (select) select.innerHTML = allRoutes.map(r => `<option value="${r.route_code}">${r.route_name}</option>`).join('');
+        
+        // อัปเดตรายการในหน้าต่างจัดการ Route Master
+        const list = document.getElementById('master-route-list');
+        if (list) list.innerHTML = allRoutes.map(r => `
+            <div class="list-item">
+                <span><b>${r.route_code}:</b> ${r.route_name}</span>
+                <button onclick="deleteMaster('routes','route_code','${r.route_code}')" style="color:red; border:none; background:none; cursor:pointer;">🗑️</button>
+            </div>`).join('');
+    }
+
+    async function fetchFluids() { 
+        const { data, error } = await supabaseClient.from('fluids').select('*').order('short_name'); 
+        if (error) console.error("Error Fluids:", error);
+        allFluids = data || []; 
+        
+        // อัปเดต Checkbox ในหน้าต่างบริหารยา
+        const group = document.getElementById('fluid-checkbox-group');
+        if (group) group.innerHTML = allFluids.map(f => `
+            <label style="font-size:0.8rem; cursor:pointer;">
+                <input type="checkbox" name="comp-fluids" value="${f.short_name}"> ${f.short_name}
+            </label>`).join('');
+        
+        // อัปเดตรายการในหน้าต่างจัดการ Fluid Master
+        const list = document.getElementById('master-fluid-list');
+        if (list) list.innerHTML = allFluids.map(f => `
+            <div class="list-item">
+                <span><b>${f.short_name}:</b> ${f.full_name}</span>
+                <button onclick="deleteMaster('fluids','short_name','${f.short_name}')" style="color:red; border:none; background:none; cursor:pointer;">🗑️</button>
+            </div>`).join('');
+    }
+    
+    async function fetchDosageForms() {
+        const { data, error } = await supabaseClient.from('dosage_forms').select('*').order('form_name');
+        if (error) console.error("Error DosageForms:", error);
+        allDosageForms = data || [];
+        
+        // อัปเดต Dropdown ในหน้าต่างเพิ่มยาหลัก
+        const select = document.getElementById('form-drug-type');
+        if (select) select.innerHTML = allDosageForms.map(f => `<option value="${f.form_name}">${f.form_name}</option>`).join('');
+        
+        // อัปเดตรายการในหน้าต่างจัดการ Dosage Form Master
+        const list = document.getElementById('master-form-list');
+        if (list) list.innerHTML = allDosageForms.map(f => `
+            <div class="list-item">
+                <span>${f.form_name}</span>
+                <button onclick="deleteMaster('dosage_forms','form_name','${f.form_name}')" style="color:red; border:none; background:none; cursor:pointer;">🗑️</button>
+            </div>`).join('');
+    }
     async function saveMasterRoute() { await supabaseClient.from('routes').upsert({ route_code: document.getElementById('master-route-code').value, route_name: document.getElementById('master-route-name').value }); fetchRoutes(); }
     async function saveMasterFluid() { await supabaseClient.from('fluids').upsert({ short_name: document.getElementById('master-fluid-short').value, full_name: document.getElementById('master-fluid-full').value }); fetchFluids(); }
     async function saveMasterForm() { await supabaseClient.from('dosage_forms').upsert({ form_name: document.getElementById('master-form-name').value }); fetchDosageForms(); }
