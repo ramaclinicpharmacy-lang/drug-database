@@ -21,8 +21,12 @@
         .btn-outline { background: transparent; border: 1px solid #ddd; }
         input, select, textarea { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-family: inherit; }
         
-        .drug-card { background: white; border-radius: 12px; padding: 25px; margin-bottom: 20px; border-left: 6px solid var(--primary); position: relative; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .admin-actions { position: absolute; top: 15px; right: 15px; display: flex; gap: 5px; }
+        /* Cards & Layout */
+        .drug-card { background: white; border-radius: 12px; padding: 25px; margin-bottom: 20px; border-left: 6px solid var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        
+        /* ✨ เพิ่ม Flexbox ให้ Header เพื่อแก้ปัญหาปุ่มซ้อนบนมือถือ ✨ */
+        .card-header-flex { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px; margin-bottom: 10px; }
+        .admin-actions { display: flex; gap: 5px; flex-wrap: wrap; }
         .note-box { padding: 10px 15px; border-radius: 8px; margin-top: 10px; font-size: 0.9rem; line-height: 1.4; }
         .drug-note { background: #fffbeb; border-left: 4px solid var(--warning); color: #92400e; }
         .generic-note { background: #eff6ff; border-left: 4px solid var(--info); color: #1e40af; }
@@ -206,7 +210,6 @@
             const genericNotes = (drug.drug_contents || []).filter(c => c.generics?.special_note).map(c => `<div class="note-box generic-note"><b>📌 ยาสามัญ (${c.generics.generic_name}):</b> ${c.generics.special_note}</div>`).join('');
             const safeCode = encodeHTML(drug.drug_code); const safeName = encodeHTML(drug.drug_name);
             
-            // ✨ Render Status Tags (บดได้/ไม่ได้)
             const tagsHtml = (drug.drug_tag_mapping || []).map(t => {
                 let bg = 'var(--dark)';
                 if (t.tag_name.includes('ห้าม')) bg = 'var(--danger)';
@@ -216,15 +219,20 @@
 
             return `
             <div class="drug-card">
-                ${isAdmin ? `<div class="admin-actions">
-                    <button class="btn btn-outline" onclick="openAdminManager('${safeCode}', '${safeName}')">💉 วิธีใช้</button>
-                    <button class="btn btn-outline" onclick="openIngredientManager('${safeCode}', '${safeName}')">🧪 ส่วนประกอบ</button>
-                    <button class="btn btn-outline" onclick="openEditDrug('${safeCode}')">✏️</button>
-                    <button class="btn btn-outline" style="color:red" onclick="deleteDrug('${safeCode}')">🗑️</button>
-                </div>` : ''}
+                <div class="card-header-flex">
+                    <div style="flex: 1; min-width: 250px;">
+                        <h2 style="margin:0 0 5px 0; color:var(--primary);">${drug.drug_name} <small style="color:gray; font-weight:normal;">[${drug.dosage_form || '-'}]</small></h2>
+                        <div style="margin-bottom:5px;">${tagsHtml}</div>
+                    </div>
+                    
+                    ${isAdmin ? `<div class="admin-actions">
+                        <button class="btn btn-outline" onclick="openAdminManager('${safeCode}', '${safeName}')">💉 วิธีใช้</button>
+                        <button class="btn btn-outline" onclick="openIngredientManager('${safeCode}', '${safeName}')">🧪 ส่วนประกอบ</button>
+                        <button class="btn btn-outline" onclick="openEditDrug('${safeCode}')">✏️</button>
+                        <button class="btn btn-outline" style="color:red" onclick="deleteDrug('${safeCode}')">🗑️</button>
+                    </div>` : ''}
+                </div>
                 
-                <h2 style="margin:0 0 5px 0; color:var(--primary);">${drug.drug_name} <small style="color:gray; font-weight:normal;">[${drug.dosage_form || '-'}]</small></h2>
-                <div style="margin-bottom:10px;">${tagsHtml}</div>
                 <small>ID: ${drug.drug_code}</small>
                 
                 <div style="margin-top:10px;">
