@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบฐานข้อมูลยา (Drug Database)</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; color: #333; padding: 20px; }
+        .container { max-width: 800px; margin: auto; }
+        .drug-card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 5px solid #3b82f6; }
+        .drug-title { font-size: 1.5rem; font-weight: bold; color: #1e3a8a; margin-top: 0; }
+        .section-title { font-weight: bold; margin-top: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px; color: #4b5563; }
+        .tag { background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 4px; font-size: 0.85rem; margin-right: 5px; display: inline-block; }
+        .fluid-tag { background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>💊 ฐานข้อมูลยาทั้งหมด</h1>
+    <div id="loading">กำลังโหลดข้อมูลจาก Supabase...</div>
+    <div id="drug-container"></div>
+</div>
+
+<script>
+    // 1. ตั้งค่าการเชื่อมต่อ Supabase
+    const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
+    
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // 2. ฟังก์ชันดึงข้อมูลจาก Database
+    async function fetchDrugs() {
+        try {
+            // คำสั่งดึงข้อมูลข้าม 6 ตาราง (Deep Relational Fetch)
+            const { data: drugs, error } = await supabase
+                .from('drugs')
+                .select(`
+                    drug_code,
+                    drug_name,
+                    drug_contents (
+                        amount,
+                        unit,
+                        generics (generic_name)
+                    ),
+                    drug_administrations (
+                        route,
+                        instructions,
+                        max_conc_mg_ml,
+                        min_conc_mg_ml,
+                        administration_fluids (
+                            fluids (short_name)
+                        )
+                    )
+                `);
+
+            if (error) throw error;
+            renderDrugs(drugs);
+
+        } catch (error) {
+            console.error("เกิดข้อผิดพลาด:", error);
+            document.getElementById('loading').innerHTML = `<span style="color:red">ดึงข้อมูลไม่สำเร็จ: ${error.message}</span>`;
+        }
+    }
+
+    // 3. ฟังก์ชันนำข้อมูลมาสร้างหน้าเว็บ (DOM Manipulation)
+    function renderDrugs(drugs) {
+        const container = document.getElementById('drug-container');
+        document.getElementById('loading').style.display = 'none';
+
+        if (drugs.length === 0) {
+            container.innerHTML = '<p>ยังไม่มีข้อมูลยาในระบบ</p>';
+            return;
+        }
+
+        let htmlContent = '';
+
+        drugs.forEach(drug => {
+            // --- จัดการส่วนผสมยา (Generics + Amount + Unit) ---
+            let contentsHtml = '';
+            drug.drug_contents.forEach(content => {
+                const genericName = content.generics.generic_name;
+                contentsHtml += `<li>${genericName} : <b>${content.amount} ${content.unit}</b></li>`;
+            });
+
+            // --- จัดการวิธีการบริหารยาและสารน้ำ ---
+            let adminHtml = '';
+            drug.drug_administrations.forEach(admin => {
+                // ดึงชื่อสารน้ำออกมาทำเป็น Tag
+                let fluidsHtml = '';
+                if (admin.administration_fluids.length > 0) {
+                    const fluidNames = admin.administration_fluids.map(af => af.fluids.short_name);
+                    fluidsHtml = fluidNames.map(f => `<span class="fluid-tag">${f}</span>`).join(' ');
+                    fluidsHtml = `<br><small><b>สารน้ำที่ใช้ได้:</b> ${fluidsHtml}</small>`;
+                }
+
+                // ข้อมูลความเข้มข้น (ถ้ามี)
+                let concHtml = '';
+                if (admin.max_conc_mg_ml || admin.min_conc_mg_ml) {
+                    concHtml = `<br><small style="color: #ea580c;"><b>ความเข้มข้น:</b> Min ${admin.min_conc_mg_ml || '-'} / Max ${admin.max_conc_mg_ml || '-'} mg/mL</small>`;
+                }
+
+                adminHtml += `
+                    <div style="margin-bottom: 10px;">
+                        <span class="tag">${admin.route}</span> 
+                        <span>${admin.instructions || ''}</span>
+                        ${concHtml}
+                        ${fluidsHtml}
+                    </div>
+                `;
+            });
+
+            // --- ประกอบร่างเป็นการ์ดยา ---
+            htmlContent += `
+                <div class="drug-card">
+                    <h2 class="drug-title">${drug.drug_name} <small style="color:gray; font-size:1rem;">(${drug.drug_code})</small></h2>
+                    
+                    <div class="section-title">🧪 ส่วนประกอบสำคัญ (Active Ingredients)</div>
+                    <ul>${contentsHtml || '<li>ไม่มีข้อมูลส่วนประกอบ</li>'}</ul>
+
+                    <div class="section-title">💉 วิธีการบริหารยา (Administrations)</div>
+                    <div style="margin-top: 10px;">${adminHtml || 'ไม่มีข้อมูลวิธีการบริหารยา'}</div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = htmlContent;
+    }
+
+    // เริ่มทำงานเมื่อเปิดหน้าเว็บ
+    fetchDrugs();
+</script>
+
+</body>
+</html>
