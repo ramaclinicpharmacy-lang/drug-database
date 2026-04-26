@@ -30,12 +30,13 @@
     const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
     
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // เปลี่ยนชื่อตัวแปรตรงนี้เป็น supabaseClient เพื่อไม่ให้ชื่อชนกับของระบบ
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
     async function fetchDrugData() {
         try {
-            // คำสั่ง Query แบบรวมทุกความสัมพันธ์ (Nesting)
-            const { data: drugs, error } = await supabase
+            // เปลี่ยนมาใช้ supabaseClient ในการดึงข้อมูล
+            const { data: drugs, error } = await supabaseClient
                 .from('drugs')
                 .select(`
                     drug_code,
@@ -94,7 +95,6 @@
                 <span class="section-label">💉 การบริหารยา (Administration)</span>
                 <div>
                     ${drug.drug_administrations.map(admin => {
-                        // ดึงรายชื่อสารน้ำ
                         const fluids = admin.administration_fluids.map(af => 
                             `<span class="fluid-chip">${af.fluids.short_name}</span>`
                         ).join('');
@@ -121,7 +121,6 @@
         `).join('');
     }
 
-    // เรียกทำงาน
     fetchDrugData();
 </script>
 
