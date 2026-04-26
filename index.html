@@ -228,45 +228,49 @@
     async function addAdministration() {
         const drug_code = document.getElementById('target-admin-drug-code').value;
         
-        // 1. บันทึกข้อมูลวิธีใช้ยาลงตารางหลัก (ต้องใช้ .select() เพื่อเอา ID กลับมา)
-        const { data, error } = await supabaseClient.from('drug_administrations').insert({ 
-            drug_code: drug_code, 
-            route_code: document.getElementById('select-route').value, 
-            instructions: document.getElementById('input-instruction').value, 
-            min_conc_mg_ml: document.getElementById('input-min-conc').value || null, 
-            max_conc_mg_ml: document.getElementById('input-max-conc').value || null 
-        }).select(); 
+        // 1. บันทึกข้อมูลวิธีใช้ยา (ต้องมี .select() ต่อท้ายเพื่อให้มันส่งค่า ID กลับมาให้เราใช้ต่อ)
+        const { data, error } = await supabaseClient
+            .from('drug_administrations')
+            .insert({ 
+                drug_code: drug_code, 
+                route_code: document.getElementById('select-route').value, 
+                instructions: document.getElementById('input-instruction').value, 
+                min_conc_mg_ml: document.getElementById('input-min-conc').value || null, 
+                max_conc_mg_ml: document.getElementById('input-max-conc').value || null 
+            })
+            .select(); // <--- ห้ามลืมบรรทัดนี้
     
         if (error) {
-            alert("เกิดข้อผิดพลาดในการบันทึกวิธีใช้: " + error.message);
+            alert("บันทึกวิธีใช้ไม่สำเร็จ: " + error.message);
             return;
         }
     
-        // 2. ตรวจสอบว่าบันทึกสำเร็จและได้ข้อมูลกลับมาหรือไม่
+        // 2. ตรวจสอบว่ามีข้อมูลส่งกลับมาจริงไหม
         if (data && data.length > 0) {
-            // ✅ จุดสำคัญ: ต้องเข้าถึง index ก่อนดึง .id
+            
+            // ⚠️ จุดที่ต้องแก้: ต้องใช้ data.id (ระบุตำแหน่งที่ 0 ของ Array)
             const new_admin_id = data.id; 
             
-            // 3. เตรียมข้อมูลสารน้ำที่เลือกจาก Checkbox
+            // 3. เตรียมข้อมูลสารน้ำ
             const selectedFluids = Array.from(document.querySelectorAll('input[name="comp-fluids"]:checked'))
                 .map(cb => ({ 
-                    administration_id: new_admin_id, 
+                    administration_id: new_admin_id, // ใส่ ID ที่ได้จากข้อ 2
                     fluid_short_name: cb.value 
                 }));
     
-            // 4. บันทึกลงตารางเชื่อมโยงสารน้ำ
+            // 4. บันทึกลงตารางสารน้ำ
             if (selectedFluids.length > 0) {
                 const { error: fluidError } = await supabaseClient
                     .from('administration_fluids')
                     .insert(selectedFluids);
                 
                 if (fluidError) {
-                    alert("บันทึกวิธีใช้สำเร็จ แต่บันทึกสารน้ำไม่ได้: " + fluidError.message);
                     console.error("Fluid Error:", fluidError);
+                    alert("บันทึกวิธีใช้สำเร็จ แต่บันทึกสารน้ำไม่ได้: " + fluidError.message);
                 }
             }
             
-            alert("บันทึกข้อมูลเรียบร้อยแล้ว!");
+            alert("บันทึกข้อมูลทั้งหมดเรียบร้อยแล้ว!");
             
             // ล้างฟอร์ม
             document.getElementById('input-instruction').value = '';
@@ -276,6 +280,8 @@
     
             fetchCurrentAdmins(drug_code);
             fetchDrugs();
+        } else {
+            alert("บันทึกสำเร็จแต่ไม่ได้รับ ID กลับมา กรุณาลองใหม่อีกครั้ง");
         }
     }
 
