@@ -3,126 +3,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบฐานข้อมูลยา (Drug Database)</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💊</text></svg>">
-    
+    <title>Drug Database Management</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; color: #333; padding: 20px; }
-        .container { max-width: 800px; margin: auto; }
-        .drug-card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 5px solid #3b82f6; }
-        .drug-title { font-size: 1.5rem; font-weight: bold; color: #1e3a8a; margin-top: 0; }
-        .section-title { font-weight: bold; margin-top: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px; color: #4b5563; }
-        .tag { background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 4px; font-size: 0.85rem; margin-right: 5px; display: inline-block; }
-        .fluid-tag { background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; }
+        body { font-family: 'Sarabun', sans-serif; background-color: #f1f5f9; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: auto; }
+        
+        /* Navbar & Auth UI */
+        .navbar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; }
+        .auth-box { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 400px; margin: 50px auto; text-align: center; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        button { cursor: pointer; border: none; border-radius: 8px; padding: 10px 20px; font-weight: bold; transition: 0.3s; }
+        .btn-primary { background: #2563eb; color: white; width: 100%; font-size: 1rem; }
+        .btn-logout { background: #ef4444; color: white; padding: 8px 15px; font-size: 0.8rem; }
+        .btn-add { background: #10b981; color: white; margin-bottom: 20px; }
+
+        /* Drug Display */
+        .drug-card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; border-left: 6px solid #2563eb; position: relative; }
+        .admin-controls { position: absolute; top: 20px; right: 20px; display: none; } /* ซ่อนไว้ก่อน Login */
+        .badge { background: #e2e8f0; padding: 3px 10px; border-radius: 15px; font-size: 0.8rem; font-weight: bold; }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>💊 ฐานข้อมูลยาทั้งหมด</h1>
-    <div id="loading">กำลังโหลดข้อมูลจาก Supabase...</div>
-    <div id="drug-container"></div>
+    <div class="navbar">
+        <h2 style="margin:0">💊 DrugDB Console</h2>
+        <div id="user-info" class="hidden">
+            <span id="user-email" style="margin-right:15px; font-size: 0.9rem;"></span>
+            <button class="btn-logout" onclick="handleLogout()">ออกจากระบบ</button>
+        </div>
+    </div>
+
+    <div id="login-section" class="auth-box">
+        <h3>เข้าสู่ระบบจัดการข้อมูล</h3>
+        <input type="email" id="login-email" placeholder="อีเมล">
+        <input type="password" id="login-pw" placeholder="รหัสผ่าน">
+        <button class="btn-primary" onclick="handleLogin()">Login</button>
+    </div>
+
+    <div id="main-content" class="hidden">
+        <button class="btn-add admin-only hidden" onclick="alert('ฟีเจอร์เพิ่มยากำลังจะมาในสเตปถัดไป!')">+ เพิ่มยาตัวใหม่</button>
+        <div id="drug-list">
+            </div>
+    </div>
 </div>
 
 <script>
-    // 1. ตั้งค่าการเชื่อมต่อ Supabase
     const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
-    
-    // เปลี่ยนชื่อตัวแปรตรงนี้เป็น supabaseClient เพื่อไม่ให้ชื่อชนกับของระบบ
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    
-    async function fetchDrugData() {
-        try {
-            // เปลี่ยนมาใช้ supabaseClient ในการดึงข้อมูล
-            const { data: drugs, error } = await supabaseClient
-                .from('drugs')
-                .select(`
-                    drug_code,
-                    drug_name,
-                    drug_contents (
-                        amount,
-                        unit,
-                        generics (generic_name)
-                    ),
-                    drug_administrations (
-                        instructions,
-                        max_conc_mg_ml,
-                        min_conc_mg_ml,
-                        routes (
-                            route_name,
-                            route_code
-                        ),
-                        administration_fluids (
-                            fluids (short_name)
-                        )
-                    )
-                `);
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            if (error) throw error;
-            renderDisplay(drugs);
+    // --- 1. ระบบจัดการ Authentication ---
 
-        } catch (err) {
-            console.error("Fetch Error:", err);
-            document.getElementById('loading').innerHTML = `<p style="color:red">ขออภัย เกิดข้อผิดพลาดในการเชื่อมต่อ: ${err.message}</p>`;
+    // ตรวจสอบสถานะ Login ทุกครั้งที่เปิดหน้าเว็บ
+    async function checkUser() {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            showAdminUI(user);
+        } else {
+            showGuestUI();
         }
+        fetchDrugs(); // โหลดข้อมูลยามาแสดง (ทุกคนดูได้)
     }
 
-    function renderDisplay(drugs) {
-        const container = document.getElementById('drug-container');
-        document.getElementById('loading').style.display = 'none';
+    async function handleLogin() {
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-pw').value;
+        
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) alert("ข้อผิดพลาด: " + error.message);
+        else location.reload();
+    }
 
-        if (!drugs || drugs.length === 0) {
-            container.innerHTML = '<center>ไม่พบข้อมูลยาในฐานข้อมูล</center>';
-            return;
-        }
+    async function handleLogout() {
+        await supabase.auth.signOut();
+        location.reload();
+    }
 
-        container.innerHTML = drugs.map(drug => `
+    function showAdminUI(user) {
+        document.getElementById('login-section').classList.add('hidden');
+        document.getElementById('main-content').classList.remove('hidden');
+        document.getElementById('user-info').classList.remove('hidden');
+        document.getElementById('user-email').innerText = user.email;
+        // แสดงปุ่มสำหรับ Admin
+        document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
+    }
+
+    function showGuestUI() {
+        document.getElementById('login-section').classList.remove('hidden');
+        document.getElementById('main-content').classList.add('hidden');
+    }
+
+    // --- 2. การดึงข้อมูลมาแสดงผล ---
+
+    async function fetchDrugs() {
+        const { data: drugs, error } = await supabase
+            .from('drugs')
+            .select(`
+                drug_code, drug_name,
+                drug_contents(amount, unit, generics(generic_name)),
+                drug_administrations(instructions, routes(route_name))
+            `);
+
+        if (error) console.error(error);
+        else renderDrugs(drugs);
+    }
+
+    function renderDrugs(drugs) {
+        const list = document.getElementById('drug-list');
+        list.innerHTML = drugs.map(drug => `
             <div class="drug-card">
-                <div class="drug-header">
-                    <h2 class="drug-title">${drug.drug_name}</h2>
-                    <span class="drug-code">CODE: ${drug.drug_code}</span>
+                <div class="admin-controls admin-only hidden">
+                    <button onclick="editDrug('${drug.drug_code}')">✏️ แก้ไข</button>
+                    <button onclick="deleteDrug('${drug.drug_code}')" style="color:red">🗑️ ลบ</button>
                 </div>
-
-                <span class="section-label">🧪 ส่วนประกอบและความแรง (Contents)</span>
-                <ul>
-                    ${drug.drug_contents.map(c => `
-                        <li>${c.generics.generic_name} <strong>${c.amount} ${c.unit}</strong></li>
-                    `).join('')}
-                </ul>
-
-                <span class="section-label">💉 การบริหารยา (Administration)</span>
-                <div>
-                    ${drug.drug_administrations.map(admin => {
-                        const fluids = admin.administration_fluids.map(af => 
-                            `<span class="fluid-chip">${af.fluids.short_name}</span>`
-                        ).join('');
-
-                        return `
-                            <div class="admin-item">
-                                <span class="route-badge">${admin.routes.route_name} (${admin.routes.route_code})</span>
-                                <span>${admin.instructions || 'ไม่มีคำแนะนำพิเศษ'}</span>
-                                
-                                ${(admin.max_conc_mg_ml || admin.min_conc_mg_ml) ? `
-                                    <span class="conc-box">
-                                        ⚠️ ความเข้มข้น: 
-                                        ${admin.min_conc_mg_ml ? `Min ${admin.min_conc_mg_ml}` : '-'} / 
-                                        ${admin.max_conc_mg_ml ? `Max ${admin.max_conc_mg_ml}` : '-'} mg/mL
-                                    </span>
-                                ` : ''}
-
-                                ${fluids ? `<div style="margin-top:8px"><strong>สารน้ำ:</strong> ${fluids}</div>` : ''}
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
+                <h3>${drug.drug_name} <span class="badge">${drug.drug_code}</span></h3>
+                <p><strong>ส่วนประกอบ:</strong> ${drug.drug_contents.map(c => `${c.generics.generic_name} ${c.amount}${c.unit}`).join(', ')}</p>
+                <p><strong>วิธีใช้:</strong> ${drug.drug_administrations.map(a => `[${a.routes.route_name}] ${a.instructions}`).join(' | ')}</p>
             </div>
         `).join('');
+        
+        // ตรวจสอบสิทธิ์อีกครั้งหลังวาดการ์ดเสร็จ เพื่อแสดงปุ่มแก้/ลบ
+        supabase.auth.getUser().then(({data}) => {
+            if(data.user) document.querySelectorAll('.admin-controls').forEach(el => el.classList.remove('hidden'));
+        });
     }
 
-    fetchDrugData();
+    // เริ่มทำงาน
+    checkUser();
 </script>
 
 </body>
