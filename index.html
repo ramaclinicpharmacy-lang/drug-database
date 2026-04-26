@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rama Clinic Pharmacy DB - Final System</title>
+    <title>Rama Clinic Pharmacy DB - Chip UI</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -12,7 +12,7 @@
         .container { max-width: 1100px; margin: auto; }
         .navbar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); margin-bottom: 20px; }
         .search-container { background: white; padding: 20px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        .search-input { width: 100%; padding: 15px 20px; font-size: 1.1rem; border: 2px solid #e2e8f0; border-radius: 10px; transition: 0.3s; box-sizing: border-box; outline: none; }
+        .search-input { width: 100%; padding: 15px 20px; font-size: 1.1rem; border: 2px solid #e2e8f0; border-radius: 10px; box-sizing: border-box; outline: none; }
         .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
         .btn { cursor: pointer; border: none; border-radius: 8px; padding: 8px 16px; font-weight: bold; transition: 0.2s; display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; }
         .btn-primary { background: var(--primary); color: white; }
@@ -20,11 +20,15 @@
         .btn-danger { background: var(--danger); color: white; }
         .btn-outline { background: transparent; border: 1px solid #ddd; }
         input, select, textarea { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-family: inherit; }
+        
+        /* Drug Card */
         .drug-card { background: white; border-radius: 12px; padding: 25px; margin-bottom: 20px; border-left: 6px solid var(--primary); position: relative; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .admin-actions { position: absolute; top: 15px; right: 15px; display: flex; gap: 5px; }
         .note-box { padding: 10px 15px; border-radius: 8px; margin-top: 10px; font-size: 0.9rem; line-height: 1.4; }
         .drug-note { background: #fffbeb; border-left: 4px solid var(--warning); color: #92400e; }
         .generic-note { background: #eff6ff; border-left: 4px solid var(--info); color: #1e40af; }
+        
+        /* Modal & UI */
         .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); overflow: auto; }
         .modal-content { background: white; margin: 5% auto; padding: 25px; border-radius: 15px; width: 95%; max-width: 650px; }
         .badge { display: inline-block; padding: 2px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; margin-right: 5px; margin-bottom: 5px; }
@@ -34,6 +38,28 @@
         .hidden { display: none !important; }
         .list-item { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 8px; margin-bottom: 8px; }
         .section-box { background: #fdfdfd; border: 1px solid #edf2f7; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
+
+        /* ✨ NEW: Toggle Chips Styling ✨ */
+        .chip-container { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .chip-container input[type="checkbox"] { display: none; }
+        .chip-container label {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #f1f5f9;
+            border: 2px solid #e2e8f0;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: 0.3s;
+            user-select: none;
+        }
+        .chip-container input[type="checkbox"]:checked + label {
+            background: var(--success);
+            border-color: var(--success);
+            color: white;
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+        }
+        .chip-container label:hover { border-color: var(--primary); }
     </style>
 </head>
 <body>
@@ -103,9 +129,9 @@
         <select id="select-route"></select>
         <textarea id="input-instruction" placeholder="คำแนะนำวิธีใช้..."></textarea>
         <div style="display:flex; gap:10px;"><input type="number" id="input-min-conc" placeholder="Min mg/mL"><input type="number" id="input-max-conc" placeholder="Max mg/mL"></div>
-        <label style="margin-top:10px; display:block; font-size:0.9rem;">สารน้ำที่ใช้ได้ (Compatible Fluids):</label>
-        <div id="fluid-checkbox-group" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:5px; background:#f1f5f9; padding:10px; border-radius:8px; margin-top:5px;"></div>
-        <button class="btn btn-primary" style="width:100%; margin-top:15px;" onclick="addAdministration()">+ บันทึก</button>
+        <label style="margin-top:15px; display:block; font-size:0.9rem; font-weight:bold;">สารน้ำที่ใช้ได้ (Compatible Fluids):</label>
+        <div id="fluid-checkbox-group" class="chip-container"></div>
+        <button class="btn btn-primary" style="width:100%; margin-top:20px;" onclick="addAdministration()">+ บันทึก</button>
     </div>
     <div id="current-admin-list"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('admin-manager-modal')">ปิด</button>
 </div></div>
@@ -224,70 +250,56 @@
         return t + '</small>';
     }
 
-    // --- ✨ ฟังก์ชันแก้ไขบันทึกสารน้ำ (Fixed data.id) ✨ ---
-async function addAdministration() {
-    const drug_code = document.getElementById('target-admin-drug-code').value;
-    
-    // 1. บันทึกข้อมูลลงตารางหลัก (drug_administrations)
-    // ต้องมี .select() เพื่อให้ Supabase ส่งข้อมูลแถวที่เพิ่งสร้างกลับมาให้เรา
-    const { data: adminData, error: adminError } = await supabaseClient
-        .from('drug_administrations')
-        .insert({ 
-            drug_code: drug_code, 
-            route_code: document.getElementById('select-route').value, 
-            instructions: document.getElementById('input-instruction').value, 
-            min_conc_mg_ml: document.getElementById('input-min-conc').value || null, 
-            max_conc_mg_ml: document.getElementById('input-max-conc').value || null 
-        })
-        .select(); // <--- จุดสำคัญ: ดึงค่ากลับมาทันที
+    // --- ✨ ฟังก์ชันแก้ไขบันทึกสารน้ำ (Fixed adminData.id) ✨ ---
+    async function addAdministration() {
+        const drug_code = document.getElementById('target-admin-drug-code').value;
+        const { data: adminData, error: adminError } = await supabaseClient
+            .from('drug_administrations')
+            .insert({ 
+                drug_code: drug_code, 
+                route_code: document.getElementById('select-route').value, 
+                instructions: document.getElementById('input-instruction').value, 
+                min_conc_mg_ml: document.getElementById('input-min-conc').value || null, 
+                max_conc_mg_ml: document.getElementById('input-max-conc').value || null 
+            })
+            .select();
 
-    if (adminError) {
-        alert("บันทึกวิธีใช้ไม่สำเร็จ: " + adminError.message);
-        return;
-    }
-
-    // 2. ตรวจสอบว่าได้ ID กลับมาจริงไหม
-    console.log("Admin Data received:", adminData); // ดูใน Console (F12) ว่ามี id ไหม
-
-    if (adminData && adminData.length > 0) {
-        // ✅ ดึง ID จากแถวแรก (index 0)
-        const new_admin_id = adminData.id; 
-        
-        // 3. เตรียมข้อมูลสารน้ำ (เฉพาะที่ถูกติ๊กเลือก)
-        const checkedFluids = document.querySelectorAll('input[name="comp-fluids"]:checked');
-        const selectedFluids = Array.from(checkedFluids).map(cb => ({ 
-            administration_id: new_admin_id, 
-            fluid_short_name: cb.value 
-        }));
-
-        // 4. บันทึกลงตารางลูก (เฉพาะถ้ามีการเลือกสารน้ำอย่างน้อย 1 ตัว)
-        if (selectedFluids.length > 0) {
-            const { error: fluidError } = await supabaseClient
-                .from('administration_fluids')
-                .insert(selectedFluids);
-            
-            if (fluidError) {
-                console.error("Fluid Error:", fluidError);
-                alert("บันทึกวิธีใช้สำเร็จ แต่สารน้ำพลาด: " + fluidError.message);
-                return;
-            }
+        if (adminError) {
+            alert("บันทึกวิธีใช้ไม่สำเร็จ: " + adminError.message);
+            return;
         }
-        
-        alert("บันทึกข้อมูลเรียบร้อยแล้ว!");
-        
-        // ล้างฟอร์ม
-        document.getElementById('input-instruction').value = '';
-        document.getElementById('input-min-conc').value = '';
-        document.getElementById('input-max-conc').value = '';
-        document.querySelectorAll('input[name="comp-fluids"]').forEach(cb => cb.checked = false);
 
-        fetchCurrentAdmins(drug_code);
-        fetchDrugs();
-    } else {
-        // กรณีบันทึกสำเร็จแต่ data เป็นค่าว่าง (มักเกิดจาก RLS Policy ฝั่ง Select ไม่ได้เปิด)
-        alert("บันทึกสำเร็จแต่ดึง ID กลับมาไม่ได้ กรุณาตรวจสอบ RLS Policy ของตาราง drug_administrations");
+        if (adminData && adminData.length > 0) {
+            // ✅ ต้องใช้ adminData.id (Array index 0)
+            const new_admin_id = adminData.id; 
+            
+            const checkedFluids = document.querySelectorAll('input[name="comp-fluids"]:checked');
+            const selectedFluids = Array.from(checkedFluids).map(cb => ({ 
+                administration_id: new_admin_id, 
+                fluid_short_name: cb.value 
+            }));
+
+            if (selectedFluids.length > 0) {
+                const { error: fluidError } = await supabaseClient
+                    .from('administration_fluids')
+                    .insert(selectedFluids);
+                
+                if (fluidError) {
+                    alert("บันทึกวิธีใช้สำเร็จ แต่สารน้ำพลาด: " + fluidError.message);
+                    return;
+                }
+            }
+            
+            alert("บันทึกข้อมูลเรียบร้อยแล้ว!");
+            document.getElementById('input-instruction').value = '';
+            document.getElementById('input-min-conc').value = '';
+            document.getElementById('input-max-conc').value = '';
+            document.querySelectorAll('input[name="comp-fluids"]').forEach(cb => cb.checked = false);
+
+            fetchCurrentAdmins(drug_code);
+            fetchDrugs();
+        }
     }
-}
 
     // --- Master Data Functions ---
     async function fetchGenerics() { 
@@ -300,65 +312,32 @@ async function addAdministration() {
     async function saveMasterGeneric() { await supabaseClient.from('generics').upsert({ generic_code: document.getElementById('master-gen-code').value, generic_name: document.getElementById('master-gen-name').value, special_note: document.getElementById('master-gen-note').value }); fetchGenerics(); fetchDrugs(); }
     async function saveDrug() { await supabaseClient.from('drugs').upsert({ drug_code: document.getElementById('form-drug-code').value, drug_name: document.getElementById('form-drug-name').value, dosage_form: document.getElementById('form-drug-type').value, special_note: document.getElementById('form-drug-note').value }); closeModal('drug-modal'); fetchDrugs(); }
     
-    // --- Helper Functions อื่นๆ ---
-    function openModal(id) { document.getElementById(id).style.display = 'block'; }
-    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
     async function fetchRoutes() { 
-        const { data, error } = await supabaseClient.from('routes').select('*').order('route_code'); 
-        if (error) console.error("Error Routes:", error);
-        allRoutes = data || []; 
-    
-        // อัปเดต Dropdown ในหน้าต่างบริหารยา
-        const select = document.getElementById('select-route');
-        if (select) select.innerHTML = allRoutes.map(r => `<option value="${r.route_code}">${r.route_name}</option>`).join('');
-        
-        // อัปเดตรายการในหน้าต่างจัดการ Route Master
-        const list = document.getElementById('master-route-list');
-        if (list) list.innerHTML = allRoutes.map(r => `
-            <div class="list-item">
-                <span><b>${r.route_code}:</b> ${r.route_name}</span>
-                <button onclick="deleteMaster('routes','route_code','${r.route_code}')" style="color:red; border:none; background:none; cursor:pointer;">🗑️</button>
-            </div>`).join('');
+        const { data } = await supabaseClient.from('routes').select('*').order('route_code'); allRoutes = data || []; 
+        document.getElementById('select-route').innerHTML = allRoutes.map(r => `<option value="${r.route_code}">${r.route_name}</option>`).join('');
+        document.getElementById('master-route-list').innerHTML = allRoutes.map(r => `<div class="list-item"><span><b>${r.route_code}:</b> ${r.route_name}</span><button onclick="deleteMaster('routes','route_code','${r.route_code}')" style="color:red; border:none; background:none; cursor:pointer;">🗑️</button></div>`).join('');
     }
 
+    // --- ✨ Updated Fetch Fluids (Toggle Chips Version) ✨ ---
     async function fetchFluids() { 
-        const { data, error } = await supabaseClient.from('fluids').select('*').order('short_name'); 
-        if (error) console.error("Error Fluids:", error);
-        allFluids = data || []; 
-        
-        // อัปเดต Checkbox ในหน้าต่างบริหารยา
+        const { data } = await supabaseClient.from('fluids').select('*').order('short_name'); allFluids = data || []; 
         const group = document.getElementById('fluid-checkbox-group');
         if (group) group.innerHTML = allFluids.map(f => `
-            <label style="font-size:0.8rem; cursor:pointer;">
-                <input type="checkbox" name="comp-fluids" value="${f.short_name}"> ${f.short_name}
-            </label>`).join('');
-        
-        // อัปเดตรายการในหน้าต่างจัดการ Fluid Master
-        const list = document.getElementById('master-fluid-list');
-        if (list) list.innerHTML = allFluids.map(f => `
-            <div class="list-item">
-                <span><b>${f.short_name}:</b> ${f.full_name}</span>
-                <button onclick="deleteMaster('fluids','short_name','${f.short_name}')" style="color:red; border:none; background:none; cursor:pointer;">🗑️</button>
+            <div>
+                <input type="checkbox" id="fluid-${f.short_name}" name="comp-fluids" value="${f.short_name}">
+                <label for="fluid-${f.short_name}">${f.short_name}</label>
             </div>`).join('');
+        
+        document.getElementById('master-fluid-list').innerHTML = allFluids.map(f => `<div class="list-item"><span><b>${f.short_name}:</b> ${f.full_name}</span><button onclick="deleteMaster('fluids','short_name','${f.short_name}')" style="color:red; border:none; background:none; cursor:pointer;">🗑️</button></div>`).join('');
     }
     
     async function fetchDosageForms() {
-        const { data, error } = await supabaseClient.from('dosage_forms').select('*').order('form_name');
-        if (error) console.error("Error DosageForms:", error);
-        allDosageForms = data || [];
-        
-        // อัปเดต Dropdown ในหน้าต่างเพิ่มยาหลัก
-        const select = document.getElementById('form-drug-type');
-        if (select) select.innerHTML = allDosageForms.map(f => `<option value="${f.form_name}">${f.form_name}</option>`).join('');
-        
-        // อัปเดตรายการในหน้าต่างจัดการ Dosage Form Master
-        const list = document.getElementById('master-form-list');
-        if (list) list.innerHTML = allDosageForms.map(f => `
-            <div class="list-item">
-                <span>${f.form_name}</span>
-                <button onclick="deleteMaster('dosage_forms','form_name','${f.form_name}')" style="color:red; border:none; background:none; cursor:pointer;">🗑️</button>
-            </div>`).join('');
+        const { data } = await supabaseClient.from('dosage_forms').select('*').order('form_name'); allDosageForms = data || [];
+        document.getElementById('form-drug-type').innerHTML = allDosageForms.map(f => `<option value="${f.form_name}">${f.form_name}</option>`).join('');
+        document.getElementById('master-form-list').innerHTML = allDosageForms.map(f => `<div class="list-item"><span>${f.form_name}</span><button onclick="deleteMaster('dosage_forms','form_name','${f.form_name}')" style="color:red; border:none; background:none; cursor:pointer;">🗑️</button></div>`).join('');
     }
+
+    // --- Helper Functions ---
     async function saveMasterRoute() { await supabaseClient.from('routes').upsert({ route_code: document.getElementById('master-route-code').value, route_name: document.getElementById('master-route-name').value }); fetchRoutes(); }
     async function saveMasterFluid() { await supabaseClient.from('fluids').upsert({ short_name: document.getElementById('master-fluid-short').value, full_name: document.getElementById('master-fluid-full').value }); fetchFluids(); }
     async function saveMasterForm() { await supabaseClient.from('dosage_forms').upsert({ form_name: document.getElementById('master-form-name').value }); fetchDosageForms(); }
