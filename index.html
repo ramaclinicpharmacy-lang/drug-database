@@ -3,18 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rama Clinic Pharmacy DB - Fast Search</title>
+    <title>Rama Clinic Pharmacy DB - Responsive Sidebar</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root { --primary: #2563eb; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --info: #06b6d4; --purple: #8b5cf6; --indigo: #6366f1; --pink: #ec4899; --dark: #1e293b; --bg: #f1f5f9; }
         body { font-family: 'Sarabun', sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: var(--dark); }
         
+        /* Layout & Sidebar Toggle Logic */
         .layout-wrapper { display: flex; gap: 20px; max-width: 1300px; margin: auto; align-items: flex-start; }
-        .sidebar { width: 260px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: sticky; top: 20px; flex-shrink: 0; box-sizing: border-box; }
         .main-content { flex: 1; min-width: 0; }
         
-        @media (max-width: 850px) { .layout-wrapper { flex-direction: column; } .sidebar { width: 100%; position: relative; top: 0; margin-bottom: 20px; } }
+        .sidebar { width: 260px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: sticky; top: 20px; flex-shrink: 0; box-sizing: border-box; display: block; }
+        .sidebar.toggled { display: none; } /* Desktop: กดซ่อน */
+        
+        @media (max-width: 850px) { 
+            .layout-wrapper { flex-direction: column; } 
+            .sidebar { width: 100%; position: relative; top: 0; margin-bottom: 20px; display: none; } /* Mobile: ซ่อนเป็นค่าเริ่มต้น */
+            .sidebar.toggled { display: block; animation: fadeInDown 0.3s ease; } /* Mobile: กดแสดง */
+        }
+
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
         .filter-pill { display: flex; justify-content: space-between; padding: 8px 12px; background: #f8fafc; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: 0.2s; font-size: 0.9rem; border: 1px solid #e2e8f0; }
         .filter-pill:hover { border-color: var(--primary); }
@@ -32,6 +41,7 @@
         .btn-outline { background: transparent; border: 1px solid #ddd; }
         input, select, textarea { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-family: inherit; }
         
+        /* Card Themes & Collapsible CSS */
         .drug-card { background: white; border-radius: 12px; padding: 20px 25px; margin-bottom: 20px; border-left: 6px solid var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: 0.3s; }
         .card-ed { border-left-color: var(--success); } 
         .card-ned { border-left-color: var(--danger); background-color: #fef2f2; } 
@@ -77,7 +87,7 @@
 <body>
 
 <div class="layout-wrapper">
-    <aside class="sidebar">
+    <aside class="sidebar" id="app-sidebar">
         <h3 style="margin-top:0; border-bottom: 2px solid var(--bg); padding-bottom: 10px;">🧬 กลุ่มยา (Pharmacology)</h3>
         <div id="sidebar-pharm-filters"><div style="text-align:center; color:gray; font-size:0.8rem;">Loading...</div></div>
         <hr style="border:0; border-top:1px solid #ddd; margin:15px 0;">
@@ -97,8 +107,9 @@
         </nav>
 
         <div class="search-container">
-            <div style="display:flex; gap:10px; margin-bottom: 10px;">
-                <input type="text" id="main-search" class="search-input" style="flex:1;" placeholder="🔍 ค้นหายา, ส่วนประกอบ, สถานะ, หรือบัญชียาหลัก..." onkeyup="filterDrugs()">
+            <div style="display:flex; gap:10px; margin-bottom: 10px; flex-wrap: wrap;">
+                <button class="btn btn-primary" onclick="toggleSidebar()" style="white-space: nowrap;">☰ กลุ่มยา</button>
+                <input type="text" id="main-search" class="search-input" style="flex:1; min-width: 200px;" placeholder="🔍 ค้นหายา, ส่วนประกอบ, หรือบัญชียาหลัก..." onkeyup="filterDrugs()">
                 <button class="btn btn-outline" id="btn-toggle-all" onclick="toggleAllCards()" style="white-space: nowrap; border-color:#cbd5e1; color:#475569; background:#f8fafc;">🔽 ขยายทั้งหมด</button>
             </div>
             <div id="search-stats" style="font-size: 0.85rem; color: #64748b;"></div>
@@ -146,23 +157,8 @@
 <div id="form-master-modal" class="modal"><div class="modal-content"><div class="section-box"><input type="text" id="master-form-name" placeholder="ชื่อชนิดยา"><button class="btn btn-success" style="width:100%" onclick="saveMasterForm()">บันทึก</button></div><div id="master-form-list"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('form-master-modal')">ปิด</button></div></div>
 
 <div id="drug-modal" class="modal"><div class="modal-content"><h3 id="drug-modal-title">ข้อมูลยาหลัก</h3><input type="text" id="form-drug-code" placeholder="รหัสยา"><input type="text" id="form-drug-name" placeholder="ชื่อการค้า"><label style="font-size:0.9rem; font-weight:bold; margin-top:10px; display:block;">ชนิดยา</label><select id="form-drug-type"></select><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">สถานะ</label><div id="drug-tags-checkbox-group" class="chip-container"></div><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">Note</label><textarea id="form-drug-note" placeholder="บันทึกข้อความพิเศษ..."></textarea><button class="btn btn-success" style="width:100%; margin-top:20px;" onclick="saveDrug()">บันทึกข้อมูลยา</button><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('drug-modal')">ยกเลิก</button></div></div>
-<div id="admin-manager-modal" class="modal"><div class="modal-content"><h3>วิธีใช้ยา: <span id="target-admin-drug-name"></span></h3><input type="hidden" id="target-admin-drug-code"><div class="section-box"><select id="select-route" style="margin-bottom:10px;"></select><textarea id="input-instruction" placeholder="คำแนะนำวิธีใช้..." style="margin-bottom:10px;"></textarea><label style="font-size:0.85rem; font-weight:bold; display:block; margin-bottom:5px;">ความเข้มข้น (Concentration)</label><div style="display:flex; gap:10px; margin-bottom:10px;"><input type="number" id="input-min-conc" placeholder="Min" style="flex:1;"><input type="number" id="input-max-conc" placeholder="Max" style="flex:1;"><input type="text" id="input-conc-unit" placeholder="หน่วย (เช่น mg/mL)" style="flex:1;"></div><label style="margin-top:10px; display:block; font-size:0.85rem; font-weight:bold;">สารน้ำที่ใช้ได้:</label><div id="fluid-checkbox-group" class="chip-container"></div><div style="display:flex; gap:10px; margin-top:20px;"><button class="btn btn-primary" id="btn-save-admin" style="flex:1" onclick="addAdministration()">+ บันทึก</button><button class="btn btn-outline hidden" id="btn-cancel-edit" style="flex:1" onclick="resetAdminForm()">ยกเลิก</button></div></div><div id="current-admin-list" style="max-height:300px; overflow-y:auto;"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('admin-manager-modal')">ปิด</button></div></div>
-
-<div id="ingredient-modal" class="modal"><div class="modal-content">
-    <h3>ส่วนประกอบ: <span id="target-drug-name"></span></h3>
-    <input type="hidden" id="target-drug-code">
-    <div class="section-box">
-        <input type="text" id="search-generic-input" placeholder="🔍 ค้นหาชื่อยาสามัญ..." onkeyup="filterGenericOptions()" style="margin-bottom:10px;">
-        <select id="select-generic" style="margin-bottom:10px;"></select>
-        <div style="display:flex; gap:5px;">
-            <input type="number" id="input-amount" placeholder="ปริมาณ" style="flex:1;">
-            <input type="text" id="input-unit" placeholder="หน่วย" style="flex:1;">
-        </div>
-        <button class="btn btn-primary" style="width:100%; margin-top:10px;" onclick="addIngredient()">+ เพิ่มส่วนประกอบ</button>
-    </div>
-    <div id="current-ingredients-list" style="max-height:200px; overflow-y:auto;"></div>
-    <button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('ingredient-modal')">ปิด</button>
-</div></div>
+<div id="admin-manager-modal" class="modal"><div class="modal-content"><h3>วิธีใช้ยา: <span id="target-admin-drug-name"></span></h3><input type="hidden" id="target-admin-drug-code"><div class="section-box"><select id="select-route" style="margin-bottom:10px;"></select><textarea id="input-instruction" placeholder="คำแนะนำวิธีใช้..." style="margin-bottom:10px;"></textarea><label style="font-size:0.85rem; font-weight:bold; display:block; margin-bottom:5px;">ความเข้มข้น (Concentration)</label><div style="display:flex; gap:10px; margin-bottom:10px;"><input type="number" id="input-min-conc" placeholder="Min" style="flex:1;"><input type="number" id="input-max-conc" placeholder="Max" style="flex:1;"><input type="text" id="input-conc-unit" placeholder="หน่วย" style="flex:1;"></div><label style="margin-top:10px; display:block; font-size:0.85rem; font-weight:bold;">สารน้ำที่ใช้ได้:</label><div id="fluid-checkbox-group" class="chip-container"></div><div style="display:flex; gap:10px; margin-top:20px;"><button class="btn btn-primary" id="btn-save-admin" style="flex:1" onclick="addAdministration()">+ บันทึก</button><button class="btn btn-outline hidden" id="btn-cancel-edit" style="flex:1" onclick="resetAdminForm()">ยกเลิก</button></div></div><div id="current-admin-list" style="max-height:300px; overflow-y:auto;"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('admin-manager-modal')">ปิด</button></div></div>
+<div id="ingredient-modal" class="modal"><div class="modal-content"><h3>ส่วนประกอบ: <span id="target-drug-name"></span></h3><input type="hidden" id="target-drug-code"><div class="section-box"><input type="text" id="search-generic-input" placeholder="🔍 ค้นหาชื่อยาสามัญ..." onkeyup="filterGenericOptions()" style="margin-bottom:10px;"><select id="select-generic" style="margin-bottom:10px;"></select><div style="display:flex; gap:5px;"><input type="number" id="input-amount" placeholder="ปริมาณ" style="flex:1;"><input type="text" id="input-unit" placeholder="หน่วย" style="flex:1;"></div><button class="btn btn-primary" style="width:100%; margin-top:10px;" onclick="addIngredient()">+ เพิ่ม</button></div><div id="current-ingredients-list" style="max-height:200px; overflow-y:auto;"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('ingredient-modal')">ปิด</button></div></div>
 
 <script>
     const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
@@ -203,6 +199,11 @@
     function openModal(id) { document.getElementById(id).style.display = 'block'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
     window.onclick = function(event) { if (event.target.classList.contains('modal')) event.target.style.display = "none"; }
+
+    // ✨ NEW: Toggle Sidebar Function ✨
+    function toggleSidebar() {
+        document.getElementById('app-sidebar').classList.toggle('toggled');
+    }
 
     function toggleCard(code) {
         const body = document.getElementById('body-' + code);
@@ -356,11 +357,11 @@
                     </div>
                     
                     ${isAdmin ? `<div class="admin-actions">
-                        <button class="btn btn-outline" onclick="openNlemManager('${safeCode}', '${safeName}')" style="color:var(--pink); border-color:var(--pink);">📋 บัญชี</button>
-                        <button class="btn btn-outline" onclick="openAdminManager('${safeCode}', '${safeName}')">💉 วิธีใช้</button>
-                        <button class="btn btn-outline" onclick="openIngredientManager('${safeCode}', '${safeName}')">🧪 ส่วนประกอบ</button>
-                        <button class="btn btn-outline" onclick="openEditDrug('${safeCode}')">✏️</button>
-                        <button class="btn btn-outline" style="color:red" onclick="deleteDrug('${safeCode}')">🗑️</button>
+                        <button class="btn btn-outline" onclick="event.stopPropagation(); openNlemManager('${safeCode}', '${safeName}')" style="color:var(--pink); border-color:var(--pink);">📋 บัญชี</button>
+                        <button class="btn btn-outline" onclick="event.stopPropagation(); openAdminManager('${safeCode}', '${safeName}')">💉 วิธีใช้</button>
+                        <button class="btn btn-outline" onclick="event.stopPropagation(); openIngredientManager('${safeCode}', '${safeName}')">🧪 ส่วนประกอบ</button>
+                        <button class="btn btn-outline" onclick="event.stopPropagation(); openEditDrug('${safeCode}')">✏️</button>
+                        <button class="btn btn-outline" style="color:red" onclick="event.stopPropagation(); deleteDrug('${safeCode}')">🗑️</button>
                     </div>` : ''}
                 </div>
                 
@@ -384,7 +385,6 @@
         updateToggleAllButton();
     }
 
-    // ✨ NEW: Generic Search Functions ✨
     function filterGenericOptions() {
         const q = (document.getElementById('search-generic-input').value || '').toLowerCase();
         const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q));
@@ -400,13 +400,7 @@
         }).join('');
     }
 
-    async function fetchGenerics() { 
-        const {data} = await supabaseClient.from('generics').select('*, generic_pharm_mapping(class_name)').order('generic_name'); 
-        allGenerics = data||[]; 
-        filterGenericOptions(); 
-        filterMasterGenericList(); 
-    }
-
+    async function fetchGenerics() { const {data} = await supabaseClient.from('generics').select('*, generic_pharm_mapping(class_name)').order('generic_name'); allGenerics = data||[]; filterGenericOptions(); filterMasterGenericList(); }
     function openEditGeneric(code) { const gen = allGenerics.find(g => g.generic_code === code); if(!gen) return; document.getElementById('master-gen-code').value = gen.generic_code; document.getElementById('master-gen-code').disabled = true; document.getElementById('master-gen-name').value = gen.generic_name; document.getElementById('master-gen-note').value = gen.special_note || ''; const currentPharm = (gen.generic_pharm_mapping || []).map(pm => pm.class_name); document.querySelectorAll('input[name="gen-pharm"]').forEach(cb => cb.checked = currentPharm.includes(cb.value)); openModal('generic-master-modal'); }
     async function saveMasterGeneric() { const generic_code = document.getElementById('master-gen-code').value; await supabaseClient.from('generics').upsert({ generic_code, generic_name: document.getElementById('master-gen-name').value, special_note: document.getElementById('master-gen-note').value }); await supabaseClient.from('generic_pharm_mapping').delete().eq('generic_code', generic_code); const selectedPharm = Array.from(document.querySelectorAll('input[name="gen-pharm"]:checked')).map(cb => ({ generic_code, class_name: cb.value })); if (selectedPharm.length > 0) await supabaseClient.from('generic_pharm_mapping').insert(selectedPharm); document.getElementById('master-gen-code').disabled = false; document.getElementById('master-gen-code').value = ''; document.getElementById('master-gen-name').value = ''; document.getElementById('master-gen-note').value = ''; fetchGenerics(); fetchDrugs(); }
 
@@ -440,18 +434,7 @@
     async function saveMasterForm() { await supabaseClient.from('dosage_forms').upsert({ form_name: document.getElementById('master-form-name').value }); fetchDosageForms(); }
     async function deleteMaster(table, col, val) { if(confirm("ลบข้อมูล Master ตัวนี้?")) { await supabaseClient.from(table).delete().eq(col, val); loadAllData(); } }
     
-    // ✨ อัปเดตฟังก์ชัน ให้เคลียร์ช่องค้นหาทุกครั้งที่เปิด Modal ส่วนประกอบ ✨
-    async function openIngredientManager(c, n) { 
-        document.getElementById('target-drug-code').value = c; 
-        document.getElementById('target-drug-name').innerText = n; 
-        document.getElementById('search-generic-input').value = ''; 
-        filterGenericOptions(); 
-        document.getElementById('input-amount').value = ''; 
-        document.getElementById('input-unit').value = ''; 
-        await fetchCurrentIngredients(c); 
-        openModal('ingredient-modal'); 
-    }
-    
+    async function openIngredientManager(c, n) { document.getElementById('target-drug-code').value = c; document.getElementById('target-drug-name').innerText = n; document.getElementById('search-generic-input').value = ''; filterGenericOptions(); document.getElementById('input-amount').value = ''; document.getElementById('input-unit').value = ''; await fetchCurrentIngredients(c); openModal('ingredient-modal'); }
     async function fetchCurrentIngredients(c) { const {data}=await supabaseClient.from('drug_contents').select('*, generics(generic_name)').eq('drug_code', c); document.getElementById('current-ingredients-list').innerHTML=(data||[]).map(i=>`<div class="list-item"><span>${i.generics?.generic_name || 'Unknown'}: ${i.amount} ${i.unit}</span><button onclick="removeIngredient('${i.drug_code}', '${i.generic_code}')" style="color:red; border:none; background:none; cursor:pointer;">ลบ</button></div>`).join(''); }
     async function addIngredient() { await supabaseClient.from('drug_contents').upsert({ drug_code: document.getElementById('target-drug-code').value, generic_code: document.getElementById('select-generic').value, amount: document.getElementById('input-amount').value, unit: document.getElementById('input-unit').value }); fetchCurrentIngredients(document.getElementById('target-drug-code').value); fetchDrugs(); }
     async function removeIngredient(d, g) { await supabaseClient.from('drug_contents').delete().match({ drug_code: d, generic_code: g }); fetchCurrentIngredients(d); fetchDrugs(); }
