@@ -169,7 +169,7 @@
     </div>
 
     <div id="bulk-nlem-drug-list" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 8px; margin-bottom: 15px; background: white; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">
-        </div>
+    </div>
     
     <div style="display:flex; gap:10px;">
         <button class="btn" style="background:var(--pink); color:white; flex:1; font-size:1rem;" onclick="executeBulkNlemAdd()">✅ บันทึกข้อมูลเข้าบัญชี</button>
@@ -354,13 +354,49 @@
                 </div>
             </div>`;
         }).join('');
-        
         updateToggleAllButton();
     }
 
-    // --- ✨ NEW: Bulk NLEM Assignment Logic ✨ ---
+    // ✨ อัปเดต: เพิ่มการแจ้งเตือน (Alert) เมื่อบันทึกสำเร็จ ✨
+    async function saveMasterGeneric() { 
+        const generic_code = document.getElementById('master-gen-code').value; 
+        
+        const { error } = await supabaseClient.from('generics').upsert({ 
+            generic_code, 
+            generic_name: document.getElementById('master-gen-name').value, 
+            special_note: document.getElementById('master-gen-note').value 
+        }); 
+        
+        if (error) return alert("เกิดข้อผิดพลาด: " + error.message);
+
+        await supabaseClient.from('generic_pharm_mapping').delete().eq('generic_code', generic_code); 
+        const selectedPharm = Array.from(document.querySelectorAll('input[name="gen-pharm"]:checked')).map(cb => ({ generic_code, class_name: cb.value })); 
+        if (selectedPharm.length > 0) await supabaseClient.from('generic_pharm_mapping').insert(selectedPharm); 
+        
+        alert('✅ บันทึกข้อมูลยาสามัญสำเร็จ!'); 
+
+        document.getElementById('master-gen-code').disabled = false; 
+        document.getElementById('master-gen-code').value = ''; 
+        document.getElementById('master-gen-name').value = ''; 
+        document.getElementById('master-gen-note').value = ''; 
+        fetchGenerics(); 
+        fetchDrugs(); 
+    }
+
+    function filterGenericOptions() { const q = (document.getElementById('search-generic-input').value || '').toLowerCase(); const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); document.getElementById('select-generic').innerHTML = filtered.map(g => `<option value="${g.generic_code}">${g.generic_name}</option>`).join(''); }
+    function filterMasterGenericList() { const q = (document.getElementById('search-master-generic').value || '').toLowerCase(); const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); document.getElementById('master-generic-list').innerHTML = filtered.map(g => { const sCode = encodeHTML(g.generic_code); return `<div class="list-item"><span>${g.generic_name}</span> <div><button onclick="openEditGeneric('${sCode}')" style="color:var(--primary); border:none; background:none; cursor:pointer;">✏️</button> <button onclick="deleteMaster('generics','generic_code','${sCode}')" style="color:red; border:none; background:none; cursor:pointer;">🗑️</button></div></div>`; }).join(''); }
+    async function fetchGenerics() { const {data} = await supabaseClient.from('generics').select('*, generic_pharm_mapping(class_name)').order('generic_name'); allGenerics = data||[]; filterGenericOptions(); filterMasterGenericList(); }
+    function openEditGeneric(code) { const gen = allGenerics.find(g => g.generic_code === code); if(!gen) return; document.getElementById('master-gen-code').value = gen.generic_code; document.getElementById('master-gen-code').disabled = true; document.getElementById('master-gen-name').value = gen.generic_name; document.getElementById('master-gen-note').value = gen.special_note || ''; const currentPharm = (gen.generic_pharm_mapping || []).map(pm => pm.class_name); document.querySelectorAll('input[name="gen-pharm"]').forEach(cb => cb.checked = currentPharm.includes(cb.value)); openModal('generic-master-modal'); }
+
+    async function fetchNlemMaster() { const { data } = await supabaseClient.from('nlem_categories').select('*').order('category_code'); allNlem = data || []; document.getElementById('select-nlem').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); document.getElementById('bulk-nlem-select').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); document.getElementById('master-nlem-list').innerHTML = allNlem.map(n => `<div class="list-item"><span><b>${n.category_code}</b> ${n.description||''}</span><button onclick="deleteMaster('nlem_categories','category_code','${n.category_code}')" style="color:red; border:none; background:none; cursor:pointer;">🗑️</button></div>`).join(''); }
+    async function saveMasterNlem() { await supabaseClient.from('nlem_categories').upsert({ category_code: document.getElementById('master-nlem-code').value, description: document.getElementById('master-nlem-desc').value }); fetchNlemMaster(); }
+    async function openNlemManager(c, n) { document.getElementById('target-nlem-drug-code').value = c; document.getElementById('target-nlem-drug-name').innerText = n; document.getElementById('input-nlem-note').value = ''; await fetchCurrentNlem(c); openModal('nlem-mapping-modal'); }
+    async function fetchCurrentNlem(c) { const { data } = await supabaseClient.from('drug_nlem_mapping').select('*').eq('drug_code', c); document.getElementById('current-nlem-list').innerHTML = (data || []).map(n => `<div class="list-item" style="flex-wrap:wrap; border-left:3px solid var(--pink);"><div style="flex:1;"><b>${n.nlem_code}</b><br><small style="color:gray">${n.condition_note || 'ไม่มีเงื่อนไข'}</small></div><button onclick="removeNlemMapping('${n.drug_code}', '${n.nlem_code}')" style="color:red; border:none; background:none; cursor:pointer;">ลบ</button></div>`).join(''); }
+    async function addNlemMapping() { const drug_code = document.getElementById('target-nlem-drug-code').value; await supabaseClient.from('drug_nlem_mapping').upsert({ drug_code, nlem_code: document.getElementById('select-nlem').value, condition_note: document.getElementById('input-nlem-note').value }); document.getElementById('input-nlem-note').value = ''; fetchCurrentNlem(drug_code); fetchDrugs(); }
+    async function removeNlemMapping(d, n) { await supabaseClient.from('drug_nlem_mapping').delete().match({ drug_code: d, nlem_code: n }); fetchCurrentNlem(d); fetchDrugs(); }
+    
+    // ✨ NEW: Bulk NLEM Functions ✨
     function openBulkNlemModal() {
-        document.getElementById('bulk-nlem-select').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join('');
         document.getElementById('bulk-nlem-note').value = '';
         document.getElementById('search-bulk-nlem-drug').value = '';
         renderBulkNlemDrugs(allDrugsRaw);
@@ -369,10 +405,7 @@
 
     function renderBulkNlemDrugs(drugsToRender) {
         const listEl = document.getElementById('bulk-nlem-drug-list');
-        if (drugsToRender.length === 0) {
-            listEl.innerHTML = '<div style="color:gray; padding:10px; grid-column: 1 / -1;">ไม่พบยาที่ค้นหา</div>';
-            return;
-        }
+        if (drugsToRender.length === 0) { listEl.innerHTML = '<div style="color:gray; padding:10px; grid-column: 1 / -1;">ไม่พบยาที่ค้นหา</div>'; return; }
         listEl.innerHTML = drugsToRender.map(d => `
             <label style="display:flex; align-items:flex-start; gap:8px; padding:8px; border:1px solid #eee; border-radius:6px; cursor:pointer; background:#fafafa; font-size:0.85rem;">
                 <input type="checkbox" class="bulk-nlem-drug-cb" value="${encodeHTML(d.drug_code)}">
@@ -409,18 +442,6 @@
         fetchDrugs(); 
     }
 
-    function filterGenericOptions() { const q = (document.getElementById('search-generic-input').value || '').toLowerCase(); const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); document.getElementById('select-generic').innerHTML = filtered.map(g => `<option value="${g.generic_code}">${g.generic_name}</option>`).join(''); }
-    function filterMasterGenericList() { const q = (document.getElementById('search-master-generic').value || '').toLowerCase(); const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); document.getElementById('master-generic-list').innerHTML = filtered.map(g => { const sCode = encodeHTML(g.generic_code); return `<div class="list-item"><span>${g.generic_name}</span> <div><button onclick="openEditGeneric('${sCode}')" style="color:var(--primary); border:none; background:none; cursor:pointer;">✏️</button> <button onclick="deleteMaster('generics','generic_code','${sCode}')" style="color:red; border:none; background:none; cursor:pointer;">🗑️</button></div></div>`; }).join(''); }
-    async function fetchGenerics() { const {data} = await supabaseClient.from('generics').select('*, generic_pharm_mapping(class_name)').order('generic_name'); allGenerics = data||[]; filterGenericOptions(); filterMasterGenericList(); }
-    function openEditGeneric(code) { const gen = allGenerics.find(g => g.generic_code === code); if(!gen) return; document.getElementById('master-gen-code').value = gen.generic_code; document.getElementById('master-gen-code').disabled = true; document.getElementById('master-gen-name').value = gen.generic_name; document.getElementById('master-gen-note').value = gen.special_note || ''; const currentPharm = (gen.generic_pharm_mapping || []).map(pm => pm.class_name); document.querySelectorAll('input[name="gen-pharm"]').forEach(cb => cb.checked = currentPharm.includes(cb.value)); openModal('generic-master-modal'); }
-    async function saveMasterGeneric() { const generic_code = document.getElementById('master-gen-code').value; await supabaseClient.from('generics').upsert({ generic_code, generic_name: document.getElementById('master-gen-name').value, special_note: document.getElementById('master-gen-note').value }); await supabaseClient.from('generic_pharm_mapping').delete().eq('generic_code', generic_code); const selectedPharm = Array.from(document.querySelectorAll('input[name="gen-pharm"]:checked')).map(cb => ({ generic_code, class_name: cb.value })); if (selectedPharm.length > 0) await supabaseClient.from('generic_pharm_mapping').insert(selectedPharm); document.getElementById('master-gen-code').disabled = false; document.getElementById('master-gen-code').value = ''; document.getElementById('master-gen-name').value = ''; document.getElementById('master-gen-note').value = ''; fetchGenerics(); fetchDrugs(); }
-
-    async function fetchNlemMaster() { const { data } = await supabaseClient.from('nlem_categories').select('*').order('category_code'); allNlem = data || []; document.getElementById('select-nlem').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); document.getElementById('master-nlem-list').innerHTML = allNlem.map(n => `<div class="list-item"><span><b>${n.category_code}</b> ${n.description||''}</span><button onclick="deleteMaster('nlem_categories','category_code','${n.category_code}')" style="color:red; border:none; background:none; cursor:pointer;">🗑️</button></div>`).join(''); }
-    async function saveMasterNlem() { await supabaseClient.from('nlem_categories').upsert({ category_code: document.getElementById('master-nlem-code').value, description: document.getElementById('master-nlem-desc').value }); fetchNlemMaster(); }
-    async function openNlemManager(c, n) { document.getElementById('target-nlem-drug-code').value = c; document.getElementById('target-nlem-drug-name').innerText = n; document.getElementById('input-nlem-note').value = ''; await fetchCurrentNlem(c); openModal('nlem-mapping-modal'); }
-    async function fetchCurrentNlem(c) { const { data } = await supabaseClient.from('drug_nlem_mapping').select('*').eq('drug_code', c); document.getElementById('current-nlem-list').innerHTML = (data || []).map(n => `<div class="list-item" style="flex-wrap:wrap; border-left:3px solid var(--pink);"><div style="flex:1;"><b>${n.nlem_code}</b><br><small style="color:gray">${n.condition_note || 'ไม่มีเงื่อนไข'}</small></div><button onclick="removeNlemMapping('${n.drug_code}', '${n.nlem_code}')" style="color:red; border:none; background:none; cursor:pointer;">ลบ</button></div>`).join(''); }
-    async function addNlemMapping() { const drug_code = document.getElementById('target-nlem-drug-code').value; await supabaseClient.from('drug_nlem_mapping').upsert({ drug_code, nlem_code: document.getElementById('select-nlem').value, condition_note: document.getElementById('input-nlem-note').value }); document.getElementById('input-nlem-note').value = ''; fetchCurrentNlem(drug_code); fetchDrugs(); }
-    async function removeNlemMapping(d, n) { await supabaseClient.from('drug_nlem_mapping').delete().match({ drug_code: d, nlem_code: n }); fetchCurrentNlem(d); fetchDrugs(); }
     function openAddDrug() { document.getElementById('form-drug-code').disabled=false; document.getElementById('form-drug-code').value=''; document.getElementById('form-drug-name').value=''; document.getElementById('form-drug-note').value=''; document.querySelectorAll('input[name="drug-tags"]').forEach(cb => cb.checked = false); openModal('drug-modal'); }
     function openEditDrug(code) { const drug = allDrugsRaw.find(d => d.drug_code === code); if (!drug) return; document.getElementById('form-drug-code').value = drug.drug_code; document.getElementById('form-drug-code').disabled = true; document.getElementById('form-drug-name').value = drug.drug_name; document.getElementById('form-drug-type').value = drug.dosage_form || ''; document.getElementById('form-drug-note').value = drug.special_note || ''; const currentTags = (drug.drug_tag_mapping || []).map(t => t.tag_name); document.querySelectorAll('input[name="drug-tags"]').forEach(cb => { cb.checked = currentTags.includes(cb.value); }); openModal('drug-modal'); }
     async function saveDrug() { const drug_code = document.getElementById('form-drug-code').value; await supabaseClient.from('drugs').upsert({ drug_code, drug_name: document.getElementById('form-drug-name').value, dosage_form: document.getElementById('form-drug-type').value, special_note: document.getElementById('form-drug-note').value }); await supabaseClient.from('drug_tag_mapping').delete().eq('drug_code', drug_code); const selectedTags = Array.from(document.querySelectorAll('input[name="drug-tags"]:checked')).map(cb => ({ drug_code, tag_name: cb.value })); if (selectedTags.length > 0) await supabaseClient.from('drug_tag_mapping').insert(selectedTags); closeModal('drug-modal'); fetchDrugs(); }
@@ -428,50 +449,14 @@
     async function fetchTags() { const { data } = await supabaseClient.from('drug_tags').select('*').order('tag_name'); allTags = data || []; const group = document.getElementById('drug-tags-checkbox-group'); if (group) group.innerHTML = allTags.map(t => `<div><input type="checkbox" id="tag-${t.tag_name}" name="drug-tags" value="${t.tag_name}"><label for="tag-${t.tag_name}">${t.tag_name}</label></div>`).join(''); document.getElementById('master-tag-list').innerHTML = allTags.map(t => `<div class="list-item"><span>${t.tag_name}</span><button onclick="deleteMaster('drug_tags','tag_name','${t.tag_name}')" style="color:red; border:none; background:none; cursor:pointer;">🗑️</button></div>`).join(''); }
     async function saveMasterTag() { await supabaseClient.from('drug_tags').upsert({ tag_name: document.getElementById('master-tag-name').value }); fetchTags(); }
     function resetAdminForm() { editingAdminId = null; document.getElementById('input-instruction').value = ''; document.getElementById('input-min-conc').value = ''; document.getElementById('input-max-conc').value = ''; document.getElementById('input-conc-unit').value = ''; document.querySelectorAll('input[name="comp-fluids"]').forEach(cb => cb.checked = false); document.getElementById('btn-save-admin').innerText = "+ บันทึกวิธีใช้"; document.getElementById('btn-cancel-edit').classList.add('hidden'); }
-    
     async function openAdminManager(c, n) { document.getElementById('target-admin-drug-code').value = c; document.getElementById('target-admin-drug-name').innerText = n; resetAdminForm(); await fetchCurrentAdmins(c); openModal('admin-manager-modal'); }
     async function fetchCurrentAdmins(c) { const {data} = await supabaseClient.from('drug_administrations').select('*, routes(route_name)').eq('drug_code', c); currentAdminsList = data || []; document.getElementById('current-admin-list').innerHTML = currentAdminsList.map(a => `<div class="list-item" style="flex-wrap:wrap; gap:10px; border-left:3px solid var(--primary);"><div style="flex:1; min-width:200px;"><b>${a.routes?.route_name || 'Unknown'}:</b> ${a.instructions?.substring(0,40) || ''}...</div><div style="display:flex; gap:5px; flex-wrap:wrap;"><button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--primary);" onclick="prepareAdminForm(${a.id}, false)">✏️</button><button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--success);" onclick="prepareAdminForm(${a.id}, true)">📋</button><button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--purple); border-color:var(--purple);" onclick="openBulkCopyAdmin(${a.id}, '${c}')">🔁 ก๊อปปี้ไปยาอื่น</button><button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--danger);" onclick="removeAdmin(${a.id}, '${c}')">🗑️</button></div></div>`).join(''); }
     async function prepareAdminForm(adminId, isCopy) { const admin = currentAdminsList.find(a => a.id === adminId); if(!admin) return; document.getElementById('select-route').value = admin.route_code; document.getElementById('input-instruction').value = admin.instructions || ''; document.getElementById('input-min-conc').value = admin.min_conc || ''; document.getElementById('input-max-conc').value = admin.max_conc || ''; document.getElementById('input-conc-unit').value = admin.conc_unit || ''; const { data: fluids } = await supabaseClient.from('administration_fluids').select('fluid_short_name').eq('administration_id', adminId); const fluidNames = (fluids || []).map(f => f.fluid_short_name); document.querySelectorAll('input[name="comp-fluids"]').forEach(cb => cb.checked = fluidNames.includes(cb.value)); if (isCopy) { editingAdminId = null; document.getElementById('btn-save-admin').innerText = "💾 บันทึกเป็นใหม่"; document.getElementById('btn-cancel-edit').classList.remove('hidden'); } else { editingAdminId = admin.id; document.getElementById('btn-save-admin').innerText = "💾 ยืนยันแก้ไข"; document.getElementById('btn-cancel-edit').classList.remove('hidden'); } }
     async function addAdministration() { const drug_code = document.getElementById('target-admin-drug-code').value; const payload = { drug_code, route_code: document.getElementById('select-route').value, instructions: document.getElementById('input-instruction').value, min_conc: document.getElementById('input-min-conc').value||null, max_conc: document.getElementById('input-max-conc').value||null, conc_unit: document.getElementById('input-conc-unit').value||null }; let response = editingAdminId ? await supabaseClient.from('drug_administrations').update(payload).eq('id', editingAdminId).select().single() : await supabaseClient.from('drug_administrations').insert(payload).select().single(); if (response.error) return alert("Error: " + response.error.message); if (response.data && response.data.id) { const new_id = response.data.id; if (editingAdminId) await supabaseClient.from('administration_fluids').delete().eq('administration_id', editingAdminId); const selectedFluids = Array.from(document.querySelectorAll('input[name="comp-fluids"]:checked')).map(cb => ({ administration_id: new_id, fluid_short_name: cb.value })); if (selectedFluids.length > 0) await supabaseClient.from('administration_fluids').insert(selectedFluids); resetAdminForm(); fetchCurrentAdmins(drug_code); fetchDrugs(); } }
     async function removeAdmin(id, code) { if(confirm("ยืนยันลบ?")) { await supabaseClient.from('drug_administrations').delete().eq('id', id); fetchCurrentAdmins(code); fetchDrugs(); } }
 
-    async function openBulkCopyAdmin(adminId, drugCode) {
-        const admin = currentAdminsList.find(a => a.id === adminId);
-        if (!admin) return;
-        document.getElementById('bulk-copy-admin-id').value = adminId;
-        document.getElementById('bulk-copy-source-desc').innerText = `${admin.routes?.route_name || ''} - ${(admin.instructions || '').substring(0, 50)}...`;
-        const currentDrug = allDrugsRaw.find(d => d.drug_code === drugCode);
-        if (!currentDrug || !currentDrug.drug_contents || currentDrug.drug_contents.length === 0) { alert("ยาต้นทางนี้ยังไม่ได้ผูกส่วนประกอบ (Generic) เลยไม่สามารถหาคู่อื่นได้ครับ"); return; }
-        const genericCodes = currentDrug.drug_contents.map(c => c.generics?.generic_code || c.generic_code);
-        const targetDrugs = allDrugsRaw.filter(d => d.drug_code !== drugCode && d.drug_contents && d.drug_contents.some(c => genericCodes.includes(c.generics?.generic_code || c.generic_code)));
-        const targetListEl = document.getElementById('bulk-copy-target-list');
-        if (targetDrugs.length === 0) { targetListEl.innerHTML = '<div style="color:gray; text-align:center; padding: 20px;">ไม่พบยาอื่นที่มี Generic ตรงกันเลยครับ</div>'; } 
-        else { targetListEl.innerHTML = targetDrugs.map(d => `<label style="display:block; padding:8px; border-bottom:1px solid #eee; cursor:pointer;"><input type="checkbox" name="bulk-target-drugs" value="${d.drug_code}" checked> ${d.drug_name} <small style="color:gray;">(${d.dosage_form || '-'})</small></label>`).join(''); }
-        openModal('bulk-copy-modal');
-    }
-
-    async function executeBulkCopyAdmin() {
-        const adminId = parseInt(document.getElementById('bulk-copy-admin-id').value);
-        const sourceAdmin = currentAdminsList.find(a => a.id === adminId);
-        if (!sourceAdmin) return;
-        const selectedCheckboxes = document.querySelectorAll('input[name="bulk-target-drugs"]:checked');
-        const targetDrugCodes = Array.from(selectedCheckboxes).map(cb => cb.value);
-        if (targetDrugCodes.length === 0) return alert("กรุณาเลือกยาปลายทางอย่างน้อย 1 รายการ");
-        const { data: sourceFluids } = await supabaseClient.from('administration_fluids').select('fluid_short_name').eq('administration_id', adminId);
-        const fluidNames = (sourceFluids || []).map(f => f.fluid_short_name);
-        let successCount = 0;
-        for (const tCode of targetDrugCodes) {
-            const payload = { drug_code: tCode, route_code: sourceAdmin.route_code, instructions: sourceAdmin.instructions, min_conc: sourceAdmin.min_conc, max_conc: sourceAdmin.max_conc, conc_unit: sourceAdmin.conc_unit };
-            const { data: newAdmin, error } = await supabaseClient.from('drug_administrations').insert(payload).select().single();
-            if (!error && newAdmin && fluidNames.length > 0) {
-                const fluidPayload = fluidNames.map(fn => ({ administration_id: newAdmin.id, fluid_short_name: fn }));
-                await supabaseClient.from('administration_fluids').insert(fluidPayload);
-            }
-            if (!error) successCount++;
-        }
-        alert(`✅ คัดลอกวิธีใช้ไปยังยาอื่นจำนวน ${successCount} รายการ สำเร็จเรียบร้อยแล้ว!`);
-        closeModal('bulk-copy-modal'); fetchDrugs(); 
-    }
+    async function openBulkCopyAdmin(adminId, drugCode) { const admin = currentAdminsList.find(a => a.id === adminId); if (!admin) return; document.getElementById('bulk-copy-admin-id').value = adminId; document.getElementById('bulk-copy-source-desc').innerText = `${admin.routes?.route_name || ''} - ${(admin.instructions || '').substring(0, 50)}...`; const currentDrug = allDrugsRaw.find(d => d.drug_code === drugCode); if (!currentDrug || !currentDrug.drug_contents || currentDrug.drug_contents.length === 0) { alert("ยาต้นทางนี้ยังไม่ได้ผูกส่วนประกอบ (Generic) เลยไม่สามารถหาคู่อื่นได้ครับ"); return; } const genericCodes = currentDrug.drug_contents.map(c => c.generics?.generic_code || c.generic_code); const targetDrugs = allDrugsRaw.filter(d => d.drug_code !== drugCode && d.drug_contents && d.drug_contents.some(c => genericCodes.includes(c.generics?.generic_code || c.generic_code))); const targetListEl = document.getElementById('bulk-copy-target-list'); if (targetDrugs.length === 0) { targetListEl.innerHTML = '<div style="color:gray; text-align:center; padding: 20px;">ไม่พบยาอื่นที่มี Generic ตรงกันเลยครับ</div>'; } else { targetListEl.innerHTML = targetDrugs.map(d => `<label style="display:block; padding:8px; border-bottom:1px solid #eee; cursor:pointer;"><input type="checkbox" name="bulk-target-drugs" value="${d.drug_code}" checked> ${d.drug_name} <small style="color:gray;">(${d.dosage_form || '-'})</small></label>`).join(''); } openModal('bulk-copy-modal'); }
+    async function executeBulkCopyAdmin() { const adminId = parseInt(document.getElementById('bulk-copy-admin-id').value); const sourceAdmin = currentAdminsList.find(a => a.id === adminId); if (!sourceAdmin) return; const selectedCheckboxes = document.querySelectorAll('input[name="bulk-target-drugs"]:checked'); const targetDrugCodes = Array.from(selectedCheckboxes).map(cb => cb.value); if (targetDrugCodes.length === 0) return alert("กรุณาเลือกยาปลายทางอย่างน้อย 1 รายการ"); const { data: sourceFluids } = await supabaseClient.from('administration_fluids').select('fluid_short_name').eq('administration_id', adminId); const fluidNames = (sourceFluids || []).map(f => f.fluid_short_name); let successCount = 0; for (const tCode of targetDrugCodes) { const payload = { drug_code: tCode, route_code: sourceAdmin.route_code, instructions: sourceAdmin.instructions, min_conc: sourceAdmin.min_conc, max_conc: sourceAdmin.max_conc, conc_unit: sourceAdmin.conc_unit }; const { data: newAdmin, error } = await supabaseClient.from('drug_administrations').insert(payload).select().single(); if (!error && newAdmin && fluidNames.length > 0) { const fluidPayload = fluidNames.map(fn => ({ administration_id: newAdmin.id, fluid_short_name: fn })); await supabaseClient.from('administration_fluids').insert(fluidPayload); } if (!error) successCount++; } alert(`✅ คัดลอกวิธีใช้ไปยังยาอื่นจำนวน ${successCount} รายการ สำเร็จเรียบร้อยแล้ว!`); closeModal('bulk-copy-modal'); fetchDrugs(); }
 
     async function fetchRoutes() { const { data } = await supabaseClient.from('routes').select('*').order('route_code'); allRoutes = data || []; document.getElementById('select-route').innerHTML = allRoutes.map(r => `<option value="${r.route_code}">${r.route_name}</option>`).join(''); document.getElementById('master-route-list').innerHTML = allRoutes.map(r => `<div class="list-item"><span><b>${r.route_code}:</b> ${r.route_name}</span><button onclick="deleteMaster('routes','route_code','${r.route_code}')" style="color:red; border:none; background:none; cursor:pointer;">🗑️</button></div>`).join(''); }
     async function saveMasterRoute() { await supabaseClient.from('routes').upsert({ route_code: document.getElementById('master-route-code').value, route_name: document.getElementById('master-route-name').value }); fetchRoutes(); }
