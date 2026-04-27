@@ -3,56 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rama Clinic Pharmacy DB - Multi-Filters</title>
+    <title>Rama Clinic Pharmacy DB - Collapsible Sidebar Filters</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root { --primary: #2563eb; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --info: #06b6d4; --purple: #8b5cf6; --indigo: #6366f1; --pink: #ec4899; --dark: #1e293b; --bg: #f1f5f9; }
         body { font-family: 'Sarabun', sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: var(--dark); }
         
+        /* Layout & Sidebar Toggle Logic */
         .layout-wrapper { display: flex; gap: 20px; max-width: 1300px; margin: auto; align-items: flex-start; }
         .main-content { flex: 1; min-width: 0; }
         
-        .sidebar { 
-            width: 260px; background: white; padding: 20px; border-radius: 12px; 
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: sticky; top: 20px; 
-            flex-shrink: 0; box-sizing: border-box; display: none; 
-            max-height: calc(100vh - 40px); overflow-y: auto; 
-        }
-        .sidebar.active { display: block; animation: fadeIn 0.3s ease; }
+        .sidebar { width: 260px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: sticky; top: 20px; flex-shrink: 0; box-sizing: border-box; display: none; }
+        .sidebar.active { display: block; animation: fadeInDown 0.3s ease; } 
         
-        /* Custom Scrollbar เล็กๆ สำหรับ Sidebar */
-        .sidebar::-webkit-scrollbar { width: 6px; }
-        .sidebar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 10px; }
-
         @media (max-width: 850px) { 
             .layout-wrapper { flex-direction: column; } 
-            .sidebar { width: 100%; position: relative; top: 0; margin-bottom: 20px; max-height: none; } 
+            .sidebar { width: 100%; position: relative; top: 0; margin-bottom: 20px; display: none; } 
+            .sidebar.active { display: block; animation: fadeInDown 0.3s ease; } 
         }
 
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
-        .sidebar-search {
-            width: 100%; padding: 8px 12px; margin-bottom: 10px; border: 1px solid #cbd5e1; 
-            border-radius: 6px; font-size: 0.85rem; box-sizing: border-box; outline: none;
+        /* ✨ Sidebar Filters Collapsible Style ✨ */
+        .filter-header { 
+            display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
+            margin-top: 0; border-bottom: 2px solid; padding-bottom: 10px; margin-bottom: 10px; 
+            transition: opacity 0.2s; font-size: 1.1rem; font-weight: bold;
         }
-        .sidebar-search:focus { border-color: var(--primary); }
-
-        .filter-list-container {
-            max-height: 200px; overflow-y: auto; margin-bottom: 20px; padding-right: 5px;
-        }
-        .filter-list-container::-webkit-scrollbar { width: 4px; }
-        .filter-list-container::-webkit-scrollbar-thumb { background-color: #e2e8f0; border-radius: 10px; }
+        .filter-header:hover { opacity: 0.8; }
+        .filter-toggle-icon { display: inline-block; width: 15px; transition: transform 0.3s ease; font-size: 0.9rem; }
+        .filter-body { animation: fadeIn 0.3s ease; }
 
         .filter-pill { display: flex; justify-content: space-between; padding: 8px 12px; background: #f8fafc; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: 0.2s; font-size: 0.9rem; border: 1px solid #e2e8f0; }
         .filter-pill:hover { border-color: var(--primary); }
         .filter-pill.active { background: var(--primary); color: white; border-color: var(--primary); }
 
+        .sidebar-search { width: 100%; padding: 8px 12px; margin-bottom: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; box-sizing: border-box; outline: none; }
+        .sidebar-search:focus { border-color: var(--primary); }
+
+        .filter-list-container { max-height: 200px; overflow-y: auto; margin-bottom: 15px; padding-right: 5px; }
+        .filter-list-container::-webkit-scrollbar { width: 4px; }
+        .filter-list-container::-webkit-scrollbar-thumb { background-color: #e2e8f0; border-radius: 10px; }
+
         .navbar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        
         .search-container { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         .search-action-row { display: flex; gap: 10px; align-items: stretch; }
-        .search-input { flex: 1; padding: 12px 20px; font-size: 1rem; border: 2px solid #e2e8f0; border-radius: 10px; outline: none; box-sizing: border-box; line-height: 1.5; transition: 0.3s; }
+        .search-input { flex: 1; padding: 12px 20px; font-size: 1rem; border: 2px solid #e2e8f0; border-radius: 10px; transition: 0.3s; box-sizing: border-box; outline: none; line-height: 1.5;}
         .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
         
         .btn { cursor: pointer; border: none; border-radius: 10px; padding: 0 16px; font-weight: bold; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.9rem; white-space: nowrap; box-sizing: border-box; min-height: 42px; }
@@ -71,6 +68,7 @@
         input:not([type="checkbox"]), select, textarea { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-family: inherit; }
         input[type="checkbox"] { width: auto; margin: 0; cursor: pointer; }
         
+        /* Card Themes & Collapsible CSS */
         .drug-card { background: white; border-radius: 12px; padding: 20px 25px; margin-bottom: 20px; border-left: 6px solid var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: 0.3s; }
         .card-ed { border-left-color: var(--success); } 
         .card-ned { border-left-color: var(--danger); background-color: #fef2f2; } 
@@ -83,6 +81,7 @@
         
         .card-body { display: none; padding-top: 15px; border-top: 1px dashed #cbd5e1; margin-top: 15px; animation: fadeIn 0.3s ease; }
         .card-body.expanded { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
 
         .admin-actions { display: flex; gap: 5px; flex-wrap: wrap; }
         
@@ -119,21 +118,37 @@
 
 <div class="layout-wrapper">
     <aside class="sidebar" id="app-sidebar">
-        <h3 style="margin-top:0; border-bottom: 2px solid var(--pink); padding-bottom: 10px; margin-bottom: 10px; color:var(--pink);">📋 บัญชียา (NLEM)</h3>
-        <input type="text" id="search-nlem-filter" class="sidebar-search" placeholder="🔍 ค้นหาบัญชียา..." onkeyup="filterSidebarNlem()">
-        <div id="sidebar-nlem-filters" class="filter-list-container"><div style="text-align:center; color:gray; font-size:0.8rem;">Loading...</div></div>
+        <div class="filter-header" style="border-bottom-color: var(--pink); color:var(--pink);" onclick="toggleFilterGroup('nlem')">
+            <span class="filter-toggle-icon" id="icon-nlem">▶</span> 📋 บัญชียา (NLEM)
+        </div>
+        <div class="filter-body" id="body-nlem" style="display: none;">
+            <input type="text" id="search-nlem-filter" class="sidebar-search" placeholder="🔍 ค้นหาบัญชียา..." onkeyup="filterSidebarNlem()">
+            <div id="sidebar-nlem-filters" class="filter-list-container"><div style="text-align:center; color:gray; font-size:0.8rem;">Loading...</div></div>
+        </div>
 
-        <h3 style="margin-top:0; border-bottom: 2px solid var(--indigo); padding-bottom: 10px; margin-bottom: 10px; color:var(--indigo);">📦 ชนิดยา (Form)</h3>
-        <input type="text" id="search-form-filter" class="sidebar-search" placeholder="🔍 ค้นหาชนิดยา..." onkeyup="filterSidebarForms()">
-        <div id="sidebar-form-filters" class="filter-list-container"><div style="text-align:center; color:gray; font-size:0.8rem;">Loading...</div></div>
+        <div class="filter-header" style="border-bottom-color: var(--indigo); color:var(--indigo);" onclick="toggleFilterGroup('form')">
+            <span class="filter-toggle-icon" id="icon-form">▶</span> 📦 ชนิดยา (Form)
+        </div>
+        <div class="filter-body" id="body-form" style="display: none;">
+            <input type="text" id="search-form-filter" class="sidebar-search" placeholder="🔍 ค้นหาชนิดยา..." onkeyup="filterSidebarForms()">
+            <div id="sidebar-form-filters" class="filter-list-container"><div style="text-align:center; color:gray; font-size:0.8rem;">Loading...</div></div>
+        </div>
 
-        <h3 style="margin-top:0; border-bottom: 2px solid var(--success); padding-bottom: 10px; margin-bottom: 10px; color:var(--success);">💉 ช่องทาง (Route)</h3>
-        <input type="text" id="search-route-filter" class="sidebar-search" placeholder="🔍 ค้นหาช่องทาง..." onkeyup="filterSidebarRoutes()">
-        <div id="sidebar-route-filters" class="filter-list-container"><div style="text-align:center; color:gray; font-size:0.8rem;">Loading...</div></div>
+        <div class="filter-header" style="border-bottom-color: var(--success); color:var(--success);" onclick="toggleFilterGroup('route')">
+            <span class="filter-toggle-icon" id="icon-route">▶</span> 💉 ช่องทาง (Route)
+        </div>
+        <div class="filter-body" id="body-route" style="display: none;">
+            <input type="text" id="search-route-filter" class="sidebar-search" placeholder="🔍 ค้นหาช่องทาง..." onkeyup="filterSidebarRoutes()">
+            <div id="sidebar-route-filters" class="filter-list-container"><div style="text-align:center; color:gray; font-size:0.8rem;">Loading...</div></div>
+        </div>
 
-        <h3 style="margin-top:0; border-bottom: 2px solid var(--primary); padding-bottom: 10px; margin-bottom: 10px; color:var(--primary);">🧬 กลุ่มยา (Pharm)</h3>
-        <input type="text" id="search-pharm-filter" class="sidebar-search" placeholder="🔍 ค้นหากลุ่มยา..." onkeyup="filterSidebarPharms()">
-        <div id="sidebar-pharm-filters" class="filter-list-container" style="margin-bottom:0;"><div style="text-align:center; color:gray; font-size:0.8rem;">Loading...</div></div>
+        <div class="filter-header" style="border-bottom-color: var(--primary); color:var(--primary);" onclick="toggleFilterGroup('pharm')">
+            <span class="filter-toggle-icon" id="icon-pharm">▶</span> 🧬 กลุ่มยา (Pharm)
+        </div>
+        <div class="filter-body" id="body-pharm" style="display: none;">
+            <input type="text" id="search-pharm-filter" class="sidebar-search" placeholder="🔍 ค้นหากลุ่มยา..." onkeyup="filterSidebarPharms()">
+            <div id="sidebar-pharm-filters" class="filter-list-container" style="margin-bottom:0;"><div style="text-align:center; color:gray; font-size:0.8rem;">Loading...</div></div>
+        </div>
     </aside>
 
     <main class="main-content">
@@ -300,6 +315,7 @@
                 document.getElementById('user-email').innerText = session.user.email || '';
                 document.getElementById('login-btn').classList.add('hidden');
                 document.getElementById('admin-toolbar').classList.remove('hidden');
+                document.getElementById('btn-manage-pharm').classList.remove('hidden'); 
                 setupSessionTimeout();
             }
             await loadAllData();
@@ -323,6 +339,19 @@
     function toggleCard(code) { const body = document.getElementById('body-' + code); const icon = document.getElementById('icon-' + code); if (expandedCards.has(code)) { expandedCards.delete(code); body.classList.remove('expanded'); icon.style.transform = "rotate(0deg)"; } else { expandedCards.add(code); body.classList.add('expanded'); icon.style.transform = "rotate(90deg)"; } updateToggleAllButton(); }
     function toggleAllCards() { const totalCards = document.querySelectorAll('.drug-card').length; const expandedCount = document.querySelectorAll('.card-body.expanded').length; const isExpanding = expandedCount < totalCards; document.querySelectorAll('.drug-card').forEach(card => { const code = card.dataset.code; const body = card.querySelector('.card-body'); const icon = card.querySelector('.toggle-icon'); if (isExpanding) { expandedCards.add(code); body.classList.add('expanded'); icon.style.transform = "rotate(90deg)"; } else { expandedCards.delete(code); body.classList.remove('expanded'); icon.style.transform = "rotate(0deg)"; } }); updateToggleAllButton(); }
     function updateToggleAllButton() { const totalCards = document.querySelectorAll('.drug-card').length; const expandedCount = document.querySelectorAll('.card-body.expanded').length; const btn = document.getElementById('btn-toggle-all'); if (totalCards > 0 && expandedCount === totalCards) btn.innerHTML = "🔼 ยุบทั้งหมด"; else btn.innerHTML = "🔽 ขยายทั้งหมด"; }
+
+    // ✨ Sidebar Filters Collapsible Logic ✨
+    function toggleFilterGroup(groupId) {
+        const body = document.getElementById('body-' + groupId);
+        const icon = document.getElementById('icon-' + groupId);
+        if (body.style.display === 'none' || body.style.display === '') {
+            body.style.display = 'block';
+            icon.style.transform = 'rotate(90deg)';
+        } else {
+            body.style.display = 'none';
+            icon.style.transform = 'rotate(0deg)';
+        }
+    }
 
     // ✨ 1. NLEM Filters ✨
     function filterSidebarNlem() { const q = document.getElementById('search-nlem-filter').value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-nlem-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
@@ -364,7 +393,6 @@
             (d.drug_nlem_mapping||[]).some(n => (n.nlem_code||'').toLowerCase().includes(q) || (n.condition_note||'').toLowerCase().includes(q)) ||
             (d.drug_contents||[]).some(c => (c.generics?.generic_name||'').toLowerCase().includes(q) || (c.generics?.special_note||'').toLowerCase().includes(q));
             
-            // กรอง Pharm
             let matchPharm = true; 
             if (selectedPharmFilters.length > 0) { 
                 const drugPharmClasses = new Set(); 
@@ -372,20 +400,17 @@
                 matchPharm = selectedPharmFilters.some(filter => drugPharmClasses.has(filter)); 
             }
             
-            // กรอง Form
             let matchForm = true;
             if (selectedFormFilters.length > 0) {
                 matchForm = selectedFormFilters.includes(d.dosage_form);
             }
 
-            // ✨ กรอง NLEM ✨
             let matchNlem = true;
             if (selectedNlemFilters.length > 0) {
                 const drugNlemCodes = (d.drug_nlem_mapping || []).map(n => n.nlem_code);
                 matchNlem = selectedNlemFilters.some(filter => drugNlemCodes.includes(filter));
             }
 
-            // ✨ กรอง Route ✨
             let matchRoute = true;
             if (selectedRouteFilters.length > 0) {
                 const drugRoutes = (d.drug_administrations || []).map(a => a.routes?.route_code).filter(Boolean);
@@ -463,10 +488,7 @@
         updateToggleAllButton();
     }
 
-    async function saveMasterPharm() { await supabaseClient.from('pharm_classes').upsert({ class_name: document.getElementById('master-pharm-name').value }); document.getElementById('master-pharm-name').value = ''; fetchPharmClasses(); fetchDrugs(); }
-    async function addNewPharmInline() { const newClass = document.getElementById('inline-new-pharm').value.trim(); if (!newClass) return; const currentChecked = Array.from(document.querySelectorAll('input[name="gen-pharm"]:checked')).map(cb => cb.value); const { error } = await supabaseClient.from('pharm_classes').upsert({ class_name: newClass }); if (error) return alert("เกิดข้อผิดพลาด: " + error.message); document.getElementById('inline-new-pharm').value = ''; await fetchPharmClasses(); currentChecked.push(newClass); document.querySelectorAll('input[name="gen-pharm"]').forEach(cb => { if (currentChecked.includes(cb.value)) cb.checked = true; }); }
     async function saveMasterGeneric() { const generic_code = document.getElementById('master-gen-code').value; const { error } = await supabaseClient.from('generics').upsert({ generic_code, generic_name: document.getElementById('master-gen-name').value, special_note: document.getElementById('master-gen-note').value }); if (error) return alert("เกิดข้อผิดพลาด: " + error.message); await supabaseClient.from('generic_pharm_mapping').delete().eq('generic_code', generic_code); const selectedPharm = Array.from(document.querySelectorAll('input[name="gen-pharm"]:checked')).map(cb => ({ generic_code, class_name: cb.value })); if (selectedPharm.length > 0) await supabaseClient.from('generic_pharm_mapping').insert(selectedPharm); alert('✅ บันทึกสำเร็จ!'); document.getElementById('master-gen-code').disabled = false; document.getElementById('master-gen-code').value = ''; document.getElementById('master-gen-name').value = ''; document.getElementById('master-gen-note').value = ''; fetchGenerics(); fetchDrugs(); }
-
     function filterGenericOptions() { const q = (document.getElementById('search-generic-input').value || '').toLowerCase(); const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); document.getElementById('select-generic').innerHTML = filtered.map(g => `<option value="${g.generic_code}">${g.generic_name}</option>`).join(''); }
     function filterMasterGenericList() { const q = (document.getElementById('search-master-generic').value || '').toLowerCase(); const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); document.getElementById('master-generic-list').innerHTML = filtered.map(g => { const sCode = encodeHTML(g.generic_code); return `<div class="list-item"><span>${g.generic_name}</span> <div><button onclick="openEditGeneric('${sCode}')">✏️</button> <button onclick="deleteMaster('generics','generic_code','${sCode}')">🗑️</button></div></div>`; }).join(''); }
     async function fetchGenerics() { let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; while (hasMore) { const { data, error } = await supabaseClient.from('generics').select('*, generic_pharm_mapping(class_name)').order('generic_name').range(from, from + step - 1); if (error) break; fetchedData = fetchedData.concat(data); if (data.length < step) hasMore = false; else from += step; } allGenerics = fetchedData; filterGenericOptions(); filterMasterGenericList(); }
@@ -524,7 +546,6 @@
     async function executeBulkCopyAdmin() { const adminId = parseInt(document.getElementById('bulk-copy-admin-id').value); const sourceAdmin = currentAdminsList.find(a => a.id === adminId); if (!sourceAdmin) return; const selectedCheckboxes = document.querySelectorAll('input[name="bulk-target-drugs"]:checked'); const targetDrugCodes = Array.from(selectedCheckboxes).map(cb => cb.value); if (targetDrugCodes.length === 0) return alert("กรุณาเลือกยาปลายทางอย่างน้อย 1 รายการ"); const { data: sourceFluids } = await supabaseClient.from('administration_fluids').select('fluid_short_name').eq('administration_id', adminId); const fluidNames = (sourceFluids || []).map(f => f.fluid_short_name); let successCount = 0; for (const tCode of targetDrugCodes) { const payload = { drug_code: tCode, route_code: sourceAdmin.route_code, instructions: sourceAdmin.instructions, min_conc: sourceAdmin.min_conc, max_conc: sourceAdmin.max_conc, conc_unit: sourceAdmin.conc_unit }; const { data: newAdmin, error } = await supabaseClient.from('drug_administrations').insert(payload).select().single(); if (!error && newAdmin && fluidNames.length > 0) { const fluidPayload = fluidNames.map(fn => ({ administration_id: newAdmin.id, fluid_short_name: fn })); await supabaseClient.from('administration_fluids').insert(fluidPayload); } if (!error) successCount++; } alert(`✅ คัดลอกวิธีใช้ไปยังยาอื่นจำนวน ${successCount} รายการ สำเร็จเรียบร้อยแล้ว!`); closeModal('bulk-copy-modal'); fetchDrugs(); }
 
     async function saveMasterRoute() { await supabaseClient.from('routes').upsert({ route_code: document.getElementById('master-route-code').value, route_name: document.getElementById('master-route-name').value }); fetchRoutes(); }
-    async function fetchFluids() { const { data } = await supabaseClient.from('fluids').select('*').order('short_name'); allFluids = data || []; const group = document.getElementById('fluid-checkbox-group'); if (group) group.innerHTML = allFluids.map(f => `<div><input type="checkbox" id="fluid-${f.short_name}" name="comp-fluids" value="${f.short_name}"><label for="fluid-${f.short_name}">${f.short_name}</label></div>`).join(''); document.getElementById('master-fluid-list').innerHTML = allFluids.map(f => `<div class="list-item"><span><b>${f.short_name}:</b> ${f.full_name}</span><button onclick="deleteMaster('fluids','short_name','${f.short_name}')" style="color:red; border:none; background:none; cursor:pointer;">🗑️</button></div>`).join(''); }
     async function saveMasterFluid() { await supabaseClient.from('fluids').upsert({ short_name: document.getElementById('master-fluid-short').value, full_name: document.getElementById('master-fluid-full').value }); fetchFluids(); }
     async function saveMasterForm() { await supabaseClient.from('dosage_forms').upsert({ form_name: document.getElementById('master-form-name').value }); fetchDosageForms(); }
     async function deleteMaster(table, col, val) { if(confirm("ลบข้อมูล Master ตัวนี้?")) { await supabaseClient.from(table).delete().eq(col, val); loadAllData(); } }
