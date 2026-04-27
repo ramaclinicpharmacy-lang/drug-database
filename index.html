@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rama Clinic Pharmacy DB - Status Control</title>
+    <title>Rama Clinic Pharmacy DB - Final Stable</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -66,7 +66,7 @@
         input:not([type="checkbox"]), select, textarea { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-family: inherit; }
         input[type="checkbox"] { width: auto; margin: 0; cursor: pointer; }
         
-        .drug-card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 15px; border-left: 6px solid var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: 0.3s; }
+        .drug-card { background: white; border-radius: 12px; padding: 20px 25px; margin-bottom: 20px; border-left: 6px solid var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: 0.3s; }
         .card-ed { border-left-color: var(--success); } 
         .card-ned { border-left-color: var(--danger); background-color: #fef2f2; } 
         .card-special { border-left-color: var(--purple); background-color: #faf5ff; } 
@@ -95,7 +95,6 @@
         .badge-fluid { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
         .badge-nlem { background: #fce7f3; color: #be185d; border: 1px solid #fbcfe8; }
         .badge-pharm { background: #f3e8ff; color: #6d28d9; border: 1px solid #e9d5ff; }
-        /* ✨ ป้าย Admin Status ✨ */
         .badge-admin-status { background: #1e293b; color: white; border: 1px dashed #cbd5e1; }
         
         .hidden { display: none !important; }
@@ -121,7 +120,6 @@
         .stat-item { background: white; padding: 4px 12px; border-radius: 20px; border: 1px solid #e2e8f0; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
         .stat-item b { color: var(--primary); font-size: 0.85rem;}
 
-        /* Admin checkbox bypass */
         .admin-bypass-cb { cursor: pointer; transform: scale(1.2); }
     </style>
 </head>
@@ -235,9 +233,9 @@
             <span style="font-size: 0.85rem; color: gray;">รายการ</span>
         </div>
         <div style="display: flex; gap: 5px; align-items: center; white-space: nowrap; margin-left: auto;">
-            <button id="btn-prev-page" class="btn btn-outline btn-sm" onclick="changePage(-1)">◀</button>
+            <button id="btn-prev-page" class="btn btn-outline btn-sm" onclick="changePage(-1)">◀ ก่อนหน้า</button>
             <span id="page-info" style="font-size: 0.9rem; font-weight: bold; min-width: 45px; text-align: center;">1/1</span>
-            <button id="btn-next-page" class="btn btn-outline btn-sm" onclick="changePage(1)">▶</button>
+            <button id="btn-next-page" class="btn btn-outline btn-sm" onclick="changePage(1)">ถัดไป ▶</button>
         </div>
     </div>
 
@@ -267,7 +265,7 @@
             <div id="status-settings-list" class="chip-container"></div>
         </div>
         <div style="display:flex; gap:10px; margin-top:20px;">
-            <button class="btn btn-success" style="flex:1; height: 42px;" onclick="saveStatusSettings()">💾 บันทึกการตั้งค่า</button>
+            <button class="btn btn-success" style="flex:1; height: 42px;" onclick="saveStatusSettings()">💾 บันทึก</button>
             <button class="btn btn-outline" style="flex:1; height: 42px;" onclick="closeModal('status-settings-modal')">ยกเลิก</button>
         </div>
     </div>
@@ -306,8 +304,6 @@
     let selectedFormFilters = []; 
     let selectedNlemFilters = [];
     let selectedRouteFilters = [];
-    
-    // ✨ ตัวแปรเก็บค่า Global Status Filter ✨
     let globalVisibleStatuses = [];
     
     let expandedCards = new Set();
@@ -357,7 +353,6 @@
                 const adminToolbarEl = document.getElementById('admin-toolbar');
                 if(adminToolbarEl) adminToolbarEl.classList.remove('hidden');
                 
-                // ✨ โชว์ปุ่ม Bypass Filter สำหรับ Admin ในช่องค้นหา ✨
                 const bypassLabel = document.getElementById('admin-view-all-label');
                 if(bypassLabel) bypassLabel.classList.remove('hidden');
 
@@ -378,9 +373,7 @@
     function setupSessionTimeout() { window.onload = resetTimer; document.onmousemove = resetTimer; document.onkeypress = resetTimer; document.onclick = resetTimer; document.onscroll = resetTimer; resetTimer(); }
 
     async function loadAllData() { 
-        // ✨ ดึงการตั้งค่า Global Status ก่อน ✨
         await fetchAppSettings();
-
         await Promise.all([ 
             fetchPharmClasses(), fetchGenerics(), fetchRoutes(), 
             fetchFluids(), fetchDosageForms(), fetchTags(), fetchNlemMaster() 
@@ -388,29 +381,26 @@
         await fetchDrugs(); 
     }
 
-    // ✨ ฟังก์ชันดึง/อัปเดต การตั้งค่า Status Global ✨
     async function fetchAppSettings() {
         const { data, error } = await supabaseClient.from('app_settings').select('*').eq('setting_key', 'visible_statuses').single();
-        if (data && !error) {
-            globalVisibleStatuses = data.setting_value || [];
-        }
+        if (data && !error) { globalVisibleStatuses = data.setting_value || []; }
     }
 
     function openStatusSettingsModal() {
-        // หาสถานะทั้งหมดที่มีอยู่ในยา
         const uniqueStatuses = [...new Set(allDrugsRaw.map(d => d.statuscode || 'NO_STATUS'))].sort();
         const listEl = document.getElementById('status-settings-list');
         
         if(uniqueStatuses.length === 0) {
             listEl.innerHTML = '<div style="color:gray; padding:10px;">ไม่พบข้อมูล Status เลยในระบบ</div>';
         } else {
-            listEl.innerHTML = uniqueStatuses.map(s => {
-                // ถ้า global settings ว่างแปลว่าโชว์หมด หรือถ้าอยู่ใน list แปลว่าเปิดโชว์
+            // ✨ ใช้โครงสร้าง Label แบบเดียวกับ Chip Container เพื่อให้เปลี่ยนสีตอนคลิก ✨
+            listEl.innerHTML = uniqueStatuses.map((s, idx) => {
                 const isChecked = (globalVisibleStatuses.length === 0 || globalVisibleStatuses.includes(s)) ? 'checked' : '';
-                return `<label style="display:inline-block; padding:8px 15px; background:white; border:2px solid #e2e8f0; border-radius:20px; cursor:pointer; font-size:0.9rem; margin-bottom:8px; margin-right:8px; transition:0.2s;">
-                            <input type="checkbox" class="status-visibility-cb" value="${s}" style="transform: scale(1.2); margin-right:8px;" ${isChecked}> 
-                            ${s === 'NO_STATUS' ? '<i>[ไม่ระบุสถานะ]</i>' : s}
-                        </label>`;
+                const cbId = 'status-cb-' + idx;
+                return `<div>
+                            <input type="checkbox" id="${cbId}" class="status-visibility-cb" value="${s}" ${isChecked}>
+                            <label for="${cbId}">${s === 'NO_STATUS' ? 'ไม่ระบุสถานะ' : s}</label>
+                        </div>`;
             }).join('');
         }
         openModal('status-settings-modal');
@@ -438,7 +428,7 @@
     function toggleFilterPanel() { const panel = document.getElementById('filter-panel-dropdown'); panel.classList.toggle('active'); }
     function toggleCard(code) { const body = document.getElementById('body-' + code); const icon = document.getElementById('icon-' + code); if (expandedCards.has(code)) { expandedCards.delete(code); body.classList.remove('expanded'); icon.style.transform = "rotate(0deg)"; } else { expandedCards.add(code); body.classList.add('expanded'); icon.style.transform = "rotate(90deg)"; } updateToggleAllButton(); }
     function toggleAllCards() { const totalCards = document.querySelectorAll('.drug-card').length; const expandedCount = document.querySelectorAll('.card-body.expanded').length; const isExpanding = expandedCount < totalCards; document.querySelectorAll('.drug-card').forEach(card => { const code = card.dataset.code; const body = card.querySelector('.card-body'); const icon = card.querySelector('.toggle-icon'); if (isExpanding) { expandedCards.add(code); body.classList.add('expanded'); icon.style.transform = "rotate(90deg)"; } else { expandedCards.delete(code); body.classList.remove('expanded'); icon.style.transform = "rotate(0deg)"; } }); updateToggleAllButton(); }
-    function updateToggleAllButton() { const totalCards = document.querySelectorAll('.drug-card').length; const expandedCount = document.querySelectorAll('.card-body.expanded').length; const btn = document.getElementById('btn-toggle-all'); if (totalCards > 0 && expandedCount === totalCards) btn.innerHTML = "🔼 ย่อ"; else btn.innerHTML = "🔽 ขยาย"; }
+    function updateToggleAllButton() { const totalCards = document.querySelectorAll('.drug-card').length; const expandedCount = document.querySelectorAll('.card-body.expanded').length; const btn = document.getElementById('btn-toggle-all'); if (totalCards > 0 && expandedCount === totalCards) btn.innerHTML = "🔼 ขยาย"; else btn.innerHTML = "🔽 ขยาย"; }
 
     function toggleFilterGroup(groupId) {
         const body = document.getElementById('body-' + groupId);
@@ -488,12 +478,11 @@
 
     function changeItemsPerPage() { itemsPerPage = parseInt(document.getElementById('items-per-page-select').value); currentPage = 1; updatePaginationUI(); }
     function changePage(delta) { const totalPages = Math.ceil(filteredDrugsList.length / itemsPerPage) || 1; currentPage += delta; if (currentPage < 1) currentPage = 1; if (currentPage > totalPages) currentPage = totalPages; updatePaginationUI(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-    function updatePaginationUI() { if (filteredDrugsList.length === 0) { document.getElementById('pagination-wrapper').style.display = 'none'; renderDrugs([]); return; } document.getElementById('pagination-wrapper').style.display = 'flex'; const totalPages = Math.ceil(filteredDrugsList.length / itemsPerPage) || 1; if (currentPage > totalPages) currentPage = totalPages; const startIndex = (currentPage - 1) * itemsPerPage; const endIndex = startIndex + itemsPerPage; const slicedDrugs = filteredDrugsList.slice(startIndex, endIndex); renderDrugs(slicedDrugs); document.getElementById('page-info').innerText = `${currentPage}/${totalPages}`; document.getElementById('btn-prev-page').disabled = currentPage === 1; document.getElementById('btn-next-page').disabled = currentPage === totalPages; }
+    function updatePaginationUI() { if (filteredDrugsList.length === 0) { document.getElementById('pagination-wrapper').style.display = 'none'; renderDrugs([]); return; } document.getElementById('pagination-wrapper').style.display = 'flex'; const totalPages = Math.ceil(filteredDrugsList.length / itemsPerPage) || 1; if (currentPage > totalPages) currentPage = totalPages; const startIndex = (currentPage - 1) * itemsPerPage; const endIndex = startIndex + itemsPerPage; const slicedDrugs = filteredDrugsList.slice(startIndex, endIndex); renderDrugs(slicedDrugs); document.getElementById('page-info').innerText = `${currentPage} / ${totalPages}`; document.getElementById('btn-prev-page').disabled = currentPage === 1; document.getElementById('btn-next-page').disabled = currentPage === totalPages; }
 
     function filterDrugs() {
         const q = (document.getElementById('main-search').value || '').toLowerCase();
         
-        // ✨ อ่านค่า Admin Bypass ✨
         const adminBypassEl = document.getElementById('admin-view-all-cb');
         const adminBypass = isAdmin && adminBypassEl && adminBypassEl.checked;
 
@@ -527,7 +516,6 @@
                 matchRoute = selectedRouteFilters.some(filter => drugRoutes.includes(filter));
             }
 
-            // ✨ Logic การคัดกรอง Status (Global) ✨
             let matchGlobalStatus = true;
             if (!adminBypass && globalVisibleStatuses.length > 0) {
                 const dStatus = d.statuscode || 'NO_STATUS';
@@ -582,7 +570,6 @@
                 return `<span class="badge" style="background:${bg}; color:white;">${t.tag_name}</span>`; 
             }).join('');
 
-            // ✨ ป้ายบอก Status (เห็นเฉพาะ Admin เท่านั้น) ✨
             const adminStatusBadge = (isAdmin && drug.statuscode) ? `<span class="badge badge-admin-status">⚙️ Status: ${drug.statuscode}</span>` : '';
 
             return `
@@ -613,49 +600,9 @@
         updateToggleAllButton();
     }
 
-    // ✨ อัปเดตฟังก์ชันเพิ่ม/แก้ยาให้บันทึก statuscode ได้ ✨
-    function openAddDrug() { 
-        document.getElementById('form-drug-code').disabled=false; 
-        document.getElementById('form-drug-code').value=''; 
-        document.getElementById('form-drug-name').value=''; 
-        document.getElementById('form-drug-note').value=''; 
-        document.getElementById('form-drug-statuscode').value=''; 
-        document.querySelectorAll('input[name="drug-tags"]').forEach(cb => cb.checked = false); 
-        openModal('drug-modal'); 
-    }
-    
-    function openEditDrug(code) { 
-        const drug = allDrugsRaw.find(d => d.drug_code === code); if (!drug) return; 
-        document.getElementById('form-drug-code').value = drug.drug_code; 
-        document.getElementById('form-drug-code').disabled = true; 
-        document.getElementById('form-drug-name').value = drug.drug_name; 
-        document.getElementById('form-drug-type').value = drug.dosage_form || ''; 
-        document.getElementById('form-drug-note').value = drug.special_note || ''; 
-        document.getElementById('form-drug-statuscode').value = drug.statuscode || ''; 
-        const currentTags = (drug.drug_tag_mapping || []).map(t => t.tag_name); 
-        document.querySelectorAll('input[name="drug-tags"]').forEach(cb => { cb.checked = currentTags.includes(cb.value); }); 
-        openModal('drug-modal'); 
-    }
-
-    async function saveDrug() { 
-        const drug_code = document.getElementById('form-drug-code').value; 
-        const statuscode = document.getElementById('form-drug-statuscode').value.trim() || null;
-        
-        await supabaseClient.from('drugs').upsert({ 
-            drug_code, 
-            drug_name: document.getElementById('form-drug-name').value, 
-            dosage_form: document.getElementById('form-drug-type').value, 
-            special_note: document.getElementById('form-drug-note').value,
-            statuscode: statuscode
-        }); 
-        
-        await supabaseClient.from('drug_tag_mapping').delete().eq('drug_code', drug_code); 
-        const selectedTags = Array.from(document.querySelectorAll('input[name="drug-tags"]:checked')).map(cb => ({ drug_code, tag_name: cb.value })); 
-        if (selectedTags.length > 0) await supabaseClient.from('drug_tag_mapping').insert(selectedTags); 
-        closeModal('drug-modal'); 
-        fetchDrugs(); 
-    }
-
+    function openAddDrug() { document.getElementById('form-drug-code').disabled=false; document.getElementById('form-drug-code').value=''; document.getElementById('form-drug-name').value=''; document.getElementById('form-drug-note').value=''; document.getElementById('form-drug-statuscode').value=''; document.querySelectorAll('input[name="drug-tags"]').forEach(cb => cb.checked = false); openModal('drug-modal'); }
+    function openEditDrug(code) { const drug = allDrugsRaw.find(d => d.drug_code === code); if (!drug) return; document.getElementById('form-drug-code').value = drug.drug_code; document.getElementById('form-drug-code').disabled = true; document.getElementById('form-drug-name').value = drug.drug_name; document.getElementById('form-drug-type').value = drug.dosage_form || ''; document.getElementById('form-drug-note').value = drug.special_note || ''; document.getElementById('form-drug-statuscode').value = drug.statuscode || ''; const currentTags = (drug.drug_tag_mapping || []).map(t => t.tag_name); document.querySelectorAll('input[name="drug-tags"]').forEach(cb => { cb.checked = currentTags.includes(cb.value); }); openModal('drug-modal'); }
+    async function saveDrug() { const drug_code = document.getElementById('form-drug-code').value; const statuscode = document.getElementById('form-drug-statuscode').value.trim() || null; await supabaseClient.from('drugs').upsert({ drug_code, drug_name: document.getElementById('form-drug-name').value, dosage_form: document.getElementById('form-drug-type').value, special_note: document.getElementById('form-drug-note').value, statuscode: statuscode }); await supabaseClient.from('drug_tag_mapping').delete().eq('drug_code', drug_code); const selectedTags = Array.from(document.querySelectorAll('input[name="drug-tags"]:checked')).map(cb => ({ drug_code, tag_name: cb.value })); if (selectedTags.length > 0) await supabaseClient.from('drug_tag_mapping').insert(selectedTags); closeModal('drug-modal'); fetchDrugs(); }
     async function deleteDrug(code) { if(confirm("ลบข้อมูลยานี้ออกจากระบบ?")) { await supabaseClient.from('drugs').delete().eq('drug_code', code); fetchDrugs(); } }
 
     async function saveMasterGeneric() { const generic_code = document.getElementById('master-gen-code').value; const { error } = await supabaseClient.from('generics').upsert({ generic_code, generic_name: document.getElementById('master-gen-name').value, special_note: document.getElementById('master-gen-note').value }); if (error) return alert("เกิดข้อผิดพลาด: " + error.message); await supabaseClient.from('generic_pharm_mapping').delete().eq('generic_code', generic_code); const selectedPharm = Array.from(document.querySelectorAll('input[name="gen-pharm"]:checked')).map(cb => ({ generic_code, class_name: cb.value })); if (selectedPharm.length > 0) await supabaseClient.from('generic_pharm_mapping').insert(selectedPharm); alert('✅ บันทึกสำเร็จ!'); document.getElementById('master-gen-code').disabled = false; document.getElementById('master-gen-code').value = ''; document.getElementById('master-gen-name').value = ''; document.getElementById('master-gen-note').value = ''; fetchGenerics(); fetchDrugs(); }
