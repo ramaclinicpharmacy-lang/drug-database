@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rama Clinic Pharmacy DB - Inline Pharm Add</title>
+    <title>Rama Clinic Pharmacy DB - Bulk Pharm</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -31,22 +31,15 @@
 
         .navbar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
         .search-container { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        .search-action-row { display: flex; gap: 10px; align-items: stretch; }
-        .search-input { flex: 1; padding: 12px 20px; font-size: 1rem; border: 2px solid #e2e8f0; border-radius: 10px; outline: none; box-sizing: border-box; line-height: 1.5; transition: 0.3s; }
+        .search-input { width: 100%; padding: 15px 20px; font-size: 1.1rem; border: 2px solid #e2e8f0; border-radius: 10px; transition: 0.3s; box-sizing: border-box; outline: none; }
         .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
         
-        .btn { cursor: pointer; border: none; border-radius: 10px; padding: 0 16px; font-weight: bold; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.9rem; white-space: nowrap; box-sizing: border-box; min-height: 42px; }
+        .btn { cursor: pointer; border: none; border-radius: 8px; padding: 8px 16px; font-weight: bold; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.85rem; }
         .btn-primary { background: var(--primary); color: white; }
         .btn-success { background: var(--success); color: white; }
         .btn-danger { background: var(--danger); color: white; }
         .btn-outline { background: transparent; border: 1px solid #ddd; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; } 
-
-        @media (max-width: 600px) {
-            .search-action-row { flex-direction: column; }
-            .btn { height: 48px; width: 100%; }
-            .search-input { width: 100%; height: 48px; }
-        }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         input, select, textarea { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-family: inherit; }
         
@@ -126,12 +119,12 @@
         </nav>
 
         <div class="search-container">
-            <div class="search-action-row">
-                <button class="btn btn-primary" onclick="toggleSidebar()">☰ กลุ่มยา</button>
-                <input type="text" id="main-search" class="search-input" placeholder="🔍 ค้นหายา, ส่วนประกอบ, หรือบัญชียาหลัก..." onkeyup="filterDrugs()">
-                <button class="btn btn-outline" id="btn-toggle-all" onclick="toggleAllCards()" style="background:#f8fafc; border-color:#cbd5e1; color:#475569;">🔽 ขยายทั้งหมด</button>
+            <div style="display:flex; gap:10px; margin-bottom: 10px; flex-wrap: wrap;">
+                <button class="btn btn-primary" onclick="toggleSidebar()" style="white-space: nowrap;">☰ กลุ่มยา</button>
+                <input type="text" id="main-search" class="search-input" style="flex:1; min-width: 200px;" placeholder="🔍 ค้นหายา, ส่วนประกอบ, สถานะ, หรือบัญชียาหลัก..." onkeyup="filterDrugs()">
+                <button class="btn btn-outline" id="btn-toggle-all" onclick="toggleAllCards()" style="white-space: nowrap; border-color:#cbd5e1; color:#475569; background:#f8fafc;">🔽 ขยายทั้งหมด</button>
             </div>
-            <div id="search-stats" style="font-size: 0.85rem; color: #64748b; margin-top: 10px;"></div>
+            <div id="search-stats" style="font-size: 0.85rem; color: #64748b;"></div>
         </div>
 
         <div id="admin-toolbar" class="hidden" style="margin-bottom: 20px; display:flex; gap:10px; flex-wrap: wrap;">
@@ -140,6 +133,8 @@
             <button class="btn btn-outline" onclick="openModal('nlem-master-modal')" style="background:white; color:var(--pink); border-color:var(--pink);">📋 NLEM Master</button>
             <button class="btn btn-outline" onclick="openModal('tag-master-modal')" style="background:#e11d48; color:white; border:none;">🏷️ สถานะยา</button>
             <button class="btn btn-warning" onclick="document.getElementById('search-master-generic').value=''; filterMasterGenericList(); openModal('generic-master-modal')" style="background:var(--warning); color:white;">🧪 ยาสามัญ</button>
+            <button class="btn btn-outline" onclick="openBulkPharmModal()" style="background:var(--indigo); color:white; border:none; box-shadow: 0 2px 4px rgba(99, 102, 241, 0.3);">🗂️ จัดกลุ่มยาสามัญ (Bulk)</button>
+            
             <button class="btn btn-info" onclick="openModal('route-master-modal')" style="background:var(--info); color:white;">💉 ช่องทาง</button>
             <button class="btn btn-purple" onclick="openModal('fluid-master-modal')" style="background:var(--purple); color:white;">💧 สารน้ำ</button>
             <button class="btn" onclick="openModal('form-master-modal')" style="background:var(--indigo); color:white;">📦 ชนิดยา</button>
@@ -180,18 +175,35 @@
         <input type="text" id="master-gen-name" placeholder="ชื่อยาสามัญ">
         <label style="font-size:0.9rem; font-weight:bold; margin-top:10px; display:block;">กลุ่มยา (Pharmacology)</label>
         <div id="gen-pharm-checkbox-group" class="chip-container"></div>
-        
         <div style="display:flex; gap:5px; margin-top:10px;">
             <input type="text" id="inline-new-pharm" placeholder="+ พิมพ์ชื่อกลุ่มยาใหม่ที่นี่" style="margin:0; flex:1; padding:8px 12px; font-size:0.85rem;">
             <button class="btn btn-outline" style="margin:0; color:var(--indigo); border-color:var(--indigo); min-height:auto; font-size:0.85rem; padding: 0 12px;" onclick="addNewPharmInline()">เพิ่ม</button>
         </div>
-
         <textarea id="master-gen-note" style="margin-top:15px;" placeholder="บันทึกยาสามัญ (Generic Note)..."></textarea>
         <button class="btn btn-success" style="width:100%; margin-top:15px; height:42px;" onclick="saveMasterGeneric()">บันทึกยาสามัญ</button>
     </div>
     <input type="text" id="search-master-generic" placeholder="🔍 ค้นหารายชื่อยาสามัญที่มีอยู่..." onkeyup="filterMasterGenericList()" style="margin-top:10px;">
     <div id="master-generic-list" style="max-height:200px; overflow-y:auto; margin-top:10px;"></div>
     <button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('generic-master-modal')">ปิด</button>
+</div></div>
+
+<div id="bulk-pharm-modal" class="modal"><div class="modal-content" style="max-width: 800px;">
+    <h3 style="color:var(--indigo); margin-top:0;">🗂️ จัดกลุ่มยาให้ยาสามัญ (Bulk Pharm)</h3>
+    <div class="section-box" style="background: #eef2ff; border-color: #c7d2fe;">
+        <label style="font-size:0.9rem; font-weight:bold; display:block;">เลือกกลุ่มยา (Pharmacology)</label>
+        <select id="bulk-pharm-select" style="font-weight:bold; color:var(--indigo);"></select>
+    </div>
+    <label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">เลือกยาสามัญที่ต้องการผูกกลุ่มยานี้:</label>
+    <input type="text" id="search-bulk-pharm-gen" placeholder="🔍 ค้นหาชื่อยาสามัญ..." onkeyup="filterBulkPharmGenerics()" style="margin-bottom: 10px;">
+    <div style="margin-bottom: 10px; font-size: 0.85rem;">
+        <button class="btn btn-outline" style="padding: 4px 8px;" onclick="toggleBulkPharmCheckboxes(true)">☑️ เลือกทั้งหมดที่แสดง</button>
+        <button class="btn btn-outline" style="padding: 4px 8px;" onclick="toggleBulkPharmCheckboxes(false)">☐ เอาออกทั้งหมด</button>
+    </div>
+    <div id="bulk-pharm-gen-list" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 8px; margin-bottom: 15px; background: white; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;"></div>
+    <div style="display:flex; gap:10px;">
+        <button class="btn" style="background:var(--indigo); color:white; flex:1; font-size:1rem; height:45px;" onclick="executeBulkPharmAdd()">✅ บันทึกข้อมูล</button>
+        <button class="btn btn-outline" style="flex:1; height:45px;" onclick="closeModal('bulk-pharm-modal')">ยกเลิก</button>
+    </div>
 </div></div>
 
 <div id="bulk-nlem-modal" class="modal"><div class="modal-content" style="max-width: 800px;"><h3 style="color:var(--pink); margin-top:0;">🗂️ จัดกลุ่มยาเข้าบัญชี (Bulk Add)</h3><div class="section-box" style="background: #fdf2f8; border-color: #fbcfe8;"><label style="font-size:0.9rem; font-weight:bold; display:block;">เลือกหมวดบัญชียาหลัก</label><select id="bulk-nlem-select" style="font-weight:bold; color:var(--pink);"></select><label style="font-size:0.9rem; font-weight:bold; margin-top:10px; display:block;">เงื่อนไขการใช้ (Condition Note) - <small style="font-weight:normal;">ใช้ร่วมกันทุกยาที่เลือก</small></label><textarea id="bulk-nlem-note" placeholder="เช่น 'เฉพาะผู้ป่วยดื้อยา' (เว้นว่างได้)"></textarea></div><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">เลือกยาที่ต้องการเพิ่มเข้าบัญชีนี้:</label><input type="text" id="search-bulk-nlem-drug" placeholder="🔍 ค้นหาชื่อยาเพื่อเลือก..." onkeyup="filterBulkNlemDrugs()" style="margin-bottom: 10px;"><div style="margin-bottom: 10px; font-size: 0.85rem;"><button class="btn btn-outline" style="padding: 4px 8px;" onclick="toggleBulkNlemCheckboxes(true)">☑️ เลือกทั้งหมดที่แสดง</button><button class="btn btn-outline" style="padding: 4px 8px;" onclick="toggleBulkNlemCheckboxes(false)">☐ เอาออกทั้งหมด</button></div><div id="bulk-nlem-drug-list" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 8px; margin-bottom: 15px; background: white; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;"></div><div style="display:flex; gap:10px;"><button class="btn" style="background:var(--pink); color:white; flex:1; font-size:1rem; height:45px;" onclick="executeBulkNlemAdd()">✅ บันทึกข้อมูลเข้าบัญชี</button><button class="btn btn-outline" style="flex:1; height:45px;" onclick="closeModal('bulk-nlem-modal')">ยกเลิก</button></div></div></div>
@@ -239,7 +251,6 @@
     let selectedPharmFilters = []; 
     let expandedCards = new Set();
     
-    // ✨ Pagination Variables ✨
     let currentPage = 1;
     let itemsPerPage = 25;
     let filteredDrugsList = []; 
@@ -263,10 +274,7 @@
         } catch (err) { console.error(err); }
     }
 
-    function resetTimer() {
-        clearTimeout(inactivityTimer);
-        if (isAdmin) { inactivityTimer = setTimeout(logoutDueToInactivity, TIMEOUT_MS); }
-    }
+    function resetTimer() { clearTimeout(inactivityTimer); if (isAdmin) { inactivityTimer = setTimeout(logoutDueToInactivity, TIMEOUT_MS); } }
     async function logoutDueToInactivity() { alert("⚠️ เซสชันหมดอายุเนื่องจากไม่ได้ใช้งานเกิน 30 นาที\nระบบได้ออกจากระบบโดยอัตโนมัติ"); await handleLogout(); }
     function setupSessionTimeout() { window.onload = resetTimer; document.onmousemove = resetTimer; document.onkeypress = resetTimer; document.onclick = resetTimer; document.onscroll = resetTimer; resetTimer(); }
 
@@ -280,7 +288,6 @@
     window.onclick = function(event) { if (event.target.classList.contains('modal')) event.target.style.display = "none"; }
 
     function toggleSidebar() { document.getElementById('app-sidebar').classList.toggle('active'); }
-    
     function toggleCard(code) { const body = document.getElementById('body-' + code); const icon = document.getElementById('icon-' + code); if (expandedCards.has(code)) { expandedCards.delete(code); body.classList.remove('expanded'); icon.style.transform = "rotate(0deg)"; } else { expandedCards.add(code); body.classList.add('expanded'); icon.style.transform = "rotate(90deg)"; } updateToggleAllButton(); }
     function toggleAllCards() { const totalCards = document.querySelectorAll('.drug-card').length; const expandedCount = document.querySelectorAll('.card-body.expanded').length; const isExpanding = expandedCount < totalCards; document.querySelectorAll('.drug-card').forEach(card => { const code = card.dataset.code; const body = card.querySelector('.card-body'); const icon = card.querySelector('.toggle-icon'); if (isExpanding) { expandedCards.add(code); body.classList.add('expanded'); icon.style.transform = "rotate(90deg)"; } else { expandedCards.delete(code); body.classList.remove('expanded'); icon.style.transform = "rotate(0deg)"; } }); updateToggleAllButton(); }
     function updateToggleAllButton() { const totalCards = document.querySelectorAll('.drug-card').length; const expandedCount = document.querySelectorAll('.card-body.expanded').length; const btn = document.getElementById('btn-toggle-all'); if (totalCards > 0 && expandedCount === totalCards) btn.innerHTML = "🔼 ยุบทั้งหมด"; else btn.innerHTML = "🔽 ขยายทั้งหมด"; }
@@ -288,64 +295,14 @@
     async function fetchPharmClasses() { const { data } = await supabaseClient.from('pharm_classes').select('*').order('class_name'); allPharmClasses = data || []; renderPharmSidebar(); const group = document.getElementById('gen-pharm-checkbox-group'); if (group) group.innerHTML = allPharmClasses.map(c => `<div><input type="checkbox" id="p-${c.class_name}" name="gen-pharm" value="${c.class_name}"><label for="p-${c.class_name}">${c.class_name}</label></div>`).join(''); document.getElementById('master-pharm-list').innerHTML = allPharmClasses.map(c => `<div class="list-item"><span>${c.class_name}</span><button onclick="deleteMaster('pharm_classes','class_name','${c.class_name}')">🗑️</button></div>`).join(''); }
     async function saveMasterPharm() { await supabaseClient.from('pharm_classes').upsert({ class_name: document.getElementById('master-pharm-name').value }); document.getElementById('master-pharm-name').value = ''; fetchPharmClasses(); fetchDrugs(); }
     
-    // ✨ ฟังก์ชันเพิ่มกลุ่มยาทางลัดจากหน้าจัดการยาสามัญ ✨
-    async function addNewPharmInline() {
-        const newClass = document.getElementById('inline-new-pharm').value.trim();
-        if (!newClass) return;
-
-        // จำค่าที่เคยติ๊กไว้
-        const currentChecked = Array.from(document.querySelectorAll('input[name="gen-pharm"]:checked')).map(cb => cb.value);
-        
-        const { error } = await supabaseClient.from('pharm_classes').upsert({ class_name: newClass });
-        if (error) return alert("เกิดข้อผิดพลาด: " + error.message);
-
-        document.getElementById('inline-new-pharm').value = '';
-        
-        await fetchPharmClasses(); // ดึงรายชื่อกลุ่มยาใหม่ทั้งหมด
-        
-        // ติ๊กของเดิม + ของใหม่ ให้เหมือนเดิม
-        currentChecked.push(newClass);
-        document.querySelectorAll('input[name="gen-pharm"]').forEach(cb => {
-            if (currentChecked.includes(cb.value)) cb.checked = true;
-        });
-    }
+    async function addNewPharmInline() { const newClass = document.getElementById('inline-new-pharm').value.trim(); if (!newClass) return; const currentChecked = Array.from(document.querySelectorAll('input[name="gen-pharm"]:checked')).map(cb => cb.value); const { error } = await supabaseClient.from('pharm_classes').upsert({ class_name: newClass }); if (error) return alert("เกิดข้อผิดพลาด: " + error.message); document.getElementById('inline-new-pharm').value = ''; await fetchPharmClasses(); currentChecked.push(newClass); document.querySelectorAll('input[name="gen-pharm"]').forEach(cb => { if (currentChecked.includes(cb.value)) cb.checked = true; }); }
 
     function togglePharmFilter(className) { if (selectedPharmFilters.includes(className)) selectedPharmFilters = selectedPharmFilters.filter(c => c !== className); else selectedPharmFilters.push(className); renderPharmSidebar(); filterDrugs(); }
     function renderPharmSidebar() { const sidebar = document.getElementById('sidebar-pharm-filters'); if (allPharmClasses.length === 0) return sidebar.innerHTML = '<div style="color:gray; font-size:0.8rem;">ไม่มีข้อมูล</div>'; sidebar.innerHTML = allPharmClasses.map(c => { const isActive = selectedPharmFilters.includes(c.class_name) ? 'active' : ''; return `<div class="filter-pill ${isActive}" onclick="togglePharmFilter('${c.class_name}')"><span>${c.class_name}</span></div>`; }).join(''); }
 
-    // ✨ Pagination Logic ✨
-    function changeItemsPerPage() {
-        itemsPerPage = parseInt(document.getElementById('items-per-page-select').value);
-        currentPage = 1;
-        updatePaginationUI();
-    }
-
-    function changePage(delta) {
-        const totalPages = Math.ceil(filteredDrugsList.length / itemsPerPage) || 1;
-        currentPage += delta;
-        if (currentPage < 1) currentPage = 1;
-        if (currentPage > totalPages) currentPage = totalPages;
-        updatePaginationUI();
-        window.scrollTo({ top: 0, behavior: 'smooth' }); 
-    }
-
-    function updatePaginationUI() {
-        if (filteredDrugsList.length === 0) {
-            document.getElementById('pagination-wrapper').style.display = 'none';
-            renderDrugs([]);
-            return;
-        }
-        document.getElementById('pagination-wrapper').style.display = 'flex';
-        const totalPages = Math.ceil(filteredDrugsList.length / itemsPerPage) || 1;
-        if (currentPage > totalPages) currentPage = totalPages;
-        const startIndex = (currentPage - 1) * itemsPerPage;
-        const endIndex = startIndex + itemsPerPage;
-        const slicedDrugs = filteredDrugsList.slice(startIndex, endIndex);
-        renderDrugs(slicedDrugs);
-        document.getElementById('page-info').innerText = `หน้า ${currentPage} / ${totalPages}`;
-        document.getElementById('btn-prev-page').disabled = currentPage === 1;
-        document.getElementById('btn-next-page').disabled = currentPage === totalPages;
-    }
+    function changeItemsPerPage() { itemsPerPage = parseInt(document.getElementById('items-per-page-select').value); currentPage = 1; updatePaginationUI(); }
+    function changePage(delta) { const totalPages = Math.ceil(filteredDrugsList.length / itemsPerPage) || 1; currentPage += delta; if (currentPage < 1) currentPage = 1; if (currentPage > totalPages) currentPage = totalPages; updatePaginationUI(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    function updatePaginationUI() { if (filteredDrugsList.length === 0) { document.getElementById('pagination-wrapper').style.display = 'none'; renderDrugs([]); return; } document.getElementById('pagination-wrapper').style.display = 'flex'; const totalPages = Math.ceil(filteredDrugsList.length / itemsPerPage) || 1; if (currentPage > totalPages) currentPage = totalPages; const startIndex = (currentPage - 1) * itemsPerPage; const endIndex = startIndex + itemsPerPage; const slicedDrugs = filteredDrugsList.slice(startIndex, endIndex); renderDrugs(slicedDrugs); document.getElementById('page-info').innerText = `หน้า ${currentPage} / ${totalPages}`; document.getElementById('btn-prev-page').disabled = currentPage === 1; document.getElementById('btn-next-page').disabled = currentPage === totalPages; }
 
     function filterDrugs() {
         const q = (document.getElementById('main-search').value || '').toLowerCase();
@@ -357,23 +314,12 @@
             let matchPharm = true; if (selectedPharmFilters.length > 0) { const drugPharmClasses = new Set(); (d.drug_contents || []).forEach(c => { (c.generics?.generic_pharm_mapping || []).forEach(pm => drugPharmClasses.add(pm.class_name)); }); matchPharm = selectedPharmFilters.some(filter => drugPharmClasses.has(filter)); }
             return matchText && matchPharm;
         });
-        
         document.getElementById('search-stats').innerText = q || selectedPharmFilters.length > 0 ? `พบ ${filteredDrugsList.length} รายการ` : `รายการยาทั้งหมด: ${filteredDrugsList.length} รายการ`;
         currentPage = 1; 
         updatePaginationUI();
     }
 
-    async function fetchDrugs() {
-        let fetchedData = []; let from = 0; const step = 1000; let hasMore = true;
-        while (hasMore) {
-            const { data, error } = await supabaseClient.from('drugs').select(`*, drug_tag_mapping(tag_name), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, special_note, generic_pharm_mapping(class_name))), drug_administrations(id, instructions, min_conc, max_conc, conc_unit, routes(route_name, route_code), administration_fluids(fluid_short_name))`).order('drug_name').range(from, from + step - 1);
-            if (error) { document.getElementById('drug-list-container').innerHTML = `<div style="text-align:center; padding:50px; color:var(--danger);"><h3 style="margin-top:0;">❌ ข้อมูลไม่สามารถโหลดได้</h3><p>${error.message}</p></div>`; return; }
-            fetchedData = fetchedData.concat(data);
-            if (data.length < step) hasMore = false; else from += step;
-        }
-        allDrugsRaw = fetchedData; 
-        filterDrugs(); 
-    }
+    async function fetchDrugs() { let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; while (hasMore) { const { data, error } = await supabaseClient.from('drugs').select(`*, drug_tag_mapping(tag_name), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, special_note, generic_pharm_mapping(class_name))), drug_administrations(id, instructions, min_conc, max_conc, conc_unit, routes(route_name, route_code), administration_fluids(fluid_short_name))`).order('drug_name').range(from, from + step - 1); if (error) { document.getElementById('drug-list-container').innerHTML = `<div style="text-align:center; padding:50px; color:var(--danger);"><h3 style="margin-top:0;">❌ ข้อมูลไม่สามารถโหลดได้</h3><p>${error.message}</p></div>`; return; } fetchedData = fetchedData.concat(data); if (data.length < step) hasMore = false; else from += step; } allDrugsRaw = fetchedData; filterDrugs(); }
 
     function formatConc(min, max, unit) { if (!min && !max) return ''; const u = unit || 'mg/mL'; let t = '<br><small style="color:var(--danger)"><b>ความเข้มข้น:</b> '; if (min && max) t += `${min} - ${max} ${u}`; else if (max) t += `ไม่เกิน ${max} ${u}`; else t += `ไม่น้อยกว่า ${min} ${u}`; return t + '</small>'; }
 
@@ -398,7 +344,6 @@
                 nlemNotes = drug.drug_nlem_mapping.filter(n => n.condition_note).map(n => `<div class="note-box nlem-note"><b>📋 เงื่อนไข ${n.nlem_code}:</b> ${n.condition_note}</div>`).join('');
             }
             
-            // ✨ สีกรองตามเงื่อนไขของคุณ ✨
             const tagsHtml = (drug.drug_tag_mapping || []).map(t => { 
                 let bg = 'var(--dark)'; 
                 if (t.tag_name.includes('ห้าม')) bg = 'var(--danger)'; 
@@ -437,22 +382,41 @@
         updateToggleAllButton();
     }
 
-    async function saveMasterGeneric() { 
-        const generic_code = document.getElementById('master-gen-code').value; 
-        const { error } = await supabaseClient.from('generics').upsert({ generic_code, generic_name: document.getElementById('master-gen-name').value, special_note: document.getElementById('master-gen-note').value }); 
-        if (error) return alert("เกิดข้อผิดพลาด: " + error.message); 
-        await supabaseClient.from('generic_pharm_mapping').delete().eq('generic_code', generic_code); 
-        const selectedPharm = Array.from(document.querySelectorAll('input[name="gen-pharm"]:checked')).map(cb => ({ generic_code, class_name: cb.value })); 
-        if (selectedPharm.length > 0) await supabaseClient.from('generic_pharm_mapping').insert(selectedPharm); 
-        alert('✅ บันทึกสำเร็จ!'); 
-        document.getElementById('master-gen-code').disabled = false; document.getElementById('master-gen-code').value = ''; document.getElementById('master-gen-name').value = ''; document.getElementById('master-gen-note').value = ''; 
-        fetchGenerics(); fetchDrugs(); 
-    }
+    async function saveMasterGeneric() { const generic_code = document.getElementById('master-gen-code').value; const { error } = await supabaseClient.from('generics').upsert({ generic_code, generic_name: document.getElementById('master-gen-name').value, special_note: document.getElementById('master-gen-note').value }); if (error) return alert("เกิดข้อผิดพลาด: " + error.message); await supabaseClient.from('generic_pharm_mapping').delete().eq('generic_code', generic_code); const selectedPharm = Array.from(document.querySelectorAll('input[name="gen-pharm"]:checked')).map(cb => ({ generic_code, class_name: cb.value })); if (selectedPharm.length > 0) await supabaseClient.from('generic_pharm_mapping').insert(selectedPharm); alert('✅ บันทึกสำเร็จ!'); document.getElementById('master-gen-code').disabled = false; document.getElementById('master-gen-code').value = ''; document.getElementById('master-gen-name').value = ''; document.getElementById('master-gen-note').value = ''; fetchGenerics(); fetchDrugs(); }
 
     function filterGenericOptions() { const q = (document.getElementById('search-generic-input').value || '').toLowerCase(); const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); document.getElementById('select-generic').innerHTML = filtered.map(g => `<option value="${g.generic_code}">${g.generic_name}</option>`).join(''); }
     function filterMasterGenericList() { const q = (document.getElementById('search-master-generic').value || '').toLowerCase(); const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); document.getElementById('master-generic-list').innerHTML = filtered.map(g => { const sCode = encodeHTML(g.generic_code); return `<div class="list-item"><span>${g.generic_name}</span> <div><button onclick="openEditGeneric('${sCode}')">✏️</button> <button onclick="deleteMaster('generics','generic_code','${sCode}')">🗑️</button></div></div>`; }).join(''); }
     async function fetchGenerics() { let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; while (hasMore) { const { data, error } = await supabaseClient.from('generics').select('*, generic_pharm_mapping(class_name)').order('generic_name').range(from, from + step - 1); if (error) break; fetchedData = fetchedData.concat(data); if (data.length < step) hasMore = false; else from += step; } allGenerics = fetchedData; filterGenericOptions(); filterMasterGenericList(); }
     function openEditGeneric(code) { const gen = allGenerics.find(g => g.generic_code === code); if(!gen) return; document.getElementById('master-gen-code').value = gen.generic_code; document.getElementById('master-gen-code').disabled = true; document.getElementById('master-gen-name').value = gen.generic_name; document.getElementById('master-gen-note').value = gen.special_note || ''; const currentPharm = (gen.generic_pharm_mapping || []).map(pm => pm.class_name); document.querySelectorAll('input[name="gen-pharm"]').forEach(cb => cb.checked = currentPharm.includes(cb.value)); openModal('generic-master-modal'); }
+
+    // ✨ NEW: Bulk Pharm Add Functions ✨
+    function openBulkPharmModal() {
+        document.getElementById('bulk-pharm-select').innerHTML = allPharmClasses.map(p => `<option value="${p.class_name}">${p.class_name}</option>`).join('');
+        document.getElementById('search-bulk-pharm-gen').value = '';
+        renderBulkPharmGenerics(allGenerics);
+        openModal('bulk-pharm-modal');
+    }
+    function renderBulkPharmGenerics(genericsToRender) {
+        const listEl = document.getElementById('bulk-pharm-gen-list');
+        if (genericsToRender.length === 0) { listEl.innerHTML = '<div style="color:gray; padding:10px; grid-column: 1 / -1;">ไม่พบยาสามัญที่ค้นหา</div>'; return; }
+        listEl.innerHTML = genericsToRender.map(g => `<label style="display:flex; align-items:flex-start; gap:8px; padding:8px; border:1px solid #eee; border-radius:6px; cursor:pointer; background:#fafafa; font-size:0.85rem;"><input type="checkbox" class="bulk-pharm-gen-cb" value="${encodeHTML(g.generic_code)}"><span><b>${encodeHTML(g.generic_name)}</b></span></label>`).join('');
+    }
+    function filterBulkPharmGenerics() {
+        const q = document.getElementById('search-bulk-pharm-gen').value.toLowerCase();
+        const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q));
+        renderBulkPharmGenerics(filtered);
+    }
+    function toggleBulkPharmCheckboxes(check) { document.querySelectorAll('.bulk-pharm-gen-cb').forEach(cb => cb.checked = check); }
+    async function executeBulkPharmAdd() {
+        const className = document.getElementById('bulk-pharm-select').value;
+        const targetGenCodes = Array.from(document.querySelectorAll('.bulk-pharm-gen-cb:checked')).map(cb => cb.value);
+        if (targetGenCodes.length === 0) return alert("กรุณาเลือกยาสามัญอย่างน้อย 1 รายการ");
+        const payload = targetGenCodes.map(code => ({ generic_code: code, class_name: className }));
+        const { error } = await supabaseClient.from('generic_pharm_mapping').upsert(payload);
+        if (error) return alert("เกิดข้อผิดพลาด: " + error.message);
+        alert(`✅ ผูกยาสามัญ ${targetGenCodes.length} รายการเข้ากลุ่ม ${className} สำเร็จ!`);
+        closeModal('bulk-pharm-modal'); fetchGenerics(); fetchDrugs();
+    }
 
     async function fetchNlemMaster() { const { data } = await supabaseClient.from('nlem_categories').select('*').order('category_code'); allNlem = data || []; document.getElementById('select-nlem').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); document.getElementById('bulk-nlem-select').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); document.getElementById('master-nlem-list').innerHTML = allNlem.map(n => `<div class="list-item"><span><b>${n.category_code}</b> ${n.description||''}</span><button onclick="deleteMaster('nlem_categories','category_code','${n.category_code}')">🗑️</button></div>`).join(''); }
     async function saveMasterNlem() { await supabaseClient.from('nlem_categories').upsert({ category_code: document.getElementById('master-nlem-code').value, description: document.getElementById('master-nlem-desc').value }); fetchNlemMaster(); }
