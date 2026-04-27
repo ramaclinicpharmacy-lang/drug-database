@@ -269,13 +269,27 @@
     }
 
     async function fetchDrugs() {
-        const { data } = await supabaseClient.from('drugs').select(`
+        const { data, error } = await supabaseClient.from('drugs').select(`
             *, 
             drug_tag_mapping(tag_name),
             drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)),
             drug_contents(amount, unit, generics(generic_name, generic_code, special_note, generic_pharm_mapping(class_name))), 
             drug_administrations(id, instructions, min_conc_mg_ml, max_conc_mg_ml, routes(route_name, route_code), administration_fluids(fluid_short_name))
         `).order('drug_name');
+        
+        // ✨ โค้ดดักจับ Error และแสดงหน้าจอให้คุณเห็นทันที ✨
+        if (error) {
+            console.error("Supabase Error:", error);
+            document.getElementById('drug-list-container').innerHTML = `
+                <div style="text-align:center; padding:50px; color:var(--danger); background: white; border-radius: 12px; border: 2px solid var(--danger); margin: 20px;">
+                    <h3 style="margin-top:0;">❌ ข้อมูลไม่สามารถโหลดได้</h3>
+                    <p style="font-family: monospace; background: #fee2e2; padding: 10px; border-radius: 8px;">${error.message}</p>
+                    <p style="font-size: 0.9rem; color: gray;">(โปรดตรวจสอบใน Console (F12) หรือรัน SQL เพื่อสร้างตารางให้ครบถ้วน)</p>
+                </div>
+            `;
+            return;
+        }
+
         allDrugsRaw = data || [];
         filterDrugs(); 
     }
