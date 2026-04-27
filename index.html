@@ -325,8 +325,24 @@
                 nlemBadges = drug.drug_nlem_mapping.map(n => `<span class="badge badge-nlem">${n.nlem_code}</span>`).join('');
                 nlemNotes = drug.drug_nlem_mapping.filter(n => n.condition_note).map(n => `<div class="note-box nlem-note"><b>📋 เงื่อนไข ${n.nlem_code}:</b> ${n.condition_note}</div>`).join('');
             }
-            const tagsHtml = (drug.drug_tag_mapping || []).map(t => { let bg = 'var(--dark)'; if (t.tag_name.includes('ห้าม')) bg = 'var(--danger)'; else if (t.tag_name.includes('ได้')) bg = 'var(--success)'; return `<span class="badge" style="background:${bg}; color:white;">${t.tag_name}</span>`; }).join('');
-
+            const tagsHtml = (drug.drug_tag_mapping || []).map(t => { 
+                let bg = 'var(--dark)'; // สีเทาเข้มเป็นค่าเริ่มต้น
+                
+                if (t.tag_name.includes('ห้าม')) {
+                    bg = 'var(--danger)'; // 🔴 สีแดง (อันตราย/ห้าม)
+                } else if (t.tag_name.includes('พ้นแสง')) {
+                    bg = 'var(--warning)'; // 🟠 สีเหลืองส้ม (ระวัง)
+                } else if (t.tag_name.includes('ตู้เย็น')) {
+                    bg = 'var(--info)'; // 🔵 สีฟ้าอ่อน (ความเย็น)
+                } else if (t.tag_name.includes('หยุดก่อนผ่าตัด')) {
+                    bg = 'var(--purple)'; // 🟣 สีม่วง (เตือน Protocol คลินิก)
+                } else if (t.tag_name.includes('ได้')) {
+                    bg = 'var(--success)'; // 🟢 สีเขียว (ทำได้/ปลอดภัย)
+                }
+                
+                return `<span class="badge" style="background:${bg}; color:white;">${t.tag_name}</span>`; 
+            }).join('');
+            
             return `
             <div class="drug-card ${cardThemeClass}" data-code="${safeCode}">
                 <div class="card-header-flex">
