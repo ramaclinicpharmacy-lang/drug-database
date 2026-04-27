@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rama Clinic Pharmacy DB - Compact Dashboard</title>
+    <title>Rama Clinic Pharmacy DB - Final Stable</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -12,25 +12,27 @@
         
         .layout-wrapper { max-width: 1300px; margin: auto; width: 100%; display: block; }
         
+        /* Navbar */
         .navbar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 12px 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 15px; flex-wrap: nowrap; overflow-x: auto; gap: 15px; }
         .navbar::-webkit-scrollbar { display: none; }
-        .nav-left { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
         
-        .search-container { background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        .search-action-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        .search-input { flex: 1; min-width: 200px; padding: 10px 15px; font-size: 1rem; border: 2px solid #e2e8f0; border-radius: 10px; transition: 0.3s; box-sizing: border-box; outline: none; margin: 0; height: 45px;}
+        /* Search Box */
+        .search-container { background: white; padding: 15px 20px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .search-input { width: 100%; padding: 10px 15px; font-size: 1rem; border: 2px solid #e2e8f0; border-radius: 10px; transition: 0.3s; box-sizing: border-box; outline: none; margin-bottom: 10px; }
         .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
         
-        .btn { cursor: pointer; border: none; border-radius: 10px; padding: 0 16px; font-weight: bold; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.9rem; white-space: nowrap; box-sizing: border-box; }
+        /* Buttons */
+        .btn { cursor: pointer; border: none; border-radius: 10px; padding: 0 16px; font-weight: bold; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.9rem; white-space: nowrap; box-sizing: border-box; min-height: 42px; }
         .btn-primary { background: var(--primary); color: white; }
         .btn-success { background: var(--success); color: white; }
         .btn-danger { background: var(--danger); color: white; }
         .btn-outline { background: transparent; border: 1px solid #ddd; }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        /* ปุ่มไซส์เล็ก */
+        .btn-sm { min-height: 32px !important; height: 32px !important; padding: 0 12px !important; font-size: 0.8rem !important; border-radius: 8px; }
 
-        .btn-sm { min-height: 32px; height: 32px; padding: 0 10px; font-size: 0.8rem; border-radius: 8px; }
-        .btn-icon { width: 45px; height: 45px; padding: 0; font-size: 1.2rem; flex-shrink: 0; }
-
+        /* Filter Panel dropdown */
         .filter-panel { 
             background: white; border-radius: 12px; padding: 20px; 
             box-shadow: 0 4px 15px rgba(0,0,0,0.08); margin-bottom: 20px; 
@@ -58,9 +60,10 @@
         .filter-list-container::-webkit-scrollbar { width: 4px; }
         .filter-list-container::-webkit-scrollbar-thumb { background-color: #e2e8f0; border-radius: 10px; }
 
+        /* Admin Toolbar */
         .admin-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; margin-top: 20px; }
         .admin-box h3 { color: #1e293b; margin-top: 0; margin-bottom: 12px; font-size: 1rem; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
-        .admin-menu-btn { background: white; border: 1px solid #cbd5e1; color: #475569; padding: 8px 12px; font-size: 0.85rem; font-weight: 500; transition: all 0.2s; border-radius: 8px; width: 100%; }
+        .admin-menu-btn { background: white; border: 1px solid #cbd5e1; color: #475569; justify-content: center; padding: 8px 12px; font-size: 0.85rem; font-weight: 500; transition: all 0.2s; border-radius: 8px; width: 100%; display: flex; }
         .admin-menu-btn:hover { border-color: var(--primary); color: var(--primary); background: #eff6ff; box-shadow: 0 2px 4px rgba(37,99,235,0.1); }
         .admin-menu-btn.primary-action { background: var(--primary); color: white; border: none; font-weight: bold; box-shadow: 0 2px 4px rgba(37,99,235,0.2); }
         .admin-menu-btn.primary-action:hover { background: #1d4ed8; color: white; }
@@ -68,7 +71,7 @@
         input:not([type="checkbox"]), select, textarea { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-family: inherit; }
         input[type="checkbox"] { width: auto; margin: 0; cursor: pointer; }
         
-        .drug-card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 15px; border-left: 6px solid var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: 0.3s; }
+        .drug-card { background: white; border-radius: 12px; padding: 20px 25px; margin-bottom: 20px; border-left: 6px solid var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: 0.3s; }
         .card-ed { border-left-color: var(--success); } 
         .card-ned { border-left-color: var(--danger); background-color: #fef2f2; } 
         .card-special { border-left-color: var(--purple); background-color: #faf5ff; } 
@@ -108,14 +111,15 @@
         .chip-container input[type="checkbox"]:checked + label { background: var(--success); border-color: var(--success); color: white; }
         .chip-container label:hover { border-color: var(--primary); }
 
+        /* Pagination บังคับบรรทัดเดียว */
         .pagination-container { 
             display: flex; justify-content: space-between; align-items: center; 
-            background: white; padding: 10px 20px; border-radius: 12px; 
-            margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); 
-            flex-wrap: nowrap; overflow-x: auto; gap: 15px; white-space: nowrap;
+            background: white; padding: 10px 20px; border-radius: 12px; margin-bottom: 15px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05); flex-wrap: nowrap; overflow-x: auto; gap: 15px; 
         }
 
-        .app-footer { margin-top: 20px; padding: 30px 20px 20px 20px; text-align: center; color: #64748b; font-size: 0.85rem; line-height: 1.6; border-top: 1px solid #e2e8f0; }
+        /* Footer & Stats Style */
+        .app-footer { margin-top: auto; padding: 30px 20px 20px 20px; text-align: center; color: #64748b; font-size: 0.85rem; line-height: 1.6; border-top: 1px solid #e2e8f0; }
         .app-footer b { color: var(--dark); }
         .stats-container { display: flex; justify-content: center; gap: 10px; margin-top: 12px; font-size: 0.75rem; flex-wrap: wrap; }
         .stat-item { background: white; padding: 4px 12px; border-radius: 20px; border: 1px solid #e2e8f0; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
@@ -127,27 +131,25 @@
 <div class="layout-wrapper">
 
     <nav class="navbar">
-        <div class="nav-left">
+        <div style="display:flex; align-items:center; gap: 10px; white-space: nowrap;">
             <h2 style="margin:0; font-size:1.3rem;">💊 Rama Clinic DB</h2>
-            
             <button id="login-btn" class="btn btn-outline btn-sm" style="border-color:var(--indigo); color:var(--indigo);" onclick="openModal('auth-modal')">👤 Admin</button>
             <div id="user-info" class="hidden" style="display:flex; align-items:center; gap: 5px;">
+                <span id="user-email" style="font-size:0.75rem; color:gray; max-width: 100px; overflow: hidden; text-overflow: ellipsis; display:inline-block;"></span>
                 <button class="btn btn-danger btn-sm" onclick="handleLogout()">🚪 ออก</button>
             </div>
         </div>
         
-        <button class="btn btn-sm" style="background:var(--line); color:white; margin-left:auto;" onclick="openLineCompat()">📱 Line Compat</button>
+        <button class="btn btn-sm" style="background:var(--line); color:white; white-space: nowrap; margin-left:auto;" onclick="openLineCompat()">📱 Line Compat</button>
     </nav>
 
     <div class="search-container">
-        <div class="search-action-row">
-            <input type="text" id="main-search" class="search-input" placeholder="🔍 ค้นหายา, ส่วนประกอบ, สถานะ, หรือบัญชียาหลัก..." onkeyup="filterDrugs()">
-            
-            <div style="display: flex; gap: 8px; flex-wrap: nowrap; align-items: center;">
-                <button class="btn btn-primary" onclick="toggleFilterPanel()" style="height: 45px; white-space: nowrap;">☰ ตัวกรอง</button>
-                <button class="btn btn-outline btn-icon" style="border-color:var(--danger); color:var(--danger);" onclick="clearAllFilters()" title="ล้างตัวกรอง">🧹</button>
-                <button class="btn btn-outline btn-icon" id="btn-toggle-all" onclick="toggleAllCards()" style="background:#f8fafc; border-color:#cbd5e1; color:#475569;" title="ขยาย/ยุบทั้งหมด">🔽</button>
-            </div>
+        <input type="text" id="main-search" class="search-input" placeholder="🔍 ค้นหายา, ส่วนประกอบ, สถานะ, หรือบัญชียาหลัก..." onkeyup="filterDrugs()">
+        
+        <div style="display: flex; gap: 8px; flex-wrap: nowrap; overflow-x: auto; align-items: center;">
+            <button class="btn btn-primary" onclick="toggleFilterPanel()" style="white-space: nowrap; flex-shrink: 0; min-height: 40px;">☰ ตัวกรอง</button>
+            <button class="btn btn-outline btn-sm" style="border-color:var(--danger); color:var(--danger); white-space: nowrap; flex-shrink: 0;" onclick="clearAllFilters()">🧹 ล้าง</button>
+            <button class="btn btn-outline btn-sm" id="btn-toggle-all" onclick="toggleAllCards()" style="background:#f8fafc; border-color:#cbd5e1; color:#475569; white-space: nowrap; flex-shrink: 0;">🔽 ขยาย</button>
         </div>
         <div id="search-stats" style="font-size: 0.85rem; color: #64748b; margin-top: 10px;"></div>
     </div>
@@ -197,20 +199,20 @@
 
         <div id="admin-toolbar" class="hidden admin-box">
             <h3>🛠️ เครื่องมือจัดการ (Admin)</h3>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px;">
                 <button class="btn admin-menu-btn primary-action" onclick="openAddDrug()">+ เพิ่มยาหลักเข้าคลัง</button>
-                <button class="btn admin-menu-btn" onclick="document.getElementById('search-master-generic').value=''; filterMasterGenericList(); openModal('generic-master-modal')">🧪 จัดการยาสามัญ (Generics)</button>
-                <button class="btn admin-menu-btn" onclick="openBulkNlemModal()">🗂️ จัดบัญชียาแบบกลุ่ม (Bulk)</button>
-                <button class="btn admin-menu-btn" onclick="openBulkPharmModal()">🗂️ ผูกกลุ่มยาสามัญ (Bulk)</button>
+                <button class="btn admin-menu-btn" onclick="document.getElementById('search-master-generic').value=''; filterMasterGenericList(); openModal('generic-master-modal')">🧪 จัดการยาสามัญ</button>
+                <button class="btn admin-menu-btn" onclick="openBulkNlemModal()">🗂️ จัดบัญชียา (Bulk)</button>
+                <button class="btn admin-menu-btn" onclick="openBulkPharmModal()">🗂️ ผูกกลุ่มยาสามัญ</button>
             </div>
             <div style="font-size: 0.8rem; font-weight: bold; color: #64748b; margin-top: 15px; margin-bottom: 8px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 5px;">แก้ไข Master Data</div>
-            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px;" onclick="openModal('nlem-master-modal')">📋 บัญชียา</button>
-                <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px;" onclick="openModal('pharm-master-modal')">⚙️ กลุ่มยา</button>
-                <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px;" onclick="openModal('tag-master-modal')">🏷️ สถานะ</button>
-                <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px;" onclick="openModal('route-master-modal')">💉 ช่องทาง</button>
-                <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px;" onclick="openModal('fluid-master-modal')">💧 สารน้ำ</button>
-                <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px;" onclick="openModal('form-master-modal')">📦 ชนิดยา</button>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px;">
+                <button class="btn admin-menu-btn" style="padding: 6px;" onclick="openModal('nlem-master-modal')">📋 บัญชี</button>
+                <button class="btn admin-menu-btn" style="padding: 6px;" onclick="openModal('pharm-master-modal')">⚙️ กลุ่ม</button>
+                <button class="btn admin-menu-btn" style="padding: 6px;" onclick="openModal('tag-master-modal')">🏷️ สถานะ</button>
+                <button class="btn admin-menu-btn" style="padding: 6px;" onclick="openModal('route-master-modal')">💉 ช่องทาง</button>
+                <button class="btn admin-menu-btn" style="padding: 6px;" onclick="openModal('fluid-master-modal')">💧 สารน้ำ</button>
+                <button class="btn admin-menu-btn" style="padding: 6px;" onclick="openModal('form-master-modal')">📦 ชนิด</button>
             </div>
         </div>
     </div>
@@ -228,7 +230,7 @@
         </div>
         <div style="display: flex; gap: 5px; align-items: center; white-space: nowrap; margin-left: auto;">
             <button id="btn-prev-page" class="btn btn-outline btn-sm" onclick="changePage(-1)">◀</button>
-            <span id="page-info" style="font-size: 0.9rem; font-weight: bold; min-width: 50px; text-align: center;">1/1</span>
+            <span id="page-info" style="font-size: 0.9rem; font-weight: bold; min-width: 45px; text-align: center;">1/1</span>
             <button id="btn-next-page" class="btn btn-outline btn-sm" onclick="changePage(1)">▶</button>
         </div>
     </div>
@@ -245,7 +247,7 @@
         <div class="stats-container">
             <div class="stat-item">👁️ รวม <b id="stat-total">...</b></div>
             <div class="stat-item">👤 ผู้ใช้ <b id="stat-unique">...</b></div>
-            <div class="stat-item">📅 30 วันย้อนหลัง <b id="stat-30d">...</b></div>
+            <div class="stat-item">📅 30 วัน <b id="stat-30d">...</b></div>
         </div>
     </footer>
 
@@ -390,10 +392,21 @@
             const { data: { session } } = await supabaseClient.auth.getSession();
             isAdmin = !!session;
             if (isAdmin) {
-                document.getElementById('user-info').classList.remove('hidden');
-                document.getElementById('user-email').innerText = session.user.email || '';
-                document.getElementById('login-btn').classList.add('hidden');
-                document.getElementById('admin-toolbar').classList.remove('hidden');
+                const userInfoEl = document.getElementById('user-info');
+                if(userInfoEl) userInfoEl.classList.remove('hidden');
+                
+                const userEmailEl = document.getElementById('user-email');
+                if(userEmailEl) {
+                    userEmailEl.innerText = session.user.email || '';
+                    userEmailEl.style.display = 'inline-block';
+                }
+                
+                const loginBtnEl = document.getElementById('login-btn');
+                if(loginBtnEl) loginBtnEl.classList.add('hidden');
+                
+                const adminToolbarEl = document.getElementById('admin-toolbar');
+                if(adminToolbarEl) adminToolbarEl.classList.remove('hidden');
+                
                 setupSessionTimeout();
             }
             
@@ -401,7 +414,8 @@
             await loadAllData();
         } catch (err) { 
             console.error("Init Error:", err);
-            document.getElementById('drug-list-container').innerHTML = `<div style="text-align:center; padding:20px; color:red;"><b>เกิดข้อผิดพลาดในระบบ:</b> ${err.message}</div>`;
+            const container = document.getElementById('drug-list-container');
+            if(container) container.innerHTML = `<div style="text-align:center; padding:20px; color:red;"><b>เกิดข้อผิดพลาดในระบบ:</b> ${err.message}</div>`;
         }
     }
 
@@ -534,7 +548,7 @@
         
         const isFiltering = q || selectedPharmFilters.length > 0 || selectedFormFilters.length > 0 || selectedNlemFilters.length > 0 || selectedRouteFilters.length > 0;
         
-        // ✨ ย้ายการตั้งค่า text search-stats มาไว้ตรงนี้ เพื่อไม่ให้ error ถ้า tag หาไม่เจอ ✨
+        // ✨ Safe Check ป้องกัน Error ถ้าหา id ไม่เจอ ✨
         const statsEl = document.getElementById('search-stats');
         if(statsEl) {
             statsEl.innerText = isFiltering ? `พบ ${filteredDrugsList.length} รายการ` : `รายการยาทั้งหมด: ${filteredDrugsList.length} รายการ`;
@@ -666,9 +680,11 @@
     }
     async function executeBulkCopyAdmin() { const adminId = parseInt(document.getElementById('bulk-copy-admin-id').value); const sourceAdmin = currentAdminsList.find(a => a.id === adminId); if (!sourceAdmin) return; const selectedCheckboxes = document.querySelectorAll('input[name="bulk-target-drugs"]:checked'); const targetDrugCodes = Array.from(selectedCheckboxes).map(cb => cb.value); if (targetDrugCodes.length === 0) return alert("กรุณาเลือกยาปลายทางอย่างน้อย 1 รายการ"); const { data: sourceFluids } = await supabaseClient.from('administration_fluids').select('fluid_short_name').eq('administration_id', adminId); const fluidNames = (sourceFluids || []).map(f => f.fluid_short_name); let successCount = 0; for (const tCode of targetDrugCodes) { const payload = { drug_code: tCode, route_code: sourceAdmin.route_code, instructions: sourceAdmin.instructions, min_conc: sourceAdmin.min_conc, max_conc: sourceAdmin.max_conc, conc_unit: sourceAdmin.conc_unit }; const { data: newAdmin, error } = await supabaseClient.from('drug_administrations').insert(payload).select().single(); if (!error && newAdmin && fluidNames.length > 0) { const fluidPayload = fluidNames.map(fn => ({ administration_id: newAdmin.id, fluid_short_name: fn })); await supabaseClient.from('administration_fluids').insert(fluidPayload); } if (!error) successCount++; } alert(`✅ คัดลอกวิธีใช้ไปยังยาอื่นจำนวน ${successCount} รายการ สำเร็จเรียบร้อยแล้ว!`); closeModal('bulk-copy-modal'); fetchDrugs(); }
 
-    async function saveMasterTag() { await supabaseClient.from('drug_tags').upsert({ tag_name: document.getElementById('master-tag-name').value }); fetchTags(); }
+    async function saveMasterRoute() { await supabaseClient.from('routes').upsert({ route_code: document.getElementById('master-route-code').value, route_name: document.getElementById('master-route-name').value }); fetchRoutes(); }
+    async function saveMasterFluid() { await supabaseClient.from('fluids').upsert({ short_name: document.getElementById('master-fluid-short').value, full_name: document.getElementById('master-fluid-full').value }); fetchFluids(); }
+    async function saveMasterForm() { await supabaseClient.from('dosage_forms').upsert({ form_name: document.getElementById('master-form-name').value }); fetchDosageForms(); }
+    async function deleteMaster(table, col, val) { if(confirm("ลบข้อมูล Master ตัวนี้?")) { await supabaseClient.from(table).delete().eq(col, val); loadAllData(); } }
     
-    // ✨ Edit Ingredient Functions ✨
     function resetIngredientForm() { 
         editingIngredientCode = null; 
         document.getElementById('select-generic').disabled = false; 
