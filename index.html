@@ -3,31 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rama Clinic Pharmacy DB - Final Fixed Sidebar</title>
+    <title>Rama Clinic Pharmacy DB - Inline Pharm Add</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root { --primary: #2563eb; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --info: #06b6d4; --purple: #8b5cf6; --indigo: #6366f1; --pink: #ec4899; --dark: #1e293b; --bg: #f1f5f9; }
         body { font-family: 'Sarabun', sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: var(--dark); }
         
+        /* Layout & Sidebar Toggle Logic */
         .layout-wrapper { display: flex; gap: 20px; max-width: 1300px; margin: auto; align-items: flex-start; }
         .main-content { flex: 1; min-width: 0; }
         
-        /* ✨ แก้ไข Sidebar Logic ตรงนี้ ✨ */
-        .sidebar { 
-            width: 260px; background: white; padding: 20px; border-radius: 12px; 
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: sticky; top: 20px; 
-            flex-shrink: 0; box-sizing: border-box; 
-            display: none; /* ซ่อนเป็นค่าเริ่มต้น (Auto-hide) ทั้งคอมและมือถือ */
-        }
-        .sidebar.active { 
-            display: block; 
-            animation: fadeInDown 0.3s ease; 
-        } 
+        .sidebar { width: 260px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: sticky; top: 20px; flex-shrink: 0; box-sizing: border-box; display: block; }
+        .sidebar.toggled { display: none; } 
         
         @media (max-width: 850px) { 
             .layout-wrapper { flex-direction: column; } 
-            .sidebar { width: 100%; position: relative; top: 0; margin-bottom: 20px; } 
+            .sidebar { width: 100%; position: relative; top: 0; margin-bottom: 20px; display: none; } 
+            .sidebar.toggled { display: block; animation: fadeInDown 0.3s ease; } 
         }
 
         @keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
@@ -38,18 +31,26 @@
 
         .navbar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
         .search-container { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        .search-input { width: 100%; padding: 15px 20px; font-size: 1.1rem; border: 2px solid #e2e8f0; border-radius: 10px; transition: 0.3s; box-sizing: border-box; outline: none; }
+        .search-action-row { display: flex; gap: 10px; align-items: stretch; }
+        .search-input { flex: 1; padding: 12px 20px; font-size: 1rem; border: 2px solid #e2e8f0; border-radius: 10px; outline: none; box-sizing: border-box; line-height: 1.5; transition: 0.3s; }
         .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
         
-        .btn { cursor: pointer; border: none; border-radius: 8px; padding: 8px 16px; font-weight: bold; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.85rem; }
+        .btn { cursor: pointer; border: none; border-radius: 10px; padding: 0 16px; font-weight: bold; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.9rem; white-space: nowrap; box-sizing: border-box; min-height: 42px; }
         .btn-primary { background: var(--primary); color: white; }
         .btn-success { background: var(--success); color: white; }
         .btn-danger { background: var(--danger); color: white; }
         .btn-outline { background: transparent; border: 1px solid #ddd; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; } 
+
+        @media (max-width: 600px) {
+            .search-action-row { flex-direction: column; }
+            .btn { height: 48px; width: 100%; }
+            .search-input { width: 100%; height: 48px; }
+        }
 
         input, select, textarea { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-family: inherit; }
         
+        /* Card Themes & Collapsible CSS */
         .drug-card { background: white; border-radius: 12px; padding: 20px 25px; margin-bottom: 20px; border-left: 6px solid var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: 0.3s; }
         .card-ed { border-left-color: var(--success); } 
         .card-ned { border-left-color: var(--danger); background-color: #fef2f2; } 
@@ -91,7 +92,7 @@
         .chip-container input[type="checkbox"]:checked + label { background: var(--success); border-color: var(--success); color: white; }
         .chip-container label:hover { border-color: var(--primary); }
 
-        /* Pagination Wrapper */
+        /* ✨ Pagination Wrapper ✨ */
         .pagination-container {
             display: flex; justify-content: space-between; align-items: center; 
             background: white; padding: 12px 20px; border-radius: 12px; 
@@ -105,7 +106,7 @@
 <body>
 
 <div class="layout-wrapper">
-    <aside class="sidebar" id="app-sidebar">
+    <aside class="sidebar toggled" id="app-sidebar">
         <h3 style="margin-top:0; border-bottom: 2px solid var(--bg); padding-bottom: 10px;">🧬 กลุ่มยา (Pharmacology)</h3>
         <div id="sidebar-pharm-filters"><div style="text-align:center; color:gray; font-size:0.8rem;">Loading...</div></div>
         <hr style="border:0; border-top:1px solid #ddd; margin:15px 0;">
@@ -125,12 +126,12 @@
         </nav>
 
         <div class="search-container">
-            <div style="display:flex; gap:10px; margin-bottom: 10px; flex-wrap: wrap;">
-                <button class="btn btn-primary" onclick="toggleSidebar()" style="white-space: nowrap;">☰ กลุ่มยา</button>
-                <input type="text" id="main-search" class="search-input" style="flex:1; min-width: 200px;" placeholder="🔍 ค้นหายา, ส่วนประกอบ, สถานะ, หรือบัญชียาหลัก..." onkeyup="filterDrugs()">
-                <button class="btn btn-outline" id="btn-toggle-all" onclick="toggleAllCards()" style="white-space: nowrap; border-color:#cbd5e1; color:#475569; background:#f8fafc;">🔽 ขยายทั้งหมด</button>
+            <div class="search-action-row">
+                <button class="btn btn-primary" onclick="toggleSidebar()">☰ กลุ่มยา</button>
+                <input type="text" id="main-search" class="search-input" placeholder="🔍 ค้นหายา, ส่วนประกอบ, หรือบัญชียาหลัก..." onkeyup="filterDrugs()">
+                <button class="btn btn-outline" id="btn-toggle-all" onclick="toggleAllCards()" style="background:#f8fafc; border-color:#cbd5e1; color:#475569;">🔽 ขยายทั้งหมด</button>
             </div>
-            <div id="search-stats" style="font-size: 0.85rem; color: #64748b;"></div>
+            <div id="search-stats" style="font-size: 0.85rem; color: #64748b; margin-top: 10px;"></div>
         </div>
 
         <div id="admin-toolbar" class="hidden" style="margin-bottom: 20px; display:flex; gap:10px; flex-wrap: wrap;">
@@ -179,6 +180,12 @@
         <input type="text" id="master-gen-name" placeholder="ชื่อยาสามัญ">
         <label style="font-size:0.9rem; font-weight:bold; margin-top:10px; display:block;">กลุ่มยา (Pharmacology)</label>
         <div id="gen-pharm-checkbox-group" class="chip-container"></div>
+        
+        <div style="display:flex; gap:5px; margin-top:10px;">
+            <input type="text" id="inline-new-pharm" placeholder="+ พิมพ์ชื่อกลุ่มยาใหม่ที่นี่" style="margin:0; flex:1; padding:8px 12px; font-size:0.85rem;">
+            <button class="btn btn-outline" style="margin:0; color:var(--indigo); border-color:var(--indigo); min-height:auto; font-size:0.85rem; padding: 0 12px;" onclick="addNewPharmInline()">เพิ่ม</button>
+        </div>
+
         <textarea id="master-gen-note" style="margin-top:15px;" placeholder="บันทึกยาสามัญ (Generic Note)..."></textarea>
         <button class="btn btn-success" style="width:100%; margin-top:15px; height:42px;" onclick="saveMasterGeneric()">บันทึกยาสามัญ</button>
     </div>
@@ -280,6 +287,29 @@
 
     async function fetchPharmClasses() { const { data } = await supabaseClient.from('pharm_classes').select('*').order('class_name'); allPharmClasses = data || []; renderPharmSidebar(); const group = document.getElementById('gen-pharm-checkbox-group'); if (group) group.innerHTML = allPharmClasses.map(c => `<div><input type="checkbox" id="p-${c.class_name}" name="gen-pharm" value="${c.class_name}"><label for="p-${c.class_name}">${c.class_name}</label></div>`).join(''); document.getElementById('master-pharm-list').innerHTML = allPharmClasses.map(c => `<div class="list-item"><span>${c.class_name}</span><button onclick="deleteMaster('pharm_classes','class_name','${c.class_name}')">🗑️</button></div>`).join(''); }
     async function saveMasterPharm() { await supabaseClient.from('pharm_classes').upsert({ class_name: document.getElementById('master-pharm-name').value }); document.getElementById('master-pharm-name').value = ''; fetchPharmClasses(); fetchDrugs(); }
+    
+    // ✨ ฟังก์ชันเพิ่มกลุ่มยาทางลัดจากหน้าจัดการยาสามัญ ✨
+    async function addNewPharmInline() {
+        const newClass = document.getElementById('inline-new-pharm').value.trim();
+        if (!newClass) return;
+
+        // จำค่าที่เคยติ๊กไว้
+        const currentChecked = Array.from(document.querySelectorAll('input[name="gen-pharm"]:checked')).map(cb => cb.value);
+        
+        const { error } = await supabaseClient.from('pharm_classes').upsert({ class_name: newClass });
+        if (error) return alert("เกิดข้อผิดพลาด: " + error.message);
+
+        document.getElementById('inline-new-pharm').value = '';
+        
+        await fetchPharmClasses(); // ดึงรายชื่อกลุ่มยาใหม่ทั้งหมด
+        
+        // ติ๊กของเดิม + ของใหม่ ให้เหมือนเดิม
+        currentChecked.push(newClass);
+        document.querySelectorAll('input[name="gen-pharm"]').forEach(cb => {
+            if (currentChecked.includes(cb.value)) cb.checked = true;
+        });
+    }
+
     function togglePharmFilter(className) { if (selectedPharmFilters.includes(className)) selectedPharmFilters = selectedPharmFilters.filter(c => c !== className); else selectedPharmFilters.push(className); renderPharmSidebar(); filterDrugs(); }
     function renderPharmSidebar() { const sidebar = document.getElementById('sidebar-pharm-filters'); if (allPharmClasses.length === 0) return sidebar.innerHTML = '<div style="color:gray; font-size:0.8rem;">ไม่มีข้อมูล</div>'; sidebar.innerHTML = allPharmClasses.map(c => { const isActive = selectedPharmFilters.includes(c.class_name) ? 'active' : ''; return `<div class="filter-pill ${isActive}" onclick="togglePharmFilter('${c.class_name}')"><span>${c.class_name}</span></div>`; }).join(''); }
 
@@ -407,7 +437,17 @@
         updateToggleAllButton();
     }
 
-    async function saveMasterGeneric() { const generic_code = document.getElementById('master-gen-code').value; const { error } = await supabaseClient.from('generics').upsert({ generic_code, generic_name: document.getElementById('master-gen-name').value, special_note: document.getElementById('master-gen-note').value }); if (error) return alert("เกิดข้อผิดพลาด: " + error.message); await supabaseClient.from('generic_pharm_mapping').delete().eq('generic_code', generic_code); const selectedPharm = Array.from(document.querySelectorAll('input[name="gen-pharm"]:checked')).map(cb => ({ generic_code, class_name: cb.value })); if (selectedPharm.length > 0) await supabaseClient.from('generic_pharm_mapping').insert(selectedPharm); alert('✅ บันทึกสำเร็จ!'); document.getElementById('master-gen-code').disabled = false; document.getElementById('master-gen-code').value = ''; document.getElementById('master-gen-name').value = ''; document.getElementById('master-gen-note').value = ''; fetchGenerics(); fetchDrugs(); }
+    async function saveMasterGeneric() { 
+        const generic_code = document.getElementById('master-gen-code').value; 
+        const { error } = await supabaseClient.from('generics').upsert({ generic_code, generic_name: document.getElementById('master-gen-name').value, special_note: document.getElementById('master-gen-note').value }); 
+        if (error) return alert("เกิดข้อผิดพลาด: " + error.message); 
+        await supabaseClient.from('generic_pharm_mapping').delete().eq('generic_code', generic_code); 
+        const selectedPharm = Array.from(document.querySelectorAll('input[name="gen-pharm"]:checked')).map(cb => ({ generic_code, class_name: cb.value })); 
+        if (selectedPharm.length > 0) await supabaseClient.from('generic_pharm_mapping').insert(selectedPharm); 
+        alert('✅ บันทึกสำเร็จ!'); 
+        document.getElementById('master-gen-code').disabled = false; document.getElementById('master-gen-code').value = ''; document.getElementById('master-gen-name').value = ''; document.getElementById('master-gen-note').value = ''; 
+        fetchGenerics(); fetchDrugs(); 
+    }
 
     function filterGenericOptions() { const q = (document.getElementById('search-generic-input').value || '').toLowerCase(); const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); document.getElementById('select-generic').innerHTML = filtered.map(g => `<option value="${g.generic_code}">${g.generic_name}</option>`).join(''); }
     function filterMasterGenericList() { const q = (document.getElementById('search-master-generic').value || '').toLowerCase(); const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); document.getElementById('master-generic-list').innerHTML = filtered.map(g => { const sCode = encodeHTML(g.generic_code); return `<div class="list-item"><span>${g.generic_name}</span> <div><button onclick="openEditGeneric('${sCode}')">✏️</button> <button onclick="deleteMaster('generics','generic_code','${sCode}')">🗑️</button></div></div>`; }).join(''); }
