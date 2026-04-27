@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rama Clinic Pharmacy DB - Stable Filter</title>
+    <title>Rama Clinic Pharmacy DB - Stable Release</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -32,7 +32,6 @@
         .btn-outline { background: transparent; border: 1px solid #ddd; }
         input, select, textarea { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-family: inherit; }
         
-        /* ✨ Card Themes & Collapsible CSS ✨ */
         .drug-card { background: white; border-radius: 12px; padding: 20px 25px; margin-bottom: 20px; border-left: 6px solid var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: 0.3s; }
         .card-ed { border-left-color: var(--success); } 
         .card-ned { border-left-color: var(--danger); background-color: #fef2f2; } 
@@ -246,12 +245,10 @@
         }).join('');
     }
 
-    // ✨ พระเอกของเรา: ฟังก์ชันค้นหาที่ปลอดภัยจากการพัง 100% ✨
     function filterDrugs() {
         const q = (document.getElementById('main-search').value || '').toLowerCase();
         
         const filtered = allDrugsRaw.filter(d => {
-            // ป้องกัน TypeError ด้วยการใส่ || '' เพื่อให้มั่นใจว่าเป็น String เสมอ
             const matchName = (d.drug_name || '').toLowerCase().includes(q);
             const matchCode = (d.drug_code || '').toLowerCase().includes(q);
             const matchNote = (d.special_note || '').toLowerCase().includes(q);
@@ -298,6 +295,16 @@
 
         allDrugsRaw = data || [];
         filterDrugs(); 
+    }
+
+    // ✨ ฟังก์ชันที่ตกหล่นไป กลับมาแล้วครับ ✨
+    function formatConc(min, max) {
+        if (!min && !max) return '';
+        let t = '<br><small style="color:var(--danger)"><b>ความเข้มข้น:</b> ';
+        if (min && max) t += `${min} - ${max} mg/mL`; 
+        else if (max) t += `ไม่เกิน ${max} mg/mL`; 
+        else t += `ไม่น้อยกว่า ${min} mg/mL`;
+        return t + '</small>';
     }
 
     function renderDrugs(drugs) {
