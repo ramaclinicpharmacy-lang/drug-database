@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rama Clinic Pharmacy DB - Collapsible Cards</title>
+    <title>Rama Clinic Pharmacy DB - Stable Filter</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -143,21 +143,24 @@
     let isAdmin = false, allDrugsRaw = [], allGenerics = [], allRoutes = [], allFluids = [], allDosageForms = [], allTags = [], allNlem = [], allPharmClasses = [];
     let editingAdminId = null; let currentAdminsList = [];
     let selectedPharmFilters = []; 
-    
-    // ✨ State สำหรับจำว่าการ์ดไหนถูกกางอยู่ ✨
     let expandedCards = new Set();
 
     async function init() {
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        isAdmin = !!session;
-        if (isAdmin) {
-            document.getElementById('user-info').classList.remove('hidden');
-            document.getElementById('user-email').innerText = session.user.email || '';
-            document.getElementById('login-btn').classList.add('hidden');
-            document.getElementById('admin-toolbar').classList.remove('hidden');
-            document.getElementById('btn-manage-pharm').classList.remove('hidden'); 
+        try {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            isAdmin = !!session;
+            if (isAdmin) {
+                document.getElementById('user-info').classList.remove('hidden');
+                document.getElementById('user-email').innerText = session.user.email || '';
+                document.getElementById('login-btn').classList.add('hidden');
+                document.getElementById('admin-toolbar').classList.remove('hidden');
+                document.getElementById('btn-manage-pharm').classList.remove('hidden'); 
+            }
+            await loadAllData();
+        } catch (err) {
+            console.error("Init Error:", err);
+            document.getElementById('drug-list-container').innerHTML = `<div style="text-align:center; padding:20px; color:red;"><b>เกิดข้อผิดพลาดในระบบ:</b> ${err.message}</div>`;
         }
-        await loadAllData();
     }
 
     async function loadAllData() {
@@ -172,7 +175,6 @@
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
     window.onclick = function(event) { if (event.target.classList.contains('modal')) event.target.style.display = "none"; }
 
-    // --- ✨ Toggle Expand/Collapse Functions ✨ ---
     function toggleCard(code) {
         const body = document.getElementById('body-' + code);
         const icon = document.getElementById('icon-' + code);
@@ -191,7 +193,7 @@
     function toggleAllCards() {
         const totalCards = document.querySelectorAll('.drug-card').length;
         const expandedCount = document.querySelectorAll('.card-body.expanded').length;
-        const isExpanding = expandedCount < totalCards; // ถ้ายุบอยู่แม้แต่อันเดียว ให้ถือว่าเป็นการกดเพื่อขยายทั้งหมด
+        const isExpanding = expandedCount < totalCards; 
         
         document.querySelectorAll('.drug-card').forEach(card => {
             const code = card.dataset.code;
@@ -215,15 +217,10 @@
         const totalCards = document.querySelectorAll('.drug-card').length;
         const expandedCount = document.querySelectorAll('.card-body.expanded').length;
         const btn = document.getElementById('btn-toggle-all');
-        
-        if (totalCards > 0 && expandedCount === totalCards) {
-            btn.innerHTML = "🔼 ยุบทั้งหมด";
-        } else {
-            btn.innerHTML = "🔽 ขยายทั้งหมด";
-        }
+        if (totalCards > 0 && expandedCount === totalCards) btn.innerHTML = "🔼 ยุบทั้งหมด";
+        else btn.innerHTML = "🔽 ขยายทั้งหมด";
     }
 
-    // --- Sidebar & Filters ---
     async function fetchPharmClasses() {
         const { data } = await supabaseClient.from('pharm_classes').select('*').order('class_name');
         allPharmClasses = data || [];
@@ -249,21 +246,33 @@
         }).join('');
     }
 
+    // ✨ พระเอกของเรา: ฟังก์ชันค้นหาที่ปลอดภัยจากการพัง 100% ✨
     function filterDrugs() {
-        const q = document.getElementById('main-search').value.toLowerCase();
+        const q = (document.getElementById('main-search').value || '').toLowerCase();
+        
         const filtered = allDrugsRaw.filter(d => {
-            const mTags = d.drug_tag_mapping?.some(t => t.tag_name.toLowerCase().includes(q)) || false;
-            const mNlem = d.drug_nlem_mapping?.some(n => n.nlem_code.toLowerCase().includes(q) || n.condition_note?.toLowerCase().includes(q)) || false;
-            const matchText = d.drug_name?.toLowerCase().includes(q) || d.drug_code?.toLowerCase().includes(q) || d.special_note?.toLowerCase().includes(q) || mTags || mNlem || d.drug_contents?.some(c => c.generics?.generic_name?.toLowerCase().includes(q) || c.generics?.special_note?.toLowerCase().includes(q));
+            // ป้องกัน TypeError ด้วยการใส่ || '' เพื่อให้มั่นใจว่าเป็น String เสมอ
+            const matchName = (d.drug_name || '').toLowerCase().includes(q);
+            const matchCode = (d.drug_code || '').toLowerCase().includes(q);
+            const matchNote = (d.special_note || '').toLowerCase().includes(q);
+            
+            const mTags = (d.drug_tag_mapping || []).some(t => (t.tag_name || '').toLowerCase().includes(q));
+            const mNlem = (d.drug_nlem_mapping || []).some(n => (n.nlem_code || '').toLowerCase().includes(q) || (n.condition_note || '').toLowerCase().includes(q));
+            const mContents = (d.drug_contents || []).some(c => (c.generics?.generic_name || '').toLowerCase().includes(q) || (c.generics?.special_note || '').toLowerCase().includes(q));
+
+            const matchText = matchName || matchCode || matchNote || mTags || mNlem || mContents;
 
             let matchPharm = true;
             if (selectedPharmFilters.length > 0) {
                 const drugPharmClasses = new Set();
-                d.drug_contents?.forEach(c => { c.generics?.generic_pharm_mapping?.forEach(pm => drugPharmClasses.add(pm.class_name)); });
+                (d.drug_contents || []).forEach(c => { 
+                    (c.generics?.generic_pharm_mapping || []).forEach(pm => drugPharmClasses.add(pm.class_name)); 
+                });
                 matchPharm = selectedPharmFilters.some(filter => drugPharmClasses.has(filter));
             }
             return matchText && matchPharm;
         });
+
         renderDrugs(filtered);
         document.getElementById('search-stats').innerText = q || selectedPharmFilters.length > 0 ? `พบ ${filtered.length} รายการ` : '';
     }
@@ -277,16 +286,13 @@
             drug_administrations(id, instructions, min_conc_mg_ml, max_conc_mg_ml, routes(route_name, route_code), administration_fluids(fluid_short_name))
         `).order('drug_name');
         
-        // ✨ โค้ดดักจับ Error และแสดงหน้าจอให้คุณเห็นทันที ✨
         if (error) {
             console.error("Supabase Error:", error);
             document.getElementById('drug-list-container').innerHTML = `
                 <div style="text-align:center; padding:50px; color:var(--danger); background: white; border-radius: 12px; border: 2px solid var(--danger); margin: 20px;">
                     <h3 style="margin-top:0;">❌ ข้อมูลไม่สามารถโหลดได้</h3>
                     <p style="font-family: monospace; background: #fee2e2; padding: 10px; border-radius: 8px;">${error.message}</p>
-                    <p style="font-size: 0.9rem; color: gray;">(โปรดตรวจสอบใน Console (F12) หรือรัน SQL เพื่อสร้างตารางให้ครบถ้วน)</p>
-                </div>
-            `;
+                </div>`;
             return;
         }
 
