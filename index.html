@@ -267,8 +267,40 @@
     }
 
     async function fetchDrugs() {
-        const { data, error } = await supabaseClient.from('drugs').select(`*, drug_tag_mapping(tag_name), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, special_note, generic_pharm_mapping(class_name))), drug_administrations(id, instructions, min_conc, max_conc, conc_unit, routes(route_name, route_code), administration_fluids(fluid_short_name))`).order('drug_name');
-        if (error) return; allDrugsRaw = data || []; filterDrugs(); 
+        let fetchedData = [];
+        let from = 0;
+        const step = 1000;
+        let hasMore = true;
+
+        while (hasMore) {
+            const { data, error } = await supabaseClient.from('drugs').select(`
+                *, 
+                drug_tag_mapping(tag_name),
+                drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)),
+                drug_contents(amount, unit, generics(generic_name, generic_code, special_note, generic_pharm_mapping(class_name))), 
+                drug_administrations(id, instructions, min_conc, max_conc, conc_unit, routes(route_name, route_code), administration_fluids(fluid_short_name))
+            `)
+            .order('drug_name')
+            .range(from, from + step - 1); // ดึงทีละ 1000 รายการ
+            
+            if (error) {
+                console.error("Supabase Error:", error);
+                document.getElementById('drug-list-container').innerHTML = `<div style="text-align:center; padding:50px; color:var(--danger); background: white; border-radius: 12px; border: 2px solid var(--danger); margin: 20px;"><h3 style="margin-top:0;">❌ ข้อมูลไม่สามารถโหลดได้</h3><p style="font-family: monospace; background: #fee2e2; padding: 10px; border-radius: 8px;">${error.message}</p></div>`;
+                return;
+            }
+
+            fetchedData = fetchedData.concat(data);
+            
+            // ถ้าดึงมาได้น้อยกว่า 1000 แปลว่าหมดแล้ว ให้หยุดลูป
+            if (data.length < step) {
+                hasMore = false;
+            } else {
+                from += step;
+            }
+        }
+
+        allDrugsRaw = fetchedData; 
+        filterDrugs(); 
     }
 
     function formatConc(min, max, unit) { if (!min && !max) return ''; const u = unit || 'mg/mL'; let t = '<br><small style="color:var(--danger)"><b>ความเข้มข้น:</b> '; if (min && max) t += `${min} - ${max} ${u}`; else if (max) t += `ไม่เกิน ${max} ${u}`; else t += `ไม่น้อยกว่า ${min} ${u}`; return t + '</small>'; }
@@ -327,7 +359,36 @@
 
     function filterGenericOptions() { const q = (document.getElementById('search-generic-input').value || '').toLowerCase(); const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); document.getElementById('select-generic').innerHTML = filtered.map(g => `<option value="${g.generic_code}">${g.generic_name}</option>`).join(''); }
     function filterMasterGenericList() { const q = (document.getElementById('search-master-generic').value || '').toLowerCase(); const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); document.getElementById('master-generic-list').innerHTML = filtered.map(g => { const sCode = encodeHTML(g.generic_code); return `<div class="list-item"><span>${g.generic_name}</span> <div><button onclick="openEditGeneric('${sCode}')">✏️</button> <button onclick="deleteMaster('generics','generic_code','${sCode}')">🗑️</button></div></div>`; }).join(''); }
-    async function fetchGenerics() { const {data} = await supabaseClient.from('generics').select('*, generic_pharm_mapping(class_name)').order('generic_name'); allGenerics = data||[]; filterGenericOptions(); filterMasterGenericList(); }
+    async function fetchGenerics() { 
+        let fetchedData = [];
+        let from = 0;
+        const step = 1000;
+        let hasMore = true;
+
+        while (hasMore) {
+            const { data, error } = await supabaseClient.from('generics')
+                .select('*, generic_pharm_mapping(class_name)')
+                .order('generic_name')
+                .range(from, from + step - 1); // ดึงทีละ 1000 รายการ
+
+            if (error) {
+                console.error("Generics Fetch Error:", error);
+                break;
+            }
+
+            fetchedData = fetchedData.concat(data);
+
+            if (data.length < step) {
+                hasMore = false;
+            } else {
+                from += step;
+            }
+        }
+
+        allGenerics = fetchedData; 
+        filterGenericOptions(); 
+        filterMasterGenericList(); 
+    }
     function openEditGeneric(code) { const gen = allGenerics.find(g => g.generic_code === code); if(!gen) return; document.getElementById('master-gen-code').value = gen.generic_code; document.getElementById('master-gen-code').disabled = true; document.getElementById('master-gen-name').value = gen.generic_name; document.getElementById('master-gen-note').value = gen.special_note || ''; const currentPharm = (gen.generic_pharm_mapping || []).map(pm => pm.class_name); document.querySelectorAll('input[name="gen-pharm"]').forEach(cb => cb.checked = currentPharm.includes(cb.value)); openModal('generic-master-modal'); }
 
     async function fetchNlemMaster() { const { data } = await supabaseClient.from('nlem_categories').select('*').order('category_code'); allNlem = data || []; document.getElementById('select-nlem').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); document.getElementById('bulk-nlem-select').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); document.getElementById('master-nlem-list').innerHTML = allNlem.map(n => `<div class="list-item"><span><b>${n.category_code}</b> ${n.description||''}</span><button onclick="deleteMaster('nlem_categories','category_code','${n.category_code}')">🗑️</button></div>`).join(''); }
