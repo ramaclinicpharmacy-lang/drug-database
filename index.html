@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rama Clinic Pharmacy DB - Ultimate Stable</title>
+    <title>Rama Clinic Pharmacy DB - Fixed Fetch Error</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -13,7 +13,6 @@
         .layout-wrapper { display: flex; gap: 20px; max-width: 1300px; margin: auto; align-items: flex-start; }
         .main-content { flex: 1; min-width: 0; }
         
-        /* ✨ Sidebar Auto-Hide Logic ✨ */
         .sidebar { 
             width: 260px; background: white; padding: 20px; border-radius: 12px; 
             box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: sticky; top: 20px; 
@@ -31,7 +30,6 @@
 
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* ✨ Sidebar Filters Collapsible Style ✨ */
         .filter-header { 
             display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
             margin-top: 0; border-bottom: 2px solid; padding-bottom: 10px; margin-bottom: 10px; 
@@ -189,6 +187,7 @@
             <button class="btn btn-info" onclick="openModal('route-master-modal')" style="background:var(--info); color:white;">💉 ช่องทาง</button>
             <button class="btn btn-purple" onclick="openModal('fluid-master-modal')" style="background:var(--purple); color:white;">💧 สารน้ำ</button>
             <button class="btn" onclick="openModal('form-master-modal')" style="background:var(--indigo); color:white;">📦 ชนิดยา</button>
+            <button class="btn btn-outline" style="border-color:var(--primary); color:var(--primary);" onclick="openModal('pharm-master-modal')">⚙️ จัดการกลุ่มยา</button>
         </div>
 
         <div class="pagination-container" id="pagination-wrapper" style="display:none;">
@@ -321,6 +320,7 @@
                 document.getElementById('user-email').innerText = session.user.email || '';
                 document.getElementById('login-btn').classList.add('hidden');
                 document.getElementById('admin-toolbar').classList.remove('hidden');
+                document.getElementById('btn-manage-pharm').classList.remove('hidden'); 
                 setupSessionTimeout();
             }
             await loadAllData();
@@ -334,7 +334,19 @@
     async function logoutDueToInactivity() { alert("⚠️ เซสชันหมดอายุเนื่องจากไม่ได้ใช้งานเกิน 30 นาที\nระบบได้ออกจากระบบโดยอัตโนมัติ"); await handleLogout(); }
     function setupSessionTimeout() { window.onload = resetTimer; document.onmousemove = resetTimer; document.onkeypress = resetTimer; document.onclick = resetTimer; document.onscroll = resetTimer; resetTimer(); }
 
-    async function loadAllData() { await Promise.all([ fetchPharmClasses(), fetchGenerics(), fetchRoutes(), fetchFluids(), fetchDosageForms(), fetchTags(), fetchNlemMaster() ]); await fetchDrugs(); }
+    // ✨ ฟังก์ชันกู้คืนการดึงข้อมูล Master Table ที่หายไป ✨
+    async function loadAllData() { 
+        await Promise.all([ 
+            fetchPharmClasses(), 
+            fetchGenerics(), 
+            fetchRoutes(), 
+            fetchFluids(), 
+            fetchDosageForms(), 
+            fetchTags(), 
+            fetchNlemMaster() 
+        ]); 
+        await fetchDrugs(); 
+    }
 
     function encodeHTML(str) { return !str ? '' : str.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
     async function handleLogin() { const {error} = await supabaseClient.auth.signInWithPassword({ email: document.getElementById('auth-email').value, password: document.getElementById('auth-pw').value }); if(error) alert(error.message); else location.reload(); }
@@ -348,7 +360,6 @@
     function toggleAllCards() { const totalCards = document.querySelectorAll('.drug-card').length; const expandedCount = document.querySelectorAll('.card-body.expanded').length; const isExpanding = expandedCount < totalCards; document.querySelectorAll('.drug-card').forEach(card => { const code = card.dataset.code; const body = card.querySelector('.card-body'); const icon = card.querySelector('.toggle-icon'); if (isExpanding) { expandedCards.add(code); body.classList.add('expanded'); icon.style.transform = "rotate(90deg)"; } else { expandedCards.delete(code); body.classList.remove('expanded'); icon.style.transform = "rotate(0deg)"; } }); updateToggleAllButton(); }
     function updateToggleAllButton() { const totalCards = document.querySelectorAll('.drug-card').length; const expandedCount = document.querySelectorAll('.card-body.expanded').length; const btn = document.getElementById('btn-toggle-all'); if (totalCards > 0 && expandedCount === totalCards) btn.innerHTML = "🔼 ยุบทั้งหมด"; else btn.innerHTML = "🔽 ขยายทั้งหมด"; }
 
-    // ✨ Sidebar Filters Collapsible Logic ✨
     function toggleFilterGroup(groupId) {
         const body = document.getElementById('body-' + groupId);
         const icon = document.getElementById('icon-' + groupId);
@@ -365,29 +376,30 @@
     function filterSidebarNlem() { const input = document.getElementById('search-nlem-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-nlem-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
     function toggleNlemFilter(code) { if (selectedNlemFilters.includes(code)) selectedNlemFilters = selectedNlemFilters.filter(n => n !== code); else selectedNlemFilters.push(code); renderNlemSidebar(); filterDrugs(); }
     function renderNlemSidebar() { const sidebar = document.getElementById('sidebar-nlem-filters'); if (allNlem.length === 0) return sidebar.innerHTML = '<div style="color:gray; font-size:0.8rem;">ไม่มีข้อมูล</div>'; sidebar.innerHTML = allNlem.map(n => { const isActive = selectedNlemFilters.includes(n.category_code) ? 'active' : ''; return `<div class="filter-pill ${isActive}" onclick="toggleNlemFilter('${n.category_code}')" style="${isActive ? 'background:var(--pink); border-color:var(--pink);' : ''}"><span>${n.category_code}</span></div>`; }).join(''); filterSidebarNlem(); }
-
-    async function fetchNlemMaster() { const { data } = await supabaseClient.from('nlem_categories').select('*').order('category_code'); allNlem = data || []; renderNlemSidebar(); document.getElementById('select-nlem').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); document.getElementById('bulk-nlem-select').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); document.getElementById('master-nlem-list').innerHTML = allNlem.map(n => `<div class="list-item"><span><b>${n.category_code}</b> ${n.description||''}</span><button onclick="deleteMaster('nlem_categories','category_code','${n.category_code}')">🗑️</button></div>`).join(''); }
+    async function fetchNlemMaster() { const { data } = await supabaseClient.from('nlem_categories').select('*').order('category_code'); allNlem = data || []; renderNlemSidebar(); document.getElementById('select-nlem').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); document.getElementById('bulk-nlem-select').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); document.getElementById('master-nlem-list').innerHTML = allNlem.map(n => `<div class="list-item"><span><b>${n.category_code}</b> ${n.description||''}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('nlem_categories','category_code','${n.category_code}')">🗑️</button></div>`).join(''); }
 
     // ✨ 2. Form Filters ✨
     function filterSidebarForms() { const input = document.getElementById('search-form-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-form-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
     function toggleFormFilter(formName) { if (selectedFormFilters.includes(formName)) selectedFormFilters = selectedFormFilters.filter(f => f !== formName); else selectedFormFilters.push(formName); renderFormSidebar(); filterDrugs(); }
     function renderFormSidebar() { const sidebar = document.getElementById('sidebar-form-filters'); if (allDosageForms.length === 0) return sidebar.innerHTML = '<div style="color:gray; font-size:0.8rem;">ไม่มีข้อมูล</div>'; sidebar.innerHTML = allDosageForms.map(f => { const isActive = selectedFormFilters.includes(f.form_name) ? 'active' : ''; return `<div class="filter-pill ${isActive}" onclick="toggleFormFilter('${f.form_name}')" style="${isActive ? 'background:var(--indigo); border-color:var(--indigo);' : ''}"><span>${f.form_name}</span></div>`; }).join(''); filterSidebarForms(); }
-    
-    async function fetchDosageForms() { const { data } = await supabaseClient.from('dosage_forms').select('*').order('form_name'); allDosageForms = data || []; renderFormSidebar(); document.getElementById('form-drug-type').innerHTML = allDosageForms.map(f => `<option value="${f.form_name}">${f.form_name}</option>`).join(''); document.getElementById('master-form-list').innerHTML = allDosageForms.map(f => `<div class="list-item"><span>${f.form_name}</span><button onclick="deleteMaster('dosage_forms','form_name','${f.form_name}')">🗑️</button></div>`).join(''); }
+    async function fetchDosageForms() { const { data } = await supabaseClient.from('dosage_forms').select('*').order('form_name'); allDosageForms = data || []; renderFormSidebar(); document.getElementById('form-drug-type').innerHTML = allDosageForms.map(f => `<option value="${f.form_name}">${f.form_name}</option>`).join(''); document.getElementById('master-form-list').innerHTML = allDosageForms.map(f => `<div class="list-item"><span>${f.form_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('dosage_forms','form_name','${f.form_name}')">🗑️</button></div>`).join(''); }
 
     // ✨ 3. Route Filters ✨
     function filterSidebarRoutes() { const input = document.getElementById('search-route-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-route-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
     function toggleRouteFilter(code) { if (selectedRouteFilters.includes(code)) selectedRouteFilters = selectedRouteFilters.filter(r => r !== code); else selectedRouteFilters.push(code); renderRouteSidebar(); filterDrugs(); }
     function renderRouteSidebar() { const sidebar = document.getElementById('sidebar-route-filters'); if (allRoutes.length === 0) return sidebar.innerHTML = '<div style="color:gray; font-size:0.8rem;">ไม่มีข้อมูล</div>'; sidebar.innerHTML = allRoutes.map(r => { const isActive = selectedRouteFilters.includes(r.route_code) ? 'active' : ''; return `<div class="filter-pill ${isActive}" onclick="toggleRouteFilter('${r.route_code}')" style="${isActive ? 'background:var(--success); border-color:var(--success);' : ''}"><span>${r.route_code} - ${r.route_name}</span></div>`; }).join(''); filterSidebarRoutes(); }
-
-    async function fetchRoutes() { const { data } = await supabaseClient.from('routes').select('*').order('route_code'); allRoutes = data || []; renderRouteSidebar(); document.getElementById('select-route').innerHTML = allRoutes.map(r => `<option value="${r.route_code}">${r.route_name}</option>`).join(''); document.getElementById('master-route-list').innerHTML = allRoutes.map(r => `<div class="list-item"><span><b>${r.route_code}:</b> ${r.route_name}</span><button onclick="deleteMaster('routes','route_code','${r.route_code}')">🗑️</button></div>`).join(''); }
+    async function fetchRoutes() { const { data } = await supabaseClient.from('routes').select('*').order('route_code'); allRoutes = data || []; renderRouteSidebar(); document.getElementById('select-route').innerHTML = allRoutes.map(r => `<option value="${r.route_code}">${r.route_name}</option>`).join(''); document.getElementById('master-route-list').innerHTML = allRoutes.map(r => `<div class="list-item"><span><b>${r.route_code}:</b> ${r.route_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('routes','route_code','${r.route_code}')">🗑️</button></div>`).join(''); }
 
     // ✨ 4. Pharm Filters ✨
     function filterSidebarPharms() { const input = document.getElementById('search-pharm-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-pharm-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
     function togglePharmFilter(className) { if (selectedPharmFilters.includes(className)) selectedPharmFilters = selectedPharmFilters.filter(c => c !== className); else selectedPharmFilters.push(className); renderPharmSidebar(); filterDrugs(); }
     function renderPharmSidebar() { const sidebar = document.getElementById('sidebar-pharm-filters'); if (allPharmClasses.length === 0) return sidebar.innerHTML = '<div style="color:gray; font-size:0.8rem;">ไม่มีข้อมูล</div>'; sidebar.innerHTML = allPharmClasses.map(c => { const isActive = selectedPharmFilters.includes(c.class_name) ? 'active' : ''; return `<div class="filter-pill ${isActive}" onclick="togglePharmFilter('${c.class_name}')"><span>${c.class_name}</span></div>`; }).join(''); filterSidebarPharms(); }
+    async function fetchPharmClasses() { const { data } = await supabaseClient.from('pharm_classes').select('*').order('class_name'); allPharmClasses = data || []; renderPharmSidebar(); const group = document.getElementById('gen-pharm-checkbox-group'); if (group) group.innerHTML = allPharmClasses.map(c => `<div><input type="checkbox" id="p-${c.class_name}" name="gen-pharm" value="${c.class_name}"><label for="p-${c.class_name}">${c.class_name}</label></div>`).join(''); document.getElementById('master-pharm-list').innerHTML = allPharmClasses.map(c => `<div class="list-item"><span>${c.class_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('pharm_classes','class_name','${c.class_name}')">🗑️</button></div>`).join(''); }
 
-    async function fetchPharmClasses() { const { data } = await supabaseClient.from('pharm_classes').select('*').order('class_name'); allPharmClasses = data || []; renderPharmSidebar(); const group = document.getElementById('gen-pharm-checkbox-group'); if (group) group.innerHTML = allPharmClasses.map(c => `<div><input type="checkbox" id="p-${c.class_name}" name="gen-pharm" value="${c.class_name}"><label for="p-${c.class_name}">${c.class_name}</label></div>`).join(''); document.getElementById('master-pharm-list').innerHTML = allPharmClasses.map(c => `<div class="list-item"><span>${c.class_name}</span><button onclick="deleteMaster('pharm_classes','class_name','${c.class_name}')">🗑️</button></div>`).join(''); }
+    // ✨ Fetch Fluids & Tags Master ✨
+    async function fetchFluids() { const { data } = await supabaseClient.from('fluids').select('*').order('short_name'); allFluids = data || []; const group = document.getElementById('fluid-checkbox-group'); if (group) group.innerHTML = allFluids.map(f => `<div><input type="checkbox" id="fluid-${f.short_name}" name="comp-fluids" value="${f.short_name}"><label for="fluid-${f.short_name}">${f.short_name}</label></div>`).join(''); document.getElementById('master-fluid-list').innerHTML = allFluids.map(f => `<div class="list-item"><span><b>${f.short_name}:</b> ${f.full_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('fluids','short_name','${f.short_name}')">🗑️</button></div>`).join(''); }
+    async function fetchTags() { const { data } = await supabaseClient.from('drug_tags').select('*').order('tag_name'); allTags = data || []; const group = document.getElementById('drug-tags-checkbox-group'); if (group) group.innerHTML = allTags.map(t => `<div><input type="checkbox" id="tag-${t.tag_name}" name="drug-tags" value="${t.tag_name}"><label for="tag-${t.tag_name}">${t.tag_name}</label></div>`).join(''); document.getElementById('master-tag-list').innerHTML = allTags.map(t => `<div class="list-item"><span>${t.tag_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('drug_tags','tag_name','${t.tag_name}')">🗑️</button></div>`).join(''); }
+
 
     function changeItemsPerPage() { itemsPerPage = parseInt(document.getElementById('items-per-page-select').value); currentPage = 1; updatePaginationUI(); }
     function changePage(delta) { const totalPages = Math.ceil(filteredDrugsList.length / itemsPerPage) || 1; currentPage += delta; if (currentPage < 1) currentPage = 1; if (currentPage > totalPages) currentPage = totalPages; updatePaginationUI(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
@@ -401,7 +413,6 @@
             (d.drug_nlem_mapping||[]).some(n => (n.nlem_code||'').toLowerCase().includes(q) || (n.condition_note||'').toLowerCase().includes(q)) ||
             (d.drug_contents||[]).some(c => (c.generics?.generic_name||'').toLowerCase().includes(q) || (c.generics?.special_note||'').toLowerCase().includes(q));
             
-            // กรอง Pharm
             let matchPharm = true; 
             if (selectedPharmFilters.length > 0) { 
                 const drugPharmClasses = new Set(); 
@@ -409,20 +420,17 @@
                 matchPharm = selectedPharmFilters.some(filter => drugPharmClasses.has(filter)); 
             }
             
-            // กรอง Form
             let matchForm = true;
             if (selectedFormFilters.length > 0) {
                 matchForm = selectedFormFilters.includes(d.dosage_form);
             }
 
-            // ✨ กรอง NLEM ✨
             let matchNlem = true;
             if (selectedNlemFilters.length > 0) {
                 const drugNlemCodes = (d.drug_nlem_mapping || []).map(n => n.nlem_code);
                 matchNlem = selectedNlemFilters.some(filter => drugNlemCodes.includes(filter));
             }
 
-            // ✨ กรอง Route ✨
             let matchRoute = true;
             if (selectedRouteFilters.length > 0) {
                 const drugRoutes = (d.drug_administrations || []).map(a => a.routes?.route_code).filter(Boolean);
@@ -462,7 +470,6 @@
                 nlemNotes = drug.drug_nlem_mapping.filter(n => n.condition_note).map(n => `<div class="note-box nlem-note"><b>📋 เงื่อนไข ${n.nlem_code}:</b> ${n.condition_note}</div>`).join('');
             }
             
-            // ✨ สีกรองตามเงื่อนไขของคุณ ✨
             const tagsHtml = (drug.drug_tag_mapping || []).map(t => { 
                 let bg = 'var(--dark)'; 
                 if (t.tag_name.includes('ห้าม')) bg = 'var(--danger)'; 
@@ -502,9 +509,8 @@
     }
 
     async function saveMasterGeneric() { const generic_code = document.getElementById('master-gen-code').value; const { error } = await supabaseClient.from('generics').upsert({ generic_code, generic_name: document.getElementById('master-gen-name').value, special_note: document.getElementById('master-gen-note').value }); if (error) return alert("เกิดข้อผิดพลาด: " + error.message); await supabaseClient.from('generic_pharm_mapping').delete().eq('generic_code', generic_code); const selectedPharm = Array.from(document.querySelectorAll('input[name="gen-pharm"]:checked')).map(cb => ({ generic_code, class_name: cb.value })); if (selectedPharm.length > 0) await supabaseClient.from('generic_pharm_mapping').insert(selectedPharm); alert('✅ บันทึกสำเร็จ!'); document.getElementById('master-gen-code').disabled = false; document.getElementById('master-gen-code').value = ''; document.getElementById('master-gen-name').value = ''; document.getElementById('master-gen-note').value = ''; fetchGenerics(); fetchDrugs(); }
-
     function filterGenericOptions() { const q = (document.getElementById('search-generic-input').value || '').toLowerCase(); const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); document.getElementById('select-generic').innerHTML = filtered.map(g => `<option value="${g.generic_code}">${g.generic_name}</option>`).join(''); }
-    function filterMasterGenericList() { const q = (document.getElementById('search-master-generic').value || '').toLowerCase(); const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); document.getElementById('master-generic-list').innerHTML = filtered.map(g => { const sCode = encodeHTML(g.generic_code); return `<div class="list-item"><span>${g.generic_name}</span> <div><button onclick="openEditGeneric('${sCode}')">✏️</button> <button onclick="deleteMaster('generics','generic_code','${sCode}')">🗑️</button></div></div>`; }).join(''); }
+    function filterMasterGenericList() { const q = (document.getElementById('search-master-generic').value || '').toLowerCase(); const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); document.getElementById('master-generic-list').innerHTML = filtered.map(g => { const sCode = encodeHTML(g.generic_code); return `<div class="list-item"><span>${g.generic_name}</span> <div><button class="btn btn-outline" style="color:var(--primary); padding:2px 6px;" onclick="openEditGeneric('${sCode}')">✏️</button> <button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('generics','generic_code','${sCode}')">🗑️</button></div></div>`; }).join(''); }
     async function fetchGenerics() { let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; while (hasMore) { const { data, error } = await supabaseClient.from('generics').select('*, generic_pharm_mapping(class_name)').order('generic_name').range(from, from + step - 1); if (error) break; fetchedData = fetchedData.concat(data); if (data.length < step) hasMore = false; else from += step; } allGenerics = fetchedData; filterGenericOptions(); filterMasterGenericList(); }
     function openEditGeneric(code) { const gen = allGenerics.find(g => g.generic_code === code); if(!gen) return; document.getElementById('master-gen-code').value = gen.generic_code; document.getElementById('master-gen-code').disabled = true; document.getElementById('master-gen-name').value = gen.generic_name; document.getElementById('master-gen-note').value = gen.special_note || ''; const currentPharm = (gen.generic_pharm_mapping || []).map(pm => pm.class_name); document.querySelectorAll('input[name="gen-pharm"]').forEach(cb => cb.checked = currentPharm.includes(cb.value)); openModal('generic-master-modal'); }
 
@@ -516,7 +522,7 @@
 
     async function saveMasterNlem() { await supabaseClient.from('nlem_categories').upsert({ category_code: document.getElementById('master-nlem-code').value, description: document.getElementById('master-nlem-desc').value }); fetchNlemMaster(); }
     async function openNlemManager(c, n) { document.getElementById('target-nlem-drug-code').value = c; document.getElementById('target-nlem-drug-name').innerText = n; document.getElementById('input-nlem-note').value = ''; await fetchCurrentNlem(c); openModal('nlem-mapping-modal'); }
-    async function fetchCurrentNlem(c) { const { data } = await supabaseClient.from('drug_nlem_mapping').select('*').eq('drug_code', c); document.getElementById('current-nlem-list').innerHTML = (data || []).map(n => `<div class="list-item" style="flex-wrap:wrap; border-left:3px solid var(--pink);"><div style="flex:1;"><b>${n.nlem_code}</b><br><small style="color:gray">${n.condition_note || 'ไม่มีเงื่อนไข'}</small></div><button onclick="removeNlemMapping('${n.drug_code}', '${n.nlem_code}')">ลบ</button></div>`).join(''); }
+    async function fetchCurrentNlem(c) { const { data } = await supabaseClient.from('drug_nlem_mapping').select('*').eq('drug_code', c); document.getElementById('current-nlem-list').innerHTML = (data || []).map(n => `<div class="list-item" style="flex-wrap:wrap; border-left:3px solid var(--pink);"><div style="flex:1;"><b>${n.nlem_code}</b><br><small style="color:gray">${n.condition_note || 'ไม่มีเงื่อนไข'}</small></div><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="removeNlemMapping('${n.drug_code}', '${n.nlem_code}')">ลบ</button></div>`).join(''); }
     async function addNlemMapping() { const drug_code = document.getElementById('target-nlem-drug-code').value; await supabaseClient.from('drug_nlem_mapping').upsert({ drug_code, nlem_code: document.getElementById('select-nlem').value, condition_note: document.getElementById('input-nlem-note').value }); document.getElementById('input-nlem-note').value = ''; fetchCurrentNlem(drug_code); fetchDrugs(); }
     async function removeNlemMapping(d, n) { await supabaseClient.from('drug_nlem_mapping').delete().match({ drug_code: d, nlem_code: n }); fetchCurrentNlem(d); fetchDrugs(); }
     
@@ -530,8 +536,8 @@
     function openEditDrug(code) { const drug = allDrugsRaw.find(d => d.drug_code === code); if (!drug) return; document.getElementById('form-drug-code').value = drug.drug_code; document.getElementById('form-drug-code').disabled = true; document.getElementById('form-drug-name').value = drug.drug_name; document.getElementById('form-drug-type').value = drug.dosage_form || ''; document.getElementById('form-drug-note').value = drug.special_note || ''; const currentTags = (drug.drug_tag_mapping || []).map(t => t.tag_name); document.querySelectorAll('input[name="drug-tags"]').forEach(cb => { cb.checked = currentTags.includes(cb.value); }); openModal('drug-modal'); }
     async function saveDrug() { const drug_code = document.getElementById('form-drug-code').value; await supabaseClient.from('drugs').upsert({ drug_code, drug_name: document.getElementById('form-drug-name').value, dosage_form: document.getElementById('form-drug-type').value, special_note: document.getElementById('form-drug-note').value }); await supabaseClient.from('drug_tag_mapping').delete().eq('drug_code', drug_code); const selectedTags = Array.from(document.querySelectorAll('input[name="drug-tags"]:checked')).map(cb => ({ drug_code, tag_name: cb.value })); if (selectedTags.length > 0) await supabaseClient.from('drug_tag_mapping').insert(selectedTags); closeModal('drug-modal'); fetchDrugs(); }
     async function deleteDrug(code) { if(confirm("ลบข้อมูลยานี้ออกจากระบบ?")) { await supabaseClient.from('drugs').delete().eq('drug_code', code); fetchDrugs(); } }
-    async function fetchTags() { const { data } = await supabaseClient.from('drug_tags').select('*').order('tag_name'); allTags = data || []; const group = document.getElementById('drug-tags-checkbox-group'); if (group) group.innerHTML = allTags.map(t => `<div><input type="checkbox" id="tag-${t.tag_name}" name="drug-tags" value="${t.tag_name}"><label for="tag-${t.tag_name}">${t.tag_name}</label></div>`).join(''); document.getElementById('master-tag-list').innerHTML = allTags.map(t => `<div class="list-item"><span>${t.tag_name}</span><button onclick="deleteMaster('drug_tags','tag_name','${t.tag_name}')">🗑️</button></div>`).join(''); }
     async function saveMasterTag() { await supabaseClient.from('drug_tags').upsert({ tag_name: document.getElementById('master-tag-name').value }); fetchTags(); }
+    
     function resetAdminForm() { editingAdminId = null; document.getElementById('input-instruction').value = ''; document.getElementById('input-min-conc').value = ''; document.getElementById('input-max-conc').value = ''; document.getElementById('input-conc-unit').value = ''; document.querySelectorAll('input[name="comp-fluids"]').forEach(cb => cb.checked = false); document.getElementById('btn-save-admin').innerText = "+ บันทึกวิธีใช้"; document.getElementById('btn-cancel-edit').classList.add('hidden'); }
     
     async function openAdminManager(c, n) { document.getElementById('target-admin-drug-code').value = c; document.getElementById('target-admin-drug-name').innerText = n; resetAdminForm(); await fetchCurrentAdmins(c); openModal('admin-manager-modal'); }
