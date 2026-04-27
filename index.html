@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rama Clinic Pharmacy DB - Final Stable</title>
+    <title>Rama Clinic Pharmacy DB - Ultimate Stable</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        :root { --primary: #2563eb; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --info: #06b6d4; --purple: #8b5cf6; --indigo: #6366f1; --pink: #ec4899; --dark: #1e293b; --bg: #f1f5f9; }
+        :root { --primary: #2563eb; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --info: #06b6d4; --purple: #8b5cf6; --indigo: #6366f1; --pink: #ec4899; --dark: #1e293b; --bg: #f1f5f9; --line: #00B900; }
         body { font-family: 'Sarabun', sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: var(--dark); display: flex; flex-direction: column; min-height: 100vh; box-sizing: border-box; }
         
         .layout-wrapper { display: flex; gap: 20px; max-width: 1300px; margin: auto; align-items: flex-start; width: 100%; flex: 1; }
         .main-content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
         
+        /* Sidebar Auto-Hide Logic */
         .sidebar { 
             width: 260px; background: white; padding: 20px; border-radius: 12px; 
             box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: sticky; top: 20px; 
@@ -30,6 +31,7 @@
 
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
+        /* Sidebar Filters Collapsible Style */
         .filter-header { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; margin-top: 0; border-bottom: 2px solid; padding-bottom: 10px; margin-bottom: 10px; transition: opacity 0.2s; font-size: 1.1rem; font-weight: bold; }
         .filter-header:hover { opacity: 0.8; }
         .filter-toggle-icon { display: inline-block; width: 15px; transition: transform 0.3s ease; font-size: 0.9rem; }
@@ -46,6 +48,7 @@
         .filter-list-container::-webkit-scrollbar { width: 4px; }
         .filter-list-container::-webkit-scrollbar-thumb { background-color: #e2e8f0; border-radius: 10px; }
 
+        /* Admin Toolbar */
         .admin-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; margin-top: 5px; }
         .admin-box h3 { color: #1e293b; margin-top: 0; margin-bottom: 12px; font-size: 1rem; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
         .admin-menu-btn { background: white; border: 1px solid #cbd5e1; color: #475569; justify-content: flex-start; padding: 8px 12px; font-size: 0.85rem; font-weight: 500; transition: all 0.2s; border-radius: 8px; width: 100%; }
@@ -53,7 +56,9 @@
         .admin-menu-btn.primary-action { background: var(--primary); color: white; border: none; font-weight: bold; justify-content: center; box-shadow: 0 2px 4px rgba(37,99,235,0.2); }
         .admin-menu-btn.primary-action:hover { background: #1d4ed8; color: white; }
 
-        .navbar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        /* ✨ Navbar Header จัดการไม่ให้ซ้อนกัน ✨ */
+        .navbar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+        
         .search-container { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         .search-action-row { display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap; }
         .search-input { flex: 1; min-width: 200px; padding: 12px 20px; font-size: 1rem; border: 2px solid #e2e8f0; border-radius: 10px; transition: 0.3s; box-sizing: border-box; outline: none; line-height: 1.5;}
@@ -66,10 +71,16 @@
         .btn-outline { background: transparent; border: 1px solid #ddd; }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+        /* ปุ่มขนาดเล็กสำหรับแถบส่วนหัว */
+        .btn-sm { min-height: 32px; padding: 4px 12px; font-size: 0.8rem; border-radius: 6px; }
+
         @media (max-width: 600px) {
             .search-action-row { flex-direction: column; }
-            .btn { height: 48px; width: 100%; }
+            .btn:not(.btn-sm) { height: 48px; width: 100%; }
             .search-input { width: 100%; height: 48px; }
+            .navbar { flex-direction: column; align-items: flex-start; padding: 15px; }
+            .navbar-brand-area { width: 100%; display: flex; justify-content: space-between; align-items: center; }
+            #auth-section { width: 100%; display: flex; justify-content: flex-end; border-top: 1px solid #eee; padding-top: 10px; margin-top: 5px; }
         }
 
         input:not([type="checkbox"]), select, textarea { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-family: inherit; }
@@ -118,7 +129,7 @@
         .pagination-container { display: flex; justify-content: space-between; align-items: center; background: white; padding: 12px 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 10px; }
         @media (max-width: 600px) { .pagination-container { flex-direction: column; justify-content: center; } }
 
-        /* ✨ Footer & Stats Style ✨ */
+        /* Footer & Stats Style */
         .app-footer { margin-top: auto; padding: 30px 20px 20px 20px; text-align: center; color: #64748b; font-size: 0.85rem; line-height: 1.6; border-top: 1px solid #e2e8f0; }
         .app-footer b { color: var(--dark); }
         .stats-container { display: flex; justify-content: center; gap: 10px; margin-top: 12px; font-size: 0.75rem; flex-wrap: wrap; }
@@ -172,24 +183,28 @@
             </div>
             <div style="font-size: 0.8rem; font-weight: bold; color: #64748b; margin-top: 15px; margin-bottom: 8px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 5px;">แก้ไข Master Data</div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                <button class="btn admin-menu-btn" style="justify-content: center; padding: 6px;" onclick="openModal('nlem-master-modal')">📋 บัญชียา</button>
-                <button class="btn admin-menu-btn" style="justify-content: center; padding: 6px;" onclick="openModal('pharm-master-modal')">⚙️ กลุ่มยา</button>
+                <button class="btn admin-menu-btn" style="justify-content: center; padding: 6px;" onclick="openModal('nlem-master-modal')">📋 บัญชี</button>
+                <button class="btn admin-menu-btn" style="justify-content: center; padding: 6px;" onclick="openModal('pharm-master-modal')">⚙️ กลุ่ม</button>
                 <button class="btn admin-menu-btn" style="justify-content: center; padding: 6px;" onclick="openModal('tag-master-modal')">🏷️ สถานะ</button>
                 <button class="btn admin-menu-btn" style="justify-content: center; padding: 6px;" onclick="openModal('route-master-modal')">💉 ช่องทาง</button>
                 <button class="btn admin-menu-btn" style="justify-content: center; padding: 6px;" onclick="openModal('fluid-master-modal')">💧 สารน้ำ</button>
-                <button class="btn admin-menu-btn" style="justify-content: center; padding: 6px;" onclick="openModal('form-master-modal')">📦 ชนิดยา</button>
+                <button class="btn admin-menu-btn" style="justify-content: center; padding: 6px;" onclick="openModal('form-master-modal')">📦 ชนิด</button>
             </div>
         </div>
     </aside>
 
     <main class="main-content">
         <nav class="navbar">
-            <h2 style="margin:0">💊 Rama Clinic DB</h2>
-            <div id="auth-section">
-                <button id="login-btn" class="btn btn-outline" onclick="openModal('auth-modal')">👤 เจ้าหน้าที่</button>
-                <div id="user-info" class="hidden">
-                    <span id="user-email" style="font-size:0.8rem; margin-right:10px; color:gray;"></span>
-                    <button class="btn btn-danger" onclick="handleLogout()">Logout</button>
+            <div class="navbar-brand-area" style="display:flex; align-items:center; gap: 15px; flex-wrap: wrap;">
+                <h2 style="margin:0; font-size:1.4rem;">💊 Rama Clinic DB</h2>
+                <button class="btn btn-sm" style="background:var(--line); color:white;" onclick="openLineCompat()">📱 Line Compat Check</button>
+            </div>
+
+            <div id="auth-section" style="display:flex; align-items:center;">
+                <button id="login-btn" class="btn btn-outline btn-sm" onclick="openModal('auth-modal')">👤 เจ้าหน้าที่</button>
+                <div id="user-info" class="hidden" style="display:flex; align-items:center;">
+                    <span id="user-email" style="font-size:0.75rem; margin-right:10px; color:gray; max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></span>
+                    <button class="btn btn-danger btn-sm" onclick="handleLogout()">Logout</button>
                 </div>
             </div>
         </nav>
@@ -239,6 +254,16 @@
         </footer>
 
     </main>
+</div>
+
+<div id="line-qr-modal" class="modal">
+    <div class="modal-content" style="text-align: center; max-width: 350px;">
+        <h3 style="color:var(--line); margin-top:0;">📱 Line Compat Check</h3>
+        <p style="font-size:0.9rem; color:gray;">สแกน QR Code เพื่อใช้งานผ่านแอปพลิเคชัน LINE</p>
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://line.me/R/ti/p/@979wdeif" alt="LINE QR Code" style="margin:15px auto; border-radius: 10px; border: 1px solid #ddd; padding: 10px; display:block; max-width: 100%;">
+        <p style="font-size:1.1rem; font-weight:bold; margin-bottom:0;">LINE ID: @979wdeif</p>
+        <button class="btn btn-outline" style="width:100%; margin-top:20px; height: 42px;" onclick="closeModal('line-qr-modal')">ปิดหน้าต่าง</button>
+    </div>
 </div>
 
 <div id="auth-modal" class="modal"><div class="modal-content"><h3>เจ้าหน้าที่เข้าสู่ระบบ</h3><input type="email" id="auth-email" placeholder="Email"><input type="password" id="auth-pw" placeholder="Password"><button class="btn btn-primary" style="width:100%; height:45px;" onclick="handleLogin()">Login</button><button class="btn btn-outline" style="width:100%; margin-top:10px; height:45px;" onclick="closeModal('auth-modal')">ปิด</button></div></div>
@@ -336,7 +361,16 @@
     let currentPage = 1; let itemsPerPage = 25; let filteredDrugsList = []; 
     let inactivityTimer; const TIMEOUT_MS = 30 * 60 * 1000; 
 
-    // ✨ สร้างฟังก์ชัน Tracking การเข้าชม ✨
+    // ✨ ฟังก์ชันเปิด Line Compat Check ✨
+    function openLineCompat() {
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 850;
+        if (isMobile) {
+            window.open('https://line.me/R/ti/p/@979wdeif', '_blank');
+        } else {
+            openModal('line-qr-modal');
+        }
+    }
+
     async function trackVisitor() {
         let visitorId = localStorage.getItem('rama_visitor_id');
         if (!visitorId) {
@@ -344,13 +378,11 @@
             localStorage.setItem('rama_visitor_id', visitorId);
         }
         
-        // นับยอดวิว 1 ครั้งต่อ 1 Session ป้องกัน F5 รัวๆ
         if (!sessionStorage.getItem('logged_view_today')) {
             await supabaseClient.from('visitor_logs').insert([{ visitor_id: visitorId }]);
             sessionStorage.setItem('logged_view_today', 'true');
         }
 
-        // ดึงสถิติมาแสดงที่ Footer
         const { data, error } = await supabaseClient.rpc('get_visitor_stats');
         if (data && !error) {
             document.getElementById('stat-total').innerText = (data.total_views || 0).toLocaleString();
@@ -371,9 +403,7 @@
                 setupSessionTimeout();
             }
             
-            // สั่งแทร็กและอัปเดตสถิติ
             trackVisitor();
-
             await loadAllData();
         } catch (err) { 
             console.error("Init Error:", err);
@@ -442,25 +472,21 @@
         filterDrugs();
     }
 
-    // ✨ 1. NLEM Filters ✨
     function filterSidebarNlem() { const input = document.getElementById('search-nlem-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-nlem-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
     function toggleNlemFilter(code) { if (selectedNlemFilters.includes(code)) selectedNlemFilters = selectedNlemFilters.filter(n => n !== code); else selectedNlemFilters.push(code); renderNlemSidebar(); filterDrugs(); }
     function renderNlemSidebar() { const sidebar = document.getElementById('sidebar-nlem-filters'); if (allNlem.length === 0) return sidebar.innerHTML = '<div style="color:gray; font-size:0.8rem;">ไม่มีข้อมูล</div>'; sidebar.innerHTML = allNlem.map(n => { const isActive = selectedNlemFilters.includes(n.category_code) ? 'active' : ''; return `<div class="filter-pill ${isActive}" onclick="toggleNlemFilter('${n.category_code}')" style="${isActive ? 'background:var(--pink); border-color:var(--pink);' : ''}"><span>${n.category_code}</span></div>`; }).join(''); filterSidebarNlem(); }
     async function fetchNlemMaster() { const { data } = await supabaseClient.from('nlem_categories').select('*').order('category_code'); allNlem = data || []; renderNlemSidebar(); document.getElementById('select-nlem').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); document.getElementById('bulk-nlem-select').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); document.getElementById('master-nlem-list').innerHTML = allNlem.map(n => `<div class="list-item"><span><b>${n.category_code}</b> ${n.description||''}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('nlem_categories','category_code','${n.category_code}')">🗑️</button></div>`).join(''); }
 
-    // ✨ 2. Form Filters ✨
     function filterSidebarForms() { const input = document.getElementById('search-form-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-form-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
     function toggleFormFilter(formName) { if (selectedFormFilters.includes(formName)) selectedFormFilters = selectedFormFilters.filter(f => f !== formName); else selectedFormFilters.push(formName); renderFormSidebar(); filterDrugs(); }
     function renderFormSidebar() { const sidebar = document.getElementById('sidebar-form-filters'); if (allDosageForms.length === 0) return sidebar.innerHTML = '<div style="color:gray; font-size:0.8rem;">ไม่มีข้อมูล</div>'; sidebar.innerHTML = allDosageForms.map(f => { const isActive = selectedFormFilters.includes(f.form_name) ? 'active' : ''; return `<div class="filter-pill ${isActive}" onclick="toggleFormFilter('${f.form_name}')" style="${isActive ? 'background:var(--indigo); border-color:var(--indigo);' : ''}"><span>${f.form_name}</span></div>`; }).join(''); filterSidebarForms(); }
     async function fetchDosageForms() { const { data } = await supabaseClient.from('dosage_forms').select('*').order('form_name'); allDosageForms = data || []; renderFormSidebar(); document.getElementById('form-drug-type').innerHTML = allDosageForms.map(f => `<option value="${f.form_name}">${f.form_name}</option>`).join(''); document.getElementById('master-form-list').innerHTML = allDosageForms.map(f => `<div class="list-item"><span>${f.form_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('dosage_forms','form_name','${f.form_name}')">🗑️</button></div>`).join(''); }
 
-    // ✨ 3. Route Filters ✨
     function filterSidebarRoutes() { const input = document.getElementById('search-route-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-route-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
     function toggleRouteFilter(code) { if (selectedRouteFilters.includes(code)) selectedRouteFilters = selectedRouteFilters.filter(r => r !== code); else selectedRouteFilters.push(code); renderRouteSidebar(); filterDrugs(); }
     function renderRouteSidebar() { const sidebar = document.getElementById('sidebar-route-filters'); if (allRoutes.length === 0) return sidebar.innerHTML = '<div style="color:gray; font-size:0.8rem;">ไม่มีข้อมูล</div>'; sidebar.innerHTML = allRoutes.map(r => { const isActive = selectedRouteFilters.includes(r.route_code) ? 'active' : ''; return `<div class="filter-pill ${isActive}" onclick="toggleRouteFilter('${r.route_code}')" style="${isActive ? 'background:var(--success); border-color:var(--success);' : ''}"><span>${r.route_code} - ${r.route_name}</span></div>`; }).join(''); filterSidebarRoutes(); }
     async function fetchRoutes() { const { data } = await supabaseClient.from('routes').select('*').order('route_code'); allRoutes = data || []; renderRouteSidebar(); document.getElementById('select-route').innerHTML = allRoutes.map(r => `<option value="${r.route_code}">${r.route_name}</option>`).join(''); document.getElementById('master-route-list').innerHTML = allRoutes.map(r => `<div class="list-item"><span><b>${r.route_code}:</b> ${r.route_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('routes','route_code','${r.route_code}')">🗑️</button></div>`).join(''); }
 
-    // ✨ 4. Pharm Filters ✨
     function filterSidebarPharms() { const input = document.getElementById('search-pharm-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-pharm-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
     function togglePharmFilter(className) { if (selectedPharmFilters.includes(className)) selectedPharmFilters = selectedPharmFilters.filter(c => c !== className); else selectedPharmFilters.push(className); renderPharmSidebar(); filterDrugs(); }
     function renderPharmSidebar() { const sidebar = document.getElementById('sidebar-pharm-filters'); if (allPharmClasses.length === 0) return sidebar.innerHTML = '<div style="color:gray; font-size:0.8rem;">ไม่มีข้อมูล</div>'; sidebar.innerHTML = allPharmClasses.map(c => { const isActive = selectedPharmFilters.includes(c.class_name) ? 'active' : ''; return `<div class="filter-pill ${isActive}" onclick="togglePharmFilter('${c.class_name}')" style="${isActive ? 'background:var(--primary); border-color:var(--primary); color:white;' : ''}"><span>${c.class_name}</span></div>`; }).join(''); filterSidebarPharms(); }
@@ -606,6 +632,7 @@
     async function saveDrug() { const drug_code = document.getElementById('form-drug-code').value; await supabaseClient.from('drugs').upsert({ drug_code, drug_name: document.getElementById('form-drug-name').value, dosage_form: document.getElementById('form-drug-type').value, special_note: document.getElementById('form-drug-note').value }); await supabaseClient.from('drug_tag_mapping').delete().eq('drug_code', drug_code); const selectedTags = Array.from(document.querySelectorAll('input[name="drug-tags"]:checked')).map(cb => ({ drug_code, tag_name: cb.value })); if (selectedTags.length > 0) await supabaseClient.from('drug_tag_mapping').insert(selectedTags); closeModal('drug-modal'); fetchDrugs(); }
     async function deleteDrug(code) { if(confirm("ลบข้อมูลยานี้ออกจากระบบ?")) { await supabaseClient.from('drugs').delete().eq('drug_code', code); fetchDrugs(); } }
     async function saveMasterTag() { await supabaseClient.from('drug_tags').upsert({ tag_name: document.getElementById('master-tag-name').value }); fetchTags(); }
+    
     function resetAdminForm() { editingAdminId = null; document.getElementById('input-instruction').value = ''; document.getElementById('input-min-conc').value = ''; document.getElementById('input-max-conc').value = ''; document.getElementById('input-conc-unit').value = ''; document.querySelectorAll('input[name="comp-fluids"]').forEach(cb => cb.checked = false); document.getElementById('btn-save-admin').innerText = "+ บันทึกวิธีใช้"; document.getElementById('btn-cancel-edit').classList.add('hidden'); }
     
     async function openAdminManager(c, n) { document.getElementById('target-admin-drug-code').value = c; document.getElementById('target-admin-drug-name').innerText = n; resetAdminForm(); await fetchCurrentAdmins(c); openModal('admin-manager-modal'); }
