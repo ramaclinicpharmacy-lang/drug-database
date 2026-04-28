@@ -77,21 +77,20 @@
         .card-header-flex { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px; }
         .clickable-header { cursor: pointer; user-select: none; transition: opacity 0.2s; flex: 1; min-width: 250px;}
         .clickable-header:hover { opacity: 0.8; }
-        .toggle-icon { display: inline-block; width: 20px; transition: transform 0.3s ease; color: var(--primary); font-size: 1.1rem; }
+        .toggle-icon { display: inline-block; width: 20px; transition: transform 0.3s ease; color: var(--primary); font-size: 1.1rem; margin-top: 4px; }
 
-        /* ✨ ควบคุมขนาดชื่อยาบนการ์ด ให้พอดีและตอบสนองตามขนาดจอ ✨ */
         .clickable-header h2 { 
             margin: 0 0 5px 0; 
             color: var(--primary); 
             display: flex; 
-            align-items: flex-start; /* เปลี่ยนจาก center เป็น flex-start เพื่อให้ไอคอนสามเหลี่ยมอยู่บรรทัดแรกเสมอ */
+            align-items: flex-start; 
             gap: 8px; 
-            font-size: clamp(1.1rem, 2.5vw, 1.4rem); /* 📱มือถือ: 1.1rem, 💻คอม: สูงสุด 1.4rem */
+            font-size: clamp(1.1rem, 2.5vw, 1.4rem); 
             line-height: 1.3;
         }
         
         .clickable-header h2 small {
-            font-size: clamp(0.85rem, 1.5vw, 1rem); /* ย่อขนาดตัวหนังสือในวงเล็บ (ชนิดยา) ให้เล็กลงตามสัดส่วน */
+            font-size: clamp(0.85rem, 1.5vw, 1rem); 
             font-weight: normal;
             margin-top: 2px;
         }
@@ -154,7 +153,6 @@
 
         .admin-bypass-cb { cursor: pointer; transform: scale(1.2); margin-right: 5px !important;}
         
-        /* CSS ตาราง Log Viewer */
         .log-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left; }
         .log-table th { background: #f1f5f9; padding: 12px 10px; border-bottom: 2px solid #cbd5e1; position: sticky; top: 0; z-index: 10; }
         .log-table td { padding: 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; word-break: break-word; }
@@ -294,6 +292,36 @@
         </div>
     </footer>
 
+</div>
+
+<div id="calc-modal" class="modal">
+    <div class="modal-content" style="max-width: 400px;">
+        <h3 style="color:var(--warning); margin-top:0;">🧮 คำนวณปริมาณสารน้ำ</h3>
+        <h4 id="calc-drug-name" style="margin-bottom: 10px;"></h4>
+        <div class="section-box" style="background:#fffbeb; border-color:#fde68a;">
+            <label style="font-size:0.85rem; font-weight:bold; display:block;">เลือกรูปแบบการให้ยา</label>
+            <select id="calc-admin-select" onchange="runCalculation()" style="margin-bottom:10px; font-size: 0.85rem;"></select>
+
+            <label style="font-size:0.85rem; font-weight:bold; display:block;">ขนาดยาที่ต้องการให้ (Dose)</label>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <input type="number" id="calc-dose-input" placeholder="ระบุขนาดยา" onkeyup="runCalculation()" onchange="runCalculation()" style="flex:1;">
+                <span id="calc-dose-unit" style="font-weight:bold; color:gray; width:40px;">mg</span>
+            </div>
+        </div>
+        
+        <div style="margin-top:15px; padding:15px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">
+            <div style="margin-bottom:10px;">
+                <span style="font-size:0.85rem; color:gray;">💧 สารน้ำน้อยที่สุด (อิงจาก Max Conc):</span><br>
+                <b id="calc-result-min-fluid" style="font-size:1.2rem; color:var(--danger);">...</b>
+            </div>
+            <div>
+                <span style="font-size:0.85rem; color:gray;">🌊 สารน้ำมากที่สุด (อิงจาก Min Conc):</span><br>
+                <b id="calc-result-max-fluid" style="font-size:1.2rem; color:var(--success);">...</b>
+            </div>
+        </div>
+
+        <button class="btn btn-outline" style="width:100%; margin-top:15px; height:42px;" onclick="closeModal('calc-modal')">ปิดหน้าต่าง</button>
+    </div>
 </div>
 
 <div id="log-viewer-modal" class="modal">
@@ -440,6 +468,9 @@
     let inactivityTimer; const TIMEOUT_MS = 30 * 60 * 1000; 
     let activePharmTags = [];
 
+    // ✨ ตัวแปรเก็บข้อมูล Admin ที่ใช้คำนวณได้ ✨
+    let currentCalcAdmins = [];
+
     document.addEventListener('click', function(e) {
         const searchInput = document.getElementById('search-pharm-input');
         const suggestionsBox = document.getElementById('pharm-suggestions');
@@ -515,20 +546,91 @@
         if (data && !error) { globalVisibleStatuses = data.setting_value || []; }
     }
 
-    // ✨ ฟังก์ชันเปิดหน้า Log Viewer ✨
+    // ✨ ฟังก์ชันเปิดหน้า Calculator ✨
+    function openCalculator(code) {
+        const drug = allDrugsRaw.find(d => d.drug_code === code);
+        if (!drug) return;
+        
+        document.getElementById('calc-drug-name').innerText = drug.drug_name;
+        document.getElementById('calc-dose-input').value = '';
+        document.getElementById('calc-result-min-fluid').innerText = '-';
+        document.getElementById('calc-result-max-fluid').innerText = '-';
+        
+        // Filter admins that have min_conc or max_conc
+        currentCalcAdmins = (drug.drug_administrations || []).filter(a => a.min_conc || a.max_conc);
+        
+        const selectEl = document.getElementById('calc-admin-select');
+        if (currentCalcAdmins.length === 0) {
+            selectEl.innerHTML = '<option value="">ไม่มีข้อมูลความเข้มข้น (Min/Max Conc)</option>';
+            document.getElementById('calc-dose-input').disabled = true;
+            document.getElementById('calc-dose-unit').innerText = '-';
+        } else {
+            selectEl.innerHTML = currentCalcAdmins.map((a, idx) => {
+                const routeName = a.routes?.route_name || 'Unknown Route';
+                let info = [];
+                if(a.max_conc) info.push(`Max: ${a.max_conc} ${a.conc_unit||'mg/mL'}`);
+                if(a.min_conc) info.push(`Min: ${a.min_conc} ${a.conc_unit||'mg/mL'}`);
+                return `<option value="${idx}">${routeName} (${info.join(', ')})</option>`;
+            }).join('');
+            document.getElementById('calc-dose-input').disabled = false;
+            
+            // Set unit dynamically based on the first available record
+            const unitBase = (currentCalcAdmins.conc_unit || 'mg/mL').split('/');
+            document.getElementById('calc-dose-unit').innerText = unitBase;
+        }
+        
+        openModal('calc-modal');
+    }
+
+    // ✨ ฟังก์ชันคำนวณปริมาณน้ำ ✨
+    function runCalculation() {
+        const dose = parseFloat(document.getElementById('calc-dose-input').value);
+        const idx = document.getElementById('calc-admin-select').value;
+        const resMin = document.getElementById('calc-result-min-fluid');
+        const resMax = document.getElementById('calc-result-max-fluid');
+        
+        resMin.innerText = '-';
+        resMax.innerText = '-';
+        
+        if (isNaN(dose) || dose <= 0 || !idx || !currentCalcAdmins[idx]) return;
+        
+        const admin = currentCalcAdmins[idx];
+        
+        // Update Unit dynamically when Dropdown changes
+        const unitBase = (admin.conc_unit || 'mg/mL').split('/');
+        document.getElementById('calc-dose-unit').innerText = unitBase;
+        
+        // Min Fluid = Dose / Max Conc
+        if (admin.max_conc) {
+            const maxC = parseFloat(admin.max_conc);
+            if (maxC > 0) {
+                const minVol = (dose / maxC).toFixed(2);
+                resMin.innerText = minVol + ' mL';
+            }
+        }
+        
+        // Max Fluid = Dose / Min Conc
+        if (admin.min_conc) {
+            const minC = parseFloat(admin.min_conc);
+            if (minC > 0) {
+                const maxVol = (dose / minC).toFixed(2);
+                resMax.innerText = maxVol + ' mL';
+            }
+        }
+    }
+
     async function openLogViewer() {
         openModal('log-viewer-modal');
         document.getElementById('log-table-container').innerHTML = '<div style="text-align:center; padding:20px; color:gray;">กำลังโหลด...</div>';
         await fetchLogs();
     }
 
-    // ✨ ฟังก์ชันดึงประวัติ Logs จากฐานข้อมูล ✨
     async function fetchLogs() {
         const { data, error } = await supabaseClient
             .from('audit_logs')
             .select('*')
             .order('changed_at', { ascending: false })
-            .limit(50); // ดึง 50 รายการล่าสุด
+            .limit(50); 
         
         if (error) {
             document.getElementById('log-table-container').innerHTML = `<div style="color:red; padding:10px;">Error: ${error.message}</div>`;
@@ -566,13 +668,11 @@
                 let diffs = [];
                 for(let key in log.new_data) {
                     if(log.old_data[key] !== log.new_data[key]) {
-                        // ไม่แสดงฟิลด์ที่ไม่ได้มีความสำคัญกับการอ่านเช่น id ปกติ
                         diffs.push(`<b>${key}:</b> <del style="color:#ef4444;">${log.old_data[key] || '<i>ว่าง</i>'}</del> ➡️ <span style="color:#10b981;">${log.new_data[key] || '<i>ว่าง</i>'}</span>`);
                     }
                 }
                 details = diffs.length > 0 ? diffs.join('<br>') : '<i style="color:gray;">ไม่มีข้อมูลเปลี่ยน</i>';
             } else if (log.action === 'INSERT') {
-                 // ตัดข้อความเพื่อไม่ให้ยาวเกินไป
                  const str = JSON.stringify(log.new_data).replace(/[{""}]/g, ' ');
                  details = `<div style="font-size:0.75rem; color:gray;">${str.substring(0, 100)}...</div>`;
             } else if (log.action === 'DELETE') {
@@ -682,13 +782,11 @@
         filterSidebarNlem(); 
     }
     async function fetchNlemMaster() { 
-        // ✨ เปลี่ยน order ตรงนี้ ✨
         const { data } = await supabaseClient.from('nlem_categories').select('*').order('rank', { ascending: true, nullsFirst: false }); 
         allNlem = data || []; 
         renderNlemSidebar(); 
         document.getElementById('select-nlem').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); 
         document.getElementById('bulk-nlem-select').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); 
-        // ✨ แอบโชว์เลข Rank ให้เห็นในวงเล็บ ✨
         document.getElementById('master-nlem-list').innerHTML = allNlem.map(n => `<div class="list-item"><span><b>${n.category_code}</b> ${n.description||''} <small style="color:gray;">(Rank: ${n.rank || '-'})</small></span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('nlem_categories','category_code','${n.category_code}')">🗑️</button></div>`).join(''); 
     }
     function filterSidebarForms() { const input = document.getElementById('search-form-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-form-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
@@ -762,7 +860,6 @@
         const group = document.getElementById('gen-pharm-checkbox-group'); 
         if (group) group.innerHTML = allPharmClasses.map(c => `<div><input type="checkbox" id="p-${c.class_name}" name="gen-pharm" value="${c.class_name}"><label for="p-${c.class_name}">${c.class_name}</label></div>`).join(''); 
         
-        // ✨ 3. เรียกฟังก์ชันค้นหาเพื่อให้มันวาดตารางให้ ✨
         filterMasterPharmList(); 
     }
 
@@ -821,7 +918,7 @@
     async function fetchDrugs() { 
         let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; 
         while (hasMore) { 
-            const { data, error } = await supabaseClient.from('drugs').select(`*, drug_tag_mapping(tag_name), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, special_note, generic_pharm_mapping(class_name))), drug_administrations(id, instructions, min_conc, max_conc, conc_unit, routes(route_name, route_code), administration_fluids(fluid_short_name))`).order('drug_name').range(from, from + step - 1); 
+            const { data, error } = await supabaseClient.from('drugs').select(`*, drug_tag_mapping(tag_name), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, generic_type, special_note, generic_pharm_mapping(class_name))), drug_administrations(id, instructions, min_conc, max_conc, conc_unit, routes(route_name, route_code), administration_fluids(fluid_short_name))`).order('drug_name').range(from, from + step - 1); 
             if (error) { document.getElementById('drug-list-container').innerHTML = `<div style="text-align:center; padding:50px; color:var(--danger);"><h3 style="margin-top:0;">❌ ข้อมูลไม่สามารถโหลดได้</h3><p>${error.message}</p></div>`; return; } 
             fetchedData = fetchedData.concat(data); 
             if (data.length < step) hasMore = false; else from += step; 
@@ -874,12 +971,23 @@
 
             const adminStatusBadge = (isAdmin && drug.statuscode) ? `<span class="badge badge-admin-status">⚙️ Status: ${drug.statuscode}</span>` : '';
             const remarksHtml = drug.remarks ? `<div style="font-size: 0.85rem; color: #475569; margin-top: 5px;">💊 <b>ลักษณะ:</b> ${encodeHTML(drug.remarks)}</div>` : '';
+            
+            // ✨ ปุ่มคำนวณปริมาณสารน้ำ ✨
+            const calcBtn = (drug.drug_administrations || []).some(a => a.min_conc || a.max_conc) 
+                ? `<button class="btn btn-sm" style="background:#fef3c7; color:#d97706; border:1px solid #fde68a; padding:2px 8px; font-size:0.75rem; border-radius:20px; font-weight:bold;" onclick="event.stopPropagation(); openCalculator('${safeCode}')">🧮 คำนวณน้ำ</button>` 
+                : '';
 
             return `
             <div class="drug-card ${cardThemeClass}" data-code="${safeCode}">
                 <div class="card-header-flex">
                     <div class="clickable-header" onclick="toggleCard('${safeCode}')">
-                        <h2><span class="toggle-icon" id="icon-${safeCode}" style="transform: ${isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}">▶</span><span>${drug.drug_name} <small style="color:gray;">[${drug.dosage_form || '-'}]</small></span></h2>
+                        <h2>
+                            <span class="toggle-icon" id="icon-${safeCode}" style="transform: ${isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}">▶</span>
+                            <span style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
+                                ${drug.drug_name} <small style="color:gray;">[${drug.dosage_form || '-'}]</small>
+                                ${calcBtn}
+                            </span>
+                        </h2>
                         <div style="margin-bottom:5px; padding-left: 28px;">${adminStatusBadge} ${nlemBadges} ${pharmHtml} ${tagsHtml}</div>
                         ${remarksHtml ? `<div style="padding-left: 28px;">${remarksHtml}</div>` : ''}
                     </div>
@@ -1033,7 +1141,7 @@
             return `<option value="${g.generic_code}">${prefix}${g.generic_name}</option>`;
         }).join(''); 
     }
-    // ✨ แยกสีตาม Type ในหน้าจัดการ Master ✨
+
     function filterMasterGenericList() { 
         const q = (document.getElementById('search-master-generic').value || '').toLowerCase(); 
         const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); 
@@ -1166,6 +1274,7 @@
         fetchGenerics(); 
         fetchDrugs(); 
     }
+    
     async function saveMasterNlem() { 
         const code = document.getElementById('master-nlem-code').value.trim();
         const desc = document.getElementById('master-nlem-desc').value.trim();
