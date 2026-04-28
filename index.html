@@ -944,7 +944,26 @@
     }
 
     function filterGenericOptions() { const q = (document.getElementById('search-generic-input').value || '').toLowerCase(); const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); document.getElementById('select-generic').innerHTML = filtered.map(g => `<option value="${g.generic_code}">${g.generic_name}</option>`).join(''); }
-    function filterMasterGenericList() { const q = (document.getElementById('search-master-generic').value || '').toLowerCase(); const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); document.getElementById('master-generic-list').innerHTML = filtered.map(g => { const sCode = encodeHTML(g.generic_code); return `<div class="list-item"><span>${g.generic_name}</span> <div><button class="btn btn-outline" style="color:var(--primary); padding:2px 6px;" onclick="openEditGeneric('${sCode}')">✏️</button> <button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('generics','generic_code','${sCode}')">🗑️</button></div></div>`; }).join(''); }
+    function filterMasterGenericList() { 
+        const q = (document.getElementById('search-master-generic').value || '').toLowerCase(); 
+        const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); 
+        
+        document.getElementById('master-generic-list').innerHTML = filtered.map(g => { 
+            const sCode = encodeHTML(g.generic_code); 
+            
+            // ✨ นับจำนวนกลุ่มยา (Pharmacology) ที่ผูกไว้กับยาสามัญตัวนี้ ✨
+            const pharmCount = (g.generic_pharm_mapping || []).length;
+            
+            // ✨ เพิ่ม <small> โชว์จำนวน (X กลุ่ม) ต่อท้ายชื่อ ✨
+            return `<div class="list-item">
+                        <span>${g.generic_name} <small style="color:var(--primary); font-weight:bold; margin-left:5px;">(${pharmCount} กลุ่ม)</small></span> 
+                        <div>
+                            <button class="btn btn-outline" style="color:var(--primary); padding:2px 6px;" onclick="openEditGeneric('${sCode}')">✏️</button> 
+                            <button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('generics','generic_code','${sCode}')">🗑️</button>
+                        </div>
+                    </div>`; 
+        }).join(''); 
+    }    
     async function fetchGenerics() { let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; while (hasMore) { const { data, error } = await supabaseClient.from('generics').select('*, generic_pharm_mapping(class_name)').order('generic_name').range(from, from + step - 1); if (error) break; fetchedData = fetchedData.concat(data); if (data.length < step) hasMore = false; else from += step; } allGenerics = fetchedData; filterGenericOptions(); filterMasterGenericList(); }
 
     function openBulkPharmModal() { document.getElementById('bulk-pharm-select').innerHTML = allPharmClasses.map(p => `<option value="${p.class_name}">${p.class_name}</option>`).join(''); document.getElementById('search-bulk-pharm-gen').value = ''; renderBulkPharmGenerics(allGenerics); openModal('bulk-pharm-modal'); }
