@@ -309,7 +309,19 @@
 
 <div id="line-qr-modal" class="modal"><div class="modal-content" style="text-align: center; max-width: 350px;"><h3 style="color:var(--line); margin-top:0;">📱 Line Compat Check</h3><p style="font-size:0.9rem; color:gray;">สแกน QR Code เพื่อใช้งานผ่านแอปพลิเคชัน LINE</p><img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://line.me/R/ti/p/@979wdeif" alt="LINE QR Code" style="margin:15px auto; border-radius: 10px; border: 1px solid #ddd; padding: 10px; display:block; max-width: 100%;"><p style="font-size:1.1rem; font-weight:bold; margin-bottom:0;">LINE ID: @979wdeif</p><button class="btn btn-outline" style="width:100%; margin-top:20px; height: 42px;" onclick="closeModal('line-qr-modal')">ปิดหน้าต่าง</button></div></div>
 <div id="auth-modal" class="modal"><div class="modal-content"><h3>เจ้าหน้าที่เข้าสู่ระบบ</h3><input type="email" id="auth-email" placeholder="Email"><input type="password" id="auth-pw" placeholder="Password"><button class="btn btn-primary" style="width:100%; height:45px;" onclick="handleLogin()">Login</button><button class="btn btn-outline" style="width:100%; margin-top:10px; height:45px;" onclick="closeModal('auth-modal')">ปิด</button></div></div>
-<div id="pharm-master-modal" class="modal"><div class="modal-content"><h3>จัดการกลุ่มยา (Pharmacology)</h3><div class="section-box"><input type="text" id="master-pharm-name" placeholder="ชื่อกลุ่มยา (เช่น Antibiotics)"><button class="btn btn-success" style="width:100%" onclick="saveMasterPharm()">บันทึกกลุ่มยา</button></div><div id="master-pharm-list" style="max-height:300px; overflow-y:auto;"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('pharm-master-modal')">ปิด</button></div></div>
+<div id="pharm-master-modal" class="modal">
+    <div class="modal-content">
+        <h3>จัดการกลุ่มยา (Pharmacology)</h3>
+        <div class="section-box">
+            <input type="text" id="master-pharm-name" placeholder="ชื่อกลุ่มยา (เช่น Antibiotics)">
+            <button class="btn btn-success" style="width:100%" onclick="saveMasterPharm()">บันทึกกลุ่มยา</button>
+        </div>
+        <input type="text" id="search-master-pharm" placeholder="🔍 ค้นหารายชื่อกลุ่มยาที่มีอยู่..." onkeyup="filterMasterPharmList()" style="margin-bottom:10px;">
+        
+        <div id="master-pharm-list" style="max-height:300px; overflow-y:auto;"></div>
+        <button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('pharm-master-modal')">ปิด</button>
+    </div>
+</div>
 
 <div id="generic-master-modal" class="modal">
     <div class="modal-content">
@@ -685,7 +697,9 @@
         renderPharmSidebar(); 
         const group = document.getElementById('gen-pharm-checkbox-group'); 
         if (group) group.innerHTML = allPharmClasses.map(c => `<div><input type="checkbox" id="p-${c.class_name}" name="gen-pharm" value="${c.class_name}"><label for="p-${c.class_name}">${c.class_name}</label></div>`).join(''); 
-        document.getElementById('master-pharm-list').innerHTML = allPharmClasses.map(c => `<div class="list-item"><span>${c.class_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('pharm_classes','class_name','${c.class_name}')">🗑️</button></div>`).join(''); 
+        
+        // ✨ 3. เรียกฟังก์ชันค้นหาเพื่อให้มันวาดตารางให้ ✨
+        filterMasterPharmList(); 
     }
 
     async function fetchFluids() { const { data } = await supabaseClient.from('fluids').select('*').order('short_name'); allFluids = data || []; const group = document.getElementById('fluid-checkbox-group'); if (group) group.innerHTML = allFluids.map(f => `<div><input type="checkbox" id="fluid-${f.short_name}" name="comp-fluids" value="${f.short_name}"><label for="fluid-${f.short_name}">${f.short_name}</label></div>`).join(''); document.getElementById('master-fluid-list').innerHTML = allFluids.map(f => `<div class="list-item"><span><b>${f.short_name}:</b> ${f.full_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('fluids','short_name','${f.short_name}')">🗑️</button></div>`).join(''); }
@@ -1007,6 +1021,11 @@
     }
 
     async function saveMasterPharm() { const name = document.getElementById('master-pharm-name').value.trim(); if (!name) return alert('กรุณากรอกชื่อกลุ่มยา'); const { error } = await supabaseClient.from('pharm_classes').upsert({ class_name: name }); if (error) return alert("เกิดข้อผิดพลาด: " + error.message); document.getElementById('master-pharm-name').value = ''; fetchPharmClasses(); alert('✅ บันทึกกลุ่มยาสำเร็จ!'); }
+    function filterMasterPharmList() { 
+        const q = (document.getElementById('search-master-pharm').value || '').toLowerCase(); 
+        const filtered = allPharmClasses.filter(c => (c.class_name||'').toLowerCase().includes(q)); 
+        document.getElementById('master-pharm-list').innerHTML = filtered.map(c => `<div class="list-item"><span>${c.class_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('pharm_classes','class_name','${encodeHTML(c.class_name)}')">🗑️</button></div>`).join(''); 
+    }
     async function deleteMaster(table, col, val) { if(confirm("ลบข้อมูล Master ตัวนี้?")) { await supabaseClient.from(table).delete().eq(col, val); loadAllData(); } }
     
     function resetAdminForm() { editingAdminId = null; if(document.getElementById('select-route').options.length > 0) document.getElementById('select-route').selectedIndex = 0; document.getElementById('input-instruction').value = ''; document.getElementById('input-min-conc').value = ''; document.getElementById('input-max-conc').value = ''; document.getElementById('input-conc-unit').value = ''; document.querySelectorAll('input[name="comp-fluids"]').forEach(cb => cb.checked = false); document.getElementById('btn-save-admin').innerText = "+ บันทึกวิธีใช้"; document.getElementById('btn-cancel-edit').classList.add('hidden'); }
