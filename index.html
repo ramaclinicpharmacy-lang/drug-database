@@ -234,7 +234,7 @@
                 <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px; background:#475569; color:white; border:none;" onclick="openLogViewer()">📜 ประวัติ (Logs)</button>
                 <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px; background:#1e293b; color:white; border:none;" onclick="openStatusSettingsModal()">⚙️ ตั้งค่า Status เว็บ</button>
                 <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px;" onclick="openModal('nlem-master-modal')">📋 บัญชี</button>
-                <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px;" onclick="openModal('pharm-master-modal')">⚙️ กลุ่ม</button>
+                <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px;" onclick="filterMasterPharmList(); openModal('pharm-master-modal')">⚙️ กลุ่ม</button>
                 <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px;" onclick="openModal('tag-master-modal')">🏷️ สถานะ</button>
                 <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px;" onclick="openModal('route-master-modal')">💉 ช่องทาง</button>
                 <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px;" onclick="openModal('fluid-master-modal')">💧 สารน้ำ</button>
@@ -1067,7 +1067,19 @@
     function filterMasterPharmList() { 
         const q = (document.getElementById('search-master-pharm').value || '').toLowerCase(); 
         const filtered = allPharmClasses.filter(c => (c.class_name||'').toLowerCase().includes(q)); 
-        document.getElementById('master-pharm-list').innerHTML = filtered.map(c => `<div class="list-item"><span>${c.class_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('pharm_classes','class_name','${encodeHTML(c.class_name)}')">🗑️</button></div>`).join(''); 
+        
+        document.getElementById('master-pharm-list').innerHTML = filtered.map(c => {
+            // ✨ นับจำนวนยาสามัญ (Generics) ที่อยู่ในกลุ่มยานี้ ✨
+            const genericCount = allGenerics.filter(g => 
+                (g.generic_pharm_mapping || []).some(pm => pm.class_name === c.class_name)
+            ).length;
+            
+            // ✨ เพิ่ม <small> โชว์จำนวน (X ยาสามัญ) ต่อท้ายชื่อ ✨
+            return `<div class="list-item">
+                        <span>${c.class_name} <small style="color:var(--primary); font-weight:bold; margin-left:5px;">(${genericCount} ยาสามัญ)</small></span>
+                        <button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('pharm_classes','class_name','${encodeHTML(c.class_name)}')">🗑️</button>
+                    </div>`; 
+        }).join(''); 
     }
     async function deleteMaster(table, col, val) { if(confirm("ลบข้อมูล Master ตัวนี้?")) { await supabaseClient.from(table).delete().eq(col, val); loadAllData(); } }
     
