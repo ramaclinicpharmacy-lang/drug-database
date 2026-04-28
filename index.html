@@ -136,6 +136,12 @@
         .stat-item b { color: var(--primary); font-size: 0.85rem;}
 
         .admin-bypass-cb { cursor: pointer; transform: scale(1.2); margin-right: 5px !important;}
+        
+        /* CSS ตาราง Log Viewer */
+        .log-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left; }
+        .log-table th { background: #f1f5f9; padding: 12px 10px; border-bottom: 2px solid #cbd5e1; position: sticky; top: 0; z-index: 10; }
+        .log-table td { padding: 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; word-break: break-word; }
+        .log-table tr:hover td { background: #f8fafc; }
     </style>
 </head>
 <body>
@@ -223,8 +229,9 @@
                 <button class="btn admin-menu-btn" onclick="openBulkNlemModal()">🗂️ จัดบัญชียา (Bulk)</button>
                 <button class="btn admin-menu-btn" onclick="openBulkPharmModal()">🗂️ ผูกกลุ่มยาสามัญ</button>
             </div>
-            <div style="font-size: 0.8rem; font-weight: bold; color: #64748b; margin-top: 15px; margin-bottom: 8px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 5px;">แก้ไข Master Data</div>
+            <div style="font-size: 0.8rem; font-weight: bold; color: #64748b; margin-top: 15px; margin-bottom: 8px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 5px;">แก้ไข Master Data และระบบ</div>
             <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px; background:#475569; color:white; border:none;" onclick="openLogViewer()">📜 ประวัติ (Logs)</button>
                 <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px; background:#1e293b; color:white; border:none;" onclick="openStatusSettingsModal()">⚙️ ตั้งค่า Status เว็บ</button>
                 <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px;" onclick="openModal('nlem-master-modal')">📋 บัญชี</button>
                 <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px;" onclick="openModal('pharm-master-modal')">⚙️ กลุ่ม</button>
@@ -270,6 +277,20 @@
         </div>
     </footer>
 
+</div>
+
+<div id="log-viewer-modal" class="modal">
+    <div class="modal-content" style="max-width: 950px; width: 95%;">
+        <h3 style="color:var(--dark); margin-top:0; display:flex; align-items:center; gap:8px;">📜 ประวัติการแก้ไขระบบ (Audit Logs)</h3>
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom: 10px;">
+            <span style="font-size:0.85rem; color:gray;">แสดง 50 รายการล่าสุด เรียงจากใหม่สุด</span>
+            <button class="btn btn-sm btn-outline" onclick="fetchLogs()">🔄 รีเฟรช</button>
+        </div>
+        <div id="log-table-container" style="max-height: 500px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <div style="text-align:center; padding:20px; color:gray;">กำลังโหลดข้อมูล...</div>
+        </div>
+        <button class="btn btn-outline" style="width:100%; margin-top:15px; height: 42px;" onclick="closeModal('log-viewer-modal')">ปิดหน้าต่าง</button>
+    </div>
 </div>
 
 <div id="status-settings-modal" class="modal">
@@ -424,6 +445,85 @@
     async function fetchAppSettings() {
         const { data, error } = await supabaseClient.from('app_settings').select('*').eq('setting_key', 'visible_statuses').single();
         if (data && !error) { globalVisibleStatuses = data.setting_value || []; }
+    }
+
+    // ✨ ฟังก์ชันเปิดหน้า Log Viewer ✨
+    async function openLogViewer() {
+        openModal('log-viewer-modal');
+        document.getElementById('log-table-container').innerHTML = '<div style="text-align:center; padding:20px; color:gray;">กำลังโหลด...</div>';
+        await fetchLogs();
+    }
+
+    // ✨ ฟังก์ชันดึงประวัติ Logs จากฐานข้อมูล ✨
+    async function fetchLogs() {
+        const { data, error } = await supabaseClient
+            .from('audit_logs')
+            .select('*')
+            .order('changed_at', { ascending: false })
+            .limit(50); // ดึง 50 รายการล่าสุด
+        
+        if (error) {
+            document.getElementById('log-table-container').innerHTML = `<div style="color:red; padding:10px;">Error: ${error.message}</div>`;
+            return;
+        }
+
+        if (!data || data.length === 0) {
+            document.getElementById('log-table-container').innerHTML = `<div style="text-align:center; padding:20px; color:gray;">ไม่มีประวัติการแก้ไข</div>`;
+            return;
+        }
+
+        let html = `<table class="log-table">
+            <thead>
+                <tr>
+                    <th>วัน-เวลา</th>
+                    <th>ผู้แก้ไข</th>
+                    <th>Action</th>
+                    <th>ตาราง/ID</th>
+                    <th>รายละเอียด</th>
+                </tr>
+            </thead>
+            <tbody>`;
+        
+        data.forEach(log => {
+            const date = new Date(log.changed_at).toLocaleString('th-TH', { year: '2-digit', month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
+            const user = log.changed_by ? log.changed_by.split('@') : 'System';
+            
+            let actionBadge = '';
+            if(log.action === 'INSERT') actionBadge = '<span style="background:#dcfce7; color:#166534; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.75rem;">เพิ่ม</span>';
+            else if(log.action === 'UPDATE') actionBadge = '<span style="background:#fef08a; color:#9a3412; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.75rem;">แก้</span>';
+            else if(log.action === 'DELETE') actionBadge = '<span style="background:#fee2e2; color:#b91c1c; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.75rem;">ลบ</span>';
+
+            let details = '';
+            if(log.action === 'UPDATE' && log.old_data && log.new_data) {
+                let diffs = [];
+                for(let key in log.new_data) {
+                    if(log.old_data[key] !== log.new_data[key]) {
+                        // ไม่แสดงฟิลด์ที่ไม่ได้มีความสำคัญกับการอ่านเช่น id ปกติ
+                        diffs.push(`<b>${key}:</b> <del style="color:#ef4444;">${log.old_data[key] || '<i>ว่าง</i>'}</del> ➡️ <span style="color:#10b981;">${log.new_data[key] || '<i>ว่าง</i>'}</span>`);
+                    }
+                }
+                details = diffs.length > 0 ? diffs.join('<br>') : '<i style="color:gray;">ไม่มีข้อมูลเปลี่ยน</i>';
+            } else if (log.action === 'INSERT') {
+                 // ตัดข้อความเพื่อไม่ให้ยาวเกินไป
+                 const str = JSON.stringify(log.new_data).replace(/[{""}]/g, ' ');
+                 details = `<div style="font-size:0.75rem; color:gray;">${str.substring(0, 100)}...</div>`;
+            } else if (log.action === 'DELETE') {
+                 const str = JSON.stringify(log.old_data).replace(/[{""}]/g, ' ');
+                 details = `<div style="font-size:0.75rem; color:gray;">${str.substring(0, 100)}...</div>`;
+            }
+
+            html += `
+                <tr>
+                    <td style="white-space:nowrap;">${date}</td>
+                    <td>${user}</td>
+                    <td>${actionBadge}</td>
+                    <td><b>${log.table_name}</b><br><small style="color:gray;">ID: ${log.record_id}</small></td>
+                    <td>${details}</td>
+                </tr>
+            `;
+        });
+        html += `</tbody></table>`;
+        document.getElementById('log-table-container').innerHTML = html;
     }
 
     function openStatusSettingsModal() {
@@ -600,7 +700,6 @@
         const baseDrugs = getBaseDrugs();
 
         filteredDrugsList = baseDrugs.filter(d => {
-            // ✨ ค้นหาด้วยตัวแปร remarks ด้วย ✨
             const matchText = (d.drug_name||'').toLowerCase().includes(q) || (d.drug_code||'').toLowerCase().includes(q) || (d.special_note||'').toLowerCase().includes(q) || (d.remarks||'').toLowerCase().includes(q) ||
             (d.drug_tag_mapping||[]).some(t => (t.tag_name||'').toLowerCase().includes(q)) ||
             (d.drug_nlem_mapping||[]).some(n => (n.nlem_code||'').toLowerCase().includes(q) || (n.condition_note||'').toLowerCase().includes(q)) ||
@@ -696,7 +795,6 @@
             }).join('');
 
             const adminStatusBadge = (isAdmin && drug.statuscode) ? `<span class="badge badge-admin-status">⚙️ Status: ${drug.statuscode}</span>` : '';
-            // ✨ นำ Remarks มาแสดงผลที่นี่ ✨
             const remarksHtml = drug.remarks ? `<div style="font-size: 0.85rem; color: #475569; margin-top: 5px;">💊 <b>ลักษณะ:</b> ${encodeHTML(drug.remarks)}</div>` : '';
 
             return `
@@ -728,55 +826,9 @@
         updateToggleAllButton();
     }
 
-    // ✨ เคลียร์และใส่ค่า Remarks ตอนเพิ่มหรือแก้ไขยา ✨
-    function openAddDrug() { 
-        document.getElementById('form-drug-code').disabled=false; 
-        document.getElementById('form-drug-code').value=''; 
-        document.getElementById('form-drug-name').value=''; 
-        document.getElementById('form-drug-note').value=''; 
-        document.getElementById('form-drug-statuscode').value=''; 
-        document.getElementById('form-drug-remarks').value=''; 
-        if(document.getElementById('form-drug-type').options.length > 0) document.getElementById('form-drug-type').selectedIndex = 0; 
-        document.querySelectorAll('input[name="drug-tags"]').forEach(cb => cb.checked = false); 
-        openModal('drug-modal'); 
-    }
-    
-    function openEditDrug(code) { 
-        const drug = allDrugsRaw.find(d => d.drug_code === code); if (!drug) return; 
-        document.getElementById('form-drug-code').value = drug.drug_code; 
-        document.getElementById('form-drug-code').disabled = true; 
-        document.getElementById('form-drug-name').value = drug.drug_name; 
-        document.getElementById('form-drug-type').value = drug.dosage_form || ''; 
-        document.getElementById('form-drug-note').value = drug.special_note || ''; 
-        document.getElementById('form-drug-statuscode').value = drug.statuscode || ''; 
-        document.getElementById('form-drug-remarks').value = drug.remarks || ''; 
-        const currentTags = (drug.drug_tag_mapping || []).map(t => t.tag_name); 
-        document.querySelectorAll('input[name="drug-tags"]').forEach(cb => { cb.checked = currentTags.includes(cb.value); }); 
-        openModal('drug-modal'); 
-    }
-
-    // ✨ บันทึกค่า Remarks ✨
-    async function saveDrug() { 
-        const drug_code = document.getElementById('form-drug-code').value; 
-        const statuscode = document.getElementById('form-drug-statuscode').value.trim() || null; 
-        const remarks = document.getElementById('form-drug-remarks').value.trim() || null; 
-        
-        await supabaseClient.from('drugs').upsert({ 
-            drug_code, 
-            drug_name: document.getElementById('form-drug-name').value, 
-            dosage_form: document.getElementById('form-drug-type').value, 
-            special_note: document.getElementById('form-drug-note').value, 
-            statuscode: statuscode,
-            remarks: remarks
-        }); 
-        
-        await supabaseClient.from('drug_tag_mapping').delete().eq('drug_code', drug_code); 
-        const selectedTags = Array.from(document.querySelectorAll('input[name="drug-tags"]:checked')).map(cb => ({ drug_code, tag_name: cb.value })); 
-        if (selectedTags.length > 0) await supabaseClient.from('drug_tag_mapping').insert(selectedTags); 
-        closeModal('drug-modal'); 
-        fetchDrugs(); 
-    }
-
+    function openAddDrug() { document.getElementById('form-drug-code').disabled=false; document.getElementById('form-drug-code').value=''; document.getElementById('form-drug-name').value=''; document.getElementById('form-drug-note').value=''; document.getElementById('form-drug-statuscode').value=''; document.getElementById('form-drug-remarks').value=''; if(document.getElementById('form-drug-type').options.length > 0) document.getElementById('form-drug-type').selectedIndex = 0; document.querySelectorAll('input[name="drug-tags"]').forEach(cb => cb.checked = false); openModal('drug-modal'); }
+    function openEditDrug(code) { const drug = allDrugsRaw.find(d => d.drug_code === code); if (!drug) return; document.getElementById('form-drug-code').value = drug.drug_code; document.getElementById('form-drug-code').disabled = true; document.getElementById('form-drug-name').value = drug.drug_name; document.getElementById('form-drug-type').value = drug.dosage_form || ''; document.getElementById('form-drug-note').value = drug.special_note || ''; document.getElementById('form-drug-statuscode').value = drug.statuscode || ''; document.getElementById('form-drug-remarks').value = drug.remarks || ''; const currentTags = (drug.drug_tag_mapping || []).map(t => t.tag_name); document.querySelectorAll('input[name="drug-tags"]').forEach(cb => { cb.checked = currentTags.includes(cb.value); }); openModal('drug-modal'); }
+    async function saveDrug() { const drug_code = document.getElementById('form-drug-code').value; const statuscode = document.getElementById('form-drug-statuscode').value.trim() || null; const remarks = document.getElementById('form-drug-remarks').value.trim() || null; await supabaseClient.from('drugs').upsert({ drug_code, drug_name: document.getElementById('form-drug-name').value, dosage_form: document.getElementById('form-drug-type').value, special_note: document.getElementById('form-drug-note').value, statuscode: statuscode, remarks: remarks }); await supabaseClient.from('drug_tag_mapping').delete().eq('drug_code', drug_code); const selectedTags = Array.from(document.querySelectorAll('input[name="drug-tags"]:checked')).map(cb => ({ drug_code, tag_name: cb.value })); if (selectedTags.length > 0) await supabaseClient.from('drug_tag_mapping').insert(selectedTags); closeModal('drug-modal'); fetchDrugs(); }
     async function deleteDrug(code) { if(confirm("ลบข้อมูลยานี้ออกจากระบบ?")) { await supabaseClient.from('drugs').delete().eq('drug_code', code); fetchDrugs(); } }
 
     function resetGenericForm() {
