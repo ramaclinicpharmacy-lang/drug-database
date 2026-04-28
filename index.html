@@ -497,10 +497,7 @@
     }
 
     function updateBaseVisibilityAndFilter() {
-        renderNlemSidebar();
-        renderFormSidebar();
-        renderRouteSidebar();
-        renderPharmSidebar();
+        renderNlemSidebar(); renderFormSidebar(); renderRouteSidebar(); renderPharmSidebar();
         filterDrugs();
     }
 
@@ -551,8 +548,6 @@
 
     function filterSidebarPharms() { const input = document.getElementById('search-pharm-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-pharm-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
     function togglePharmFilter(className) { if (selectedPharmFilters.includes(className)) selectedPharmFilters = selectedPharmFilters.filter(c => c !== className); else selectedPharmFilters.push(className); renderPharmSidebar(); filterDrugs(); }
-    
-    // ✨ แยกสีให้กลุ่มยาพิเศษ (ใน Filter Panel) ✨
     function renderPharmSidebar() { 
         const sidebar = document.getElementById('sidebar-pharm-filters'); 
         if (allPharmClasses.length === 0) return sidebar.innerHTML = '<div style="color:gray; font-size:0.8rem;">ไม่มีข้อมูล</div>'; 
@@ -636,7 +631,10 @@
             return matchText && matchPharm && matchForm && matchNlem && matchRoute;
         });
         
-        const isFiltering = q || selectedPharmFilters.length > 0 || selectedFormFilters.length > 0 || selectedNlemFilters.length > 0 || selectedRouteFilters.length > 0 || globalVisibleStatuses.length > 0;
+        const adminBypassEl = document.getElementById('admin-view-all-cb');
+        const adminBypass = isAdmin && adminBypassEl && adminBypassEl.checked;
+        const isFiltering = q || selectedPharmFilters.length > 0 || selectedFormFilters.length > 0 || selectedNlemFilters.length > 0 || selectedRouteFilters.length > 0 || (!adminBypass && globalVisibleStatuses.length > 0);
+        
         const statsEl = document.getElementById('search-stats');
         if(statsEl) { statsEl.innerText = isFiltering ? `พบ ${filteredDrugsList.length} รายการ` : `รายการยาทั้งหมด: ${filteredDrugsList.length} รายการ`; }
         
@@ -657,7 +655,6 @@
 
     function formatConc(min, max, unit) { if (!min && !max) return ''; const u = unit || 'mg/mL'; let t = '<br><small style="color:var(--danger)"><b>ความเข้มข้น:</b> '; if (min && max) t += `${min} - ${max} ${u}`; else if (max) t += `ไม่เกิน ${max} ${u}`; else t += `ไม่น้อยกว่า ${min} ${u}`; return t + '</small>'; }
 
-    // ✨ แยกสีให้กลุ่มยาพิเศษ (ในการ์ดยา) ✨
     function renderDrugs(drugs) {
         const container = document.getElementById('drug-list-container');
         if (drugs.length === 0) return container.innerHTML = '<div style="text-align:center; padding:50px; color:gray;">❌ ไม่พบข้อมูลที่ตรงกับเงื่อนไข</div>';
@@ -728,7 +725,17 @@
         updateToggleAllButton();
     }
 
-    function openAddDrug() { document.getElementById('form-drug-code').disabled=false; document.getElementById('form-drug-code').value=''; document.getElementById('form-drug-name').value=''; document.getElementById('form-drug-note').value=''; document.getElementById('form-drug-statuscode').value=''; document.querySelectorAll('input[name="drug-tags"]').forEach(cb => cb.checked = false); openModal('drug-modal'); }
+    // ✨ เพิ่มการบังคับเคลียร์ selectedIndex ให้ Dropdown เวลา Add ข้อมูลใหม่ ✨
+    function openAddDrug() { 
+        document.getElementById('form-drug-code').disabled=false; 
+        document.getElementById('form-drug-code').value=''; 
+        document.getElementById('form-drug-name').value=''; 
+        document.getElementById('form-drug-note').value=''; 
+        document.getElementById('form-drug-statuscode').value=''; 
+        if(document.getElementById('form-drug-type').options.length > 0) document.getElementById('form-drug-type').selectedIndex = 0;
+        document.querySelectorAll('input[name="drug-tags"]').forEach(cb => cb.checked = false); 
+        openModal('drug-modal'); 
+    }
     function openEditDrug(code) { const drug = allDrugsRaw.find(d => d.drug_code === code); if (!drug) return; document.getElementById('form-drug-code').value = drug.drug_code; document.getElementById('form-drug-code').disabled = true; document.getElementById('form-drug-name').value = drug.drug_name; document.getElementById('form-drug-type').value = drug.dosage_form || ''; document.getElementById('form-drug-note').value = drug.special_note || ''; document.getElementById('form-drug-statuscode').value = drug.statuscode || ''; const currentTags = (drug.drug_tag_mapping || []).map(t => t.tag_name); document.querySelectorAll('input[name="drug-tags"]').forEach(cb => { cb.checked = currentTags.includes(cb.value); }); openModal('drug-modal'); }
     async function saveDrug() { const drug_code = document.getElementById('form-drug-code').value; const statuscode = document.getElementById('form-drug-statuscode').value.trim() || null; await supabaseClient.from('drugs').upsert({ drug_code, drug_name: document.getElementById('form-drug-name').value, dosage_form: document.getElementById('form-drug-type').value, special_note: document.getElementById('form-drug-note').value, statuscode: statuscode }); await supabaseClient.from('drug_tag_mapping').delete().eq('drug_code', drug_code); const selectedTags = Array.from(document.querySelectorAll('input[name="drug-tags"]:checked')).map(cb => ({ drug_code, tag_name: cb.value })); if (selectedTags.length > 0) await supabaseClient.from('drug_tag_mapping').insert(selectedTags); closeModal('drug-modal'); fetchDrugs(); }
     async function deleteDrug(code) { if(confirm("ลบข้อมูลยานี้ออกจากระบบ?")) { await supabaseClient.from('drugs').delete().eq('drug_code', code); fetchDrugs(); } }
@@ -791,6 +798,18 @@
         selectPharm(newName); 
     }
 
+    // ✨ ฟังก์ชันเพิ่มกลุ่มยาใหม่แบบกดปุ่ม (Inline) ที่กู้คืนมาแล้ว ✨
+    async function addNewPharmInline() {
+        const inputEl = document.getElementById('inline-new-pharm');
+        const newName = inputEl.value.trim();
+        if (!newName) return alert('กรุณาพิมพ์ชื่อกลุ่มยา');
+        const { error } = await supabaseClient.from('pharm_classes').upsert({ class_name: newName });
+        if (error) return alert("เกิดข้อผิดพลาด: " + error.message);
+        inputEl.value = '';
+        await fetchPharmClasses(); 
+        selectPharm(newName); 
+    }
+
     async function saveMasterGeneric() { 
         const generic_code = document.getElementById('master-gen-code').value; 
         const { error } = await supabaseClient.from('generics').upsert({ generic_code, generic_name: document.getElementById('master-gen-name').value, special_note: document.getElementById('master-gen-note').value }); 
@@ -830,7 +849,19 @@
     function toggleBulkPharmCheckboxes(check) { document.querySelectorAll('.bulk-pharm-gen-cb').forEach(cb => cb.checked = check); }
     async function executeBulkPharmAdd() { const className = document.getElementById('bulk-pharm-select').value; const targetGenCodes = Array.from(document.querySelectorAll('.bulk-pharm-gen-cb:checked')).map(cb => cb.value); if (targetGenCodes.length === 0) return alert("กรุณาเลือกยาสามัญอย่างน้อย 1 รายการ"); const payload = targetGenCodes.map(code => ({ generic_code: code, class_name: className })); const { error } = await supabaseClient.from('generic_pharm_mapping').upsert(payload); if (error) return alert("เกิดข้อผิดพลาด: " + error.message); alert(`✅ ผูกยาสามัญ ${targetGenCodes.length} รายการเข้ากลุ่ม ${className} สำเร็จ!`); closeModal('bulk-pharm-modal'); fetchGenerics(); fetchDrugs(); }
 
-    async function saveMasterNlem() { await supabaseClient.from('nlem_categories').upsert({ category_code: document.getElementById('master-nlem-code').value, description: document.getElementById('master-nlem-desc').value }); fetchNlemMaster(); }
+    // ✨ ฟังก์ชัน Save Master NLEM (พร้อม Validation & Alert) ✨
+    async function saveMasterNlem() { 
+        const code = document.getElementById('master-nlem-code').value.trim();
+        const desc = document.getElementById('master-nlem-desc').value.trim();
+        if(!code) return alert('กรุณาระบุหมวดบัญชี');
+        const {error} = await supabaseClient.from('nlem_categories').upsert({ category_code: code, description: desc }); 
+        if(error) return alert("เกิดข้อผิดพลาด: " + error.message);
+        document.getElementById('master-nlem-code').value = '';
+        document.getElementById('master-nlem-desc').value = '';
+        fetchNlemMaster(); 
+        alert('✅ บันทึกบัญชีสำเร็จ!');
+    }
+    
     async function openNlemManager(c, n) { document.getElementById('target-nlem-drug-code').value = c; document.getElementById('target-nlem-drug-name').innerText = n; document.getElementById('input-nlem-note').value = ''; await fetchCurrentNlem(c); openModal('nlem-mapping-modal'); }
     async function fetchCurrentNlem(c) { const { data } = await supabaseClient.from('drug_nlem_mapping').select('*').eq('drug_code', c); document.getElementById('current-nlem-list').innerHTML = (data || []).map(n => `<div class="list-item" style="flex-wrap:wrap; border-left:3px solid var(--pink);"><div style="flex:1;"><b>${n.nlem_code}</b><br><small style="color:gray">${n.condition_note || 'ไม่มีเงื่อนไข'}</small></div><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="removeNlemMapping('${n.drug_code}', '${n.nlem_code}')">ลบ</button></div>`).join(''); }
     async function addNlemMapping() { const drug_code = document.getElementById('target-nlem-drug-code').value; await supabaseClient.from('drug_nlem_mapping').upsert({ drug_code, nlem_code: document.getElementById('select-nlem').value, condition_note: document.getElementById('input-nlem-note').value }); document.getElementById('input-nlem-note').value = ''; fetchCurrentNlem(drug_code); fetchDrugs(); }
@@ -842,12 +873,69 @@
     function toggleBulkNlemCheckboxes(check) { document.querySelectorAll('.bulk-nlem-drug-cb').forEach(cb => cb.checked = check); }
     async function executeBulkNlemAdd() { const nlem_code = document.getElementById('bulk-nlem-select').value; const condition_note = document.getElementById('bulk-nlem-note').value; const selectedCheckboxes = document.querySelectorAll('.bulk-nlem-drug-cb:checked'); const targetDrugCodes = Array.from(selectedCheckboxes).map(cb => cb.value); if (targetDrugCodes.length === 0) return alert("กรุณาเลือกยาอย่างน้อย 1 รายการ"); const payload = targetDrugCodes.map(code => ({ drug_code: code, nlem_code: nlem_code, condition_note: condition_note })); const { error } = await supabaseClient.from('drug_nlem_mapping').upsert(payload); if (error) return alert("เกิดข้อผิดพลาด: " + error.message); alert(`✅ เพิ่มยา ${targetDrugCodes.length} รายการเข้าบัญชี ${nlem_code} สำเร็จ!`); closeModal('bulk-nlem-modal'); fetchDrugs(); }
 
-    async function saveMasterRoute() { await supabaseClient.from('routes').upsert({ route_code: document.getElementById('master-route-code').value, route_name: document.getElementById('master-route-name').value }); fetchRoutes(); }
-    async function saveMasterFluid() { await supabaseClient.from('fluids').upsert({ short_name: document.getElementById('master-fluid-short').value, full_name: document.getElementById('master-fluid-full').value }); fetchFluids(); }
-    async function saveMasterForm() { await supabaseClient.from('dosage_forms').upsert({ form_name: document.getElementById('master-form-name').value }); fetchDosageForms(); }
+    // ✨ ฟังก์ชัน Save Master Route (พร้อม Validation & Alert) ✨
+    async function saveMasterRoute() { 
+        const code = document.getElementById('master-route-code').value.trim();
+        const name = document.getElementById('master-route-name').value.trim();
+        if(!code || !name) return alert('กรุณาระบุรหัสและชื่อช่องทางให้ครบ');
+        const {error} = await supabaseClient.from('routes').upsert({ route_code: code, route_name: name }); 
+        if(error) return alert("เกิดข้อผิดพลาด: " + error.message);
+        document.getElementById('master-route-code').value = '';
+        document.getElementById('master-route-name').value = '';
+        fetchRoutes(); 
+        alert('✅ บันทึกช่องทางสำเร็จ!');
+    }
+    
+    // ✨ ฟังก์ชัน Save Master Fluid (พร้อม Validation & Alert) ✨
+    async function saveMasterFluid() { 
+        const shortName = document.getElementById('master-fluid-short').value.trim();
+        const fullName = document.getElementById('master-fluid-full').value.trim();
+        if(!shortName || !fullName) return alert('กรุณาระบุชื่อย่อและชื่อเต็มสารน้ำให้ครบ');
+        const {error} = await supabaseClient.from('fluids').upsert({ short_name: shortName, full_name: fullName }); 
+        if(error) return alert("เกิดข้อผิดพลาด: " + error.message);
+        document.getElementById('master-fluid-short').value = '';
+        document.getElementById('master-fluid-full').value = '';
+        fetchFluids(); 
+        alert('✅ บันทึกสารน้ำสำเร็จ!');
+    }
+    
+    // ✨ ฟังก์ชัน Save Master Form (พร้อม Validation & Alert) ✨
+    async function saveMasterForm() { 
+        const name = document.getElementById('master-form-name').value.trim();
+        if(!name) return alert('กรุณาระบุชื่อชนิดยา');
+        const {error} = await supabaseClient.from('dosage_forms').upsert({ form_name: name }); 
+        if(error) return alert("เกิดข้อผิดพลาด: " + error.message);
+        document.getElementById('master-form-name').value = '';
+        fetchDosageForms(); 
+        alert('✅ บันทึกชนิดยาสำเร็จ!');
+    }
+    
+    // ✨ ฟังก์ชัน Save Master Tag (พร้อม Validation & Alert) ✨
+    async function saveMasterTag() { 
+        const name = document.getElementById('master-tag-name').value.trim();
+        if(!name) return alert('กรุณาระบุสถานะ');
+        const {error} = await supabaseClient.from('drug_tags').upsert({ tag_name: name }); 
+        if(error) return alert("เกิดข้อผิดพลาด: " + error.message);
+        document.getElementById('master-tag-name').value = '';
+        fetchTags(); 
+        alert('✅ บันทึกสถานะสำเร็จ!');
+    }
+
+    async function saveMasterPharm() { const name = document.getElementById('master-pharm-name').value.trim(); if (!name) return alert('กรุณากรอกชื่อกลุ่มยา'); const { error } = await supabaseClient.from('pharm_classes').upsert({ class_name: name }); if (error) return alert("เกิดข้อผิดพลาด: " + error.message); document.getElementById('master-pharm-name').value = ''; fetchPharmClasses(); alert('✅ บันทึกกลุ่มยาสำเร็จ!'); }
     async function deleteMaster(table, col, val) { if(confirm("ลบข้อมูล Master ตัวนี้?")) { await supabaseClient.from(table).delete().eq(col, val); loadAllData(); } }
     
-    function resetAdminForm() { editingAdminId = null; document.getElementById('input-instruction').value = ''; document.getElementById('input-min-conc').value = ''; document.getElementById('input-max-conc').value = ''; document.getElementById('input-conc-unit').value = ''; document.querySelectorAll('input[name="comp-fluids"]').forEach(cb => cb.checked = false); document.getElementById('btn-save-admin').innerText = "+ บันทึกวิธีใช้"; document.getElementById('btn-cancel-edit').classList.add('hidden'); }
+    // ✨ เพิ่มการบังคับเคลียร์ selectedIndex ให้ Dropdown เวลา Add ข้อมูลวิธีใช้ ✨
+    function resetAdminForm() { 
+        editingAdminId = null; 
+        if(document.getElementById('select-route').options.length > 0) document.getElementById('select-route').selectedIndex = 0; 
+        document.getElementById('input-instruction').value = ''; 
+        document.getElementById('input-min-conc').value = ''; 
+        document.getElementById('input-max-conc').value = ''; 
+        document.getElementById('input-conc-unit').value = ''; 
+        document.querySelectorAll('input[name="comp-fluids"]').forEach(cb => cb.checked = false); 
+        document.getElementById('btn-save-admin').innerText = "+ บันทึกวิธีใช้"; 
+        document.getElementById('btn-cancel-edit').classList.add('hidden'); 
+    }
     
     async function openAdminManager(c, n) { document.getElementById('target-admin-drug-code').value = c; document.getElementById('target-admin-drug-name').innerText = n; resetAdminForm(); await fetchCurrentAdmins(c); openModal('admin-manager-modal'); }
     async function fetchCurrentAdmins(c) { const {data} = await supabaseClient.from('drug_administrations').select('*, routes(route_name)').eq('drug_code', c); currentAdminsList = data || []; document.getElementById('current-admin-list').innerHTML = currentAdminsList.map(a => `<div class="list-item" style="flex-wrap:wrap; gap:10px; border-left:3px solid var(--primary);"><div style="flex:1; min-width:200px;"><b>${a.routes?.route_name || 'Unknown'}:</b> ${a.instructions?.substring(0,40) || ''}...</div><div style="display:flex; gap:5px; flex-wrap:wrap;"><button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--primary);" onclick="prepareAdminForm(${a.id}, false)">✏️</button><button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--success);" onclick="prepareAdminForm(${a.id}, true)">📋</button><button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--purple); border-color:var(--purple);" onclick="openBulkCopyAdmin(${a.id}, '${c}')">🔁 ก๊อปปี้ไปยาอื่น</button><button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--danger);" onclick="removeAdmin(${a.id}, '${c}')">🗑️</button></div></div>`).join(''); }
@@ -939,9 +1027,11 @@
         }
     }
 
+    // ✨ เพิ่มการบังคับเคลียร์ selectedIndex ให้ Dropdown เวลา Add ข้อมูลส่วนผสม ✨
     function resetIngredientForm() { 
         editingIngredientCode = null; 
         document.getElementById('select-generic').disabled = false; 
+        if(document.getElementById('select-generic').options.length > 0) document.getElementById('select-generic').selectedIndex = 0; 
         document.getElementById('input-amount').value = ''; 
         document.getElementById('input-unit').value = ''; 
         document.getElementById('btn-save-ingredient').innerText = "+ เพิ่ม"; 
@@ -1011,3 +1101,4 @@
 
     init(); 
 </script>
+</html>
