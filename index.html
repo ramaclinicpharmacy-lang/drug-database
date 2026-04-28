@@ -347,7 +347,27 @@
     </div>
 </div>
 
-<div id="bulk-pharm-modal" class="modal"><div class="modal-content" style="max-width: 800px;"><h3 style="color:var(--indigo); margin-top:0;">🗂️ จัดกลุ่มยาให้ยาสามัญ (Bulk Pharm)</h3><div class="section-box" style="background: #eef2ff; border-color: #c7d2fe;"><label style="font-size:0.9rem; font-weight:bold; display:block;">เลือกกลุ่มยา (Pharmacology)</label><select id="bulk-pharm-select" style="font-weight:bold; color:var(--indigo);"></select></div><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">เลือกยาสามัญที่ต้องการผูกกลุ่มยานี้:</label><input type="text" id="search-bulk-pharm-gen" placeholder="🔍 ค้นหาชื่อยาสามัญ..." onkeyup="filterBulkPharmGenerics()" style="margin-bottom: 10px;"><div style="margin-bottom: 10px; font-size: 0.85rem;"><button class="btn btn-outline" style="padding: 4px 8px;" onclick="toggleBulkPharmCheckboxes(true)">☑️ เลือกทั้งหมดที่แสดง</button><button class="btn btn-outline" style="padding: 4px 8px;" onclick="toggleBulkPharmCheckboxes(false)">☐ เอาออกทั้งหมด</button></div><div id="bulk-pharm-gen-list" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 8px; margin-bottom: 15px; background: white; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;"></div><div style="display:flex; gap:10px;"><button class="btn" style="background:var(--indigo); color:white; flex:1; font-size:1rem; height:45px;" onclick="executeBulkPharmAdd()">✅ บันทึกข้อมูล</button><button class="btn btn-outline" style="flex:1; height:45px;" onclick="closeModal('bulk-pharm-modal')">ยกเลิก</button></div></div></div>
+<div id="bulk-pharm-modal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+        <h3 style="color:var(--indigo); margin-top:0;">🗂️ จัดกลุ่มยาให้ยาสามัญ (Bulk Pharm)</h3>
+        <div class="section-box" style="background: #eef2ff; border-color: #c7d2fe;">
+            <label style="font-size:0.9rem; font-weight:bold; display:block;">เลือกกลุ่มยา (Pharmacology)</label>
+            <select id="bulk-pharm-select" style="font-weight:bold; color:var(--indigo);" onchange="onBulkPharmClassChange()"></select>
+        </div>
+        <label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">รายชื่อยาสามัญ (ติ๊กเพื่อเพิ่ม/เอาออก):</label>
+        <input type="text" id="search-bulk-pharm-gen" placeholder="🔍 ค้นหาชื่อยาสามัญ..." onkeyup="filterBulkPharmGenerics()" style="margin-bottom: 10px;">
+        <div style="margin-bottom: 10px; font-size: 0.85rem;">
+            <button class="btn btn-outline" style="padding: 4px 8px;" onclick="toggleBulkPharmCheckboxes(true)">☑️ เลือกทั้งหมดที่แสดง</button>
+            <button class="btn btn-outline" style="padding: 4px 8px;" onclick="toggleBulkPharmCheckboxes(false)">☐ เอาออกทั้งหมดที่แสดง</button>
+        </div>
+        <div id="bulk-pharm-gen-list" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 8px; margin-bottom: 15px; background: white; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; align-items: start;"></div>
+        
+        <div style="display:flex; gap:10px;">
+            <button class="btn" style="background:var(--indigo); color:white; flex:1; font-size:1rem; height:45px;" onclick="executeBulkPharmAdd()">✅ บันทึกข้อมูล</button>
+            <button class="btn btn-outline" style="flex:1; height:45px;" onclick="closeModal('bulk-pharm-modal')">ยกเลิก</button>
+        </div>
+    </div>
+</div>
 <div id="bulk-nlem-modal" class="modal"><div class="modal-content" style="max-width: 800px;"><h3 style="color:var(--pink); margin-top:0;">🗂️ จัดกลุ่มยาเข้าบัญชี (Bulk Add)</h3><div class="section-box" style="background: #fdf2f8; border-color: #fbcfe8;"><label style="font-size:0.9rem; font-weight:bold; display:block;">เลือกหมวดบัญชียาหลัก</label><select id="bulk-nlem-select" style="font-weight:bold; color:var(--pink);"></select><label style="font-size:0.9rem; font-weight:bold; margin-top:10px; display:block;">เงื่อนไขการใช้ (Condition Note) - <small style="font-weight:normal;">ใช้ร่วมกันทุกยาที่เลือก</small></label><textarea id="bulk-nlem-note" placeholder="เช่น 'เฉพาะผู้ป่วยดื้อยา' (เว้นว่างได้)"></textarea></div><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">เลือกยาที่ต้องการเพิ่มเข้าบัญชีนี้:</label><input type="text" id="search-bulk-nlem-drug" placeholder="🔍 ค้นหาชื่อยาเพื่อเลือก..." onkeyup="filterBulkNlemDrugs()" style="margin-bottom: 10px;"><div style="margin-bottom: 10px; font-size: 0.85rem;"><button class="btn btn-outline" style="padding: 4px 8px;" onclick="toggleBulkNlemCheckboxes(true)">☑️ เลือกทั้งหมดที่แสดง</button><button class="btn btn-outline" style="padding: 4px 8px;" onclick="toggleBulkNlemCheckboxes(false)">☐ เอาออกทั้งหมด</button></div><div id="bulk-nlem-drug-list" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 8px; margin-bottom: 15px; background: white; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;"></div><div style="display:flex; gap:10px;"><button class="btn" style="background:var(--pink); color:white; flex:1; font-size:1rem; height:45px;" onclick="executeBulkNlemAdd()">✅ บันทึกข้อมูลเข้าบัญชี</button><button class="btn btn-outline" style="flex:1; height:45px;" onclick="closeModal('bulk-nlem-modal')">ยกเลิก</button></div></div></div>
 <div id="nlem-master-modal" class="modal">
     <div class="modal-content">
@@ -985,12 +1005,112 @@
     }    
     async function fetchGenerics() { let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; while (hasMore) { const { data, error } = await supabaseClient.from('generics').select('*, generic_pharm_mapping(class_name)').order('generic_name').range(from, from + step - 1); if (error) break; fetchedData = fetchedData.concat(data); if (data.length < step) hasMore = false; else from += step; } allGenerics = fetchedData; filterGenericOptions(); filterMasterGenericList(); }
 
-    function openBulkPharmModal() { document.getElementById('bulk-pharm-select').innerHTML = allPharmClasses.map(p => `<option value="${p.class_name}">${p.class_name}</option>`).join(''); document.getElementById('search-bulk-pharm-gen').value = ''; renderBulkPharmGenerics(allGenerics); openModal('bulk-pharm-modal'); }
-    function renderBulkPharmGenerics(genericsToRender) { const listEl = document.getElementById('bulk-pharm-gen-list'); if (genericsToRender.length === 0) { listEl.innerHTML = '<div style="color:gray; padding:10px; grid-column: 1 / -1;">ไม่พบยาสามัญที่ค้นหา</div>'; return; } listEl.innerHTML = genericsToRender.map(g => `<label style="display:flex; align-items:flex-start; gap:10px; padding:10px; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; background:#f8fafc; font-size:0.9rem; text-align:left; transition:0.2s;"><input type="checkbox" class="bulk-pharm-gen-cb" style="margin-top: 4px; transform: scale(1.2);" value="${encodeHTML(g.generic_code)}"><span style="color:var(--dark); font-weight:bold; flex:1;">${encodeHTML(g.generic_name)}</span></label>`).join(''); }
-    function filterBulkPharmGenerics() { const q = document.getElementById('search-bulk-pharm-gen').value.toLowerCase(); const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); renderBulkPharmGenerics(filtered); }
-    function toggleBulkPharmCheckboxes(check) { document.querySelectorAll('.bulk-pharm-gen-cb').forEach(cb => cb.checked = check); }
-    async function executeBulkPharmAdd() { const className = document.getElementById('bulk-pharm-select').value; const targetGenCodes = Array.from(document.querySelectorAll('.bulk-pharm-gen-cb:checked')).map(cb => cb.value); if (targetGenCodes.length === 0) return alert("กรุณาเลือกยาสามัญอย่างน้อย 1 รายการ"); const payload = targetGenCodes.map(code => ({ generic_code: code, class_name: className })); const { error } = await supabaseClient.from('generic_pharm_mapping').upsert(payload); if (error) return alert("เกิดข้อผิดพลาด: " + error.message); alert(`✅ ผูกยาสามัญ ${targetGenCodes.length} รายการเข้ากลุ่ม ${className} สำเร็จ!`); closeModal('bulk-pharm-modal'); fetchGenerics(); fetchDrugs(); }
+    let bulkPharmSelectedGenerics = new Set();
 
+    // ✨ ตัวแปรเก็บสถานะว่ามียาสามัญตัวไหนถูกเลือกอยู่บ้าง ✨
+    let bulkPharmSelectedGenerics = new Set();
+
+    function openBulkPharmModal() { 
+        document.getElementById('bulk-pharm-select').innerHTML = allPharmClasses.map(p => `<option value="${p.class_name}">${p.class_name}</option>`).join(''); 
+        document.getElementById('search-bulk-pharm-gen').value = ''; 
+        onBulkPharmClassChange(); // โหลดข้อมูลตั้งต้น
+        openModal('bulk-pharm-modal'); 
+    }
+
+    // ✨ เมื่อเปลี่ยน Dropdown ให้จำค่าใหม่ว่ากลุ่มนี้มียาอะไรอยู่บ้าง ✨
+    function onBulkPharmClassChange() {
+        const selectedClass = document.getElementById('bulk-pharm-select').value;
+        bulkPharmSelectedGenerics.clear();
+        
+        allGenerics.forEach(g => {
+            if ((g.generic_pharm_mapping || []).some(pm => pm.class_name === selectedClass)) {
+                bulkPharmSelectedGenerics.add(g.generic_code);
+            }
+        });
+        renderBulkPharmGenerics();
+    }
+
+    // ✨ สร้าง UI แบ่ง 2 โซน (อยู่ในกลุ่ม vs ไม่อยู่ในกลุ่ม) ✨
+    function renderBulkPharmGenerics() { 
+        const q = document.getElementById('search-bulk-pharm-gen').value.toLowerCase();
+        const listEl = document.getElementById('bulk-pharm-gen-list'); 
+        
+        const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); 
+        if (filtered.length === 0) { listEl.innerHTML = '<div style="color:gray; padding:10px; grid-column: 1 / -1;">ไม่พบยาสามัญที่ค้นหา</div>'; return; } 
+
+        let inGroupHtml = '';
+        let outGroupHtml = '';
+
+        filtered.forEach(g => {
+            const isSelected = bulkPharmSelectedGenerics.has(g.generic_code);
+            const safeCode = encodeHTML(g.generic_code);
+            const safeName = encodeHTML(g.generic_name);
+            
+            // สร้างกล่อง Checkbox
+            const html = `
+            <label id="label-bp-${safeCode}" style="display:flex; align-items:flex-start; gap:10px; padding:10px; border:1px solid ${isSelected ? 'var(--success)' : '#e2e8f0'}; border-radius:8px; cursor:pointer; background:${isSelected ? '#ecfdf5' : '#f8fafc'}; font-size:0.9rem; text-align:left; transition:0.2s;">
+                <input type="checkbox" class="bulk-pharm-gen-cb" style="margin-top: 4px; transform: scale(1.2);" value="${safeCode}" ${isSelected ? 'checked' : ''} onchange="handleBulkPharmCheck(this)">
+                <span style="color:var(--dark); font-weight:bold; flex:1;">${safeName}</span>
+            </label>`;
+
+            if (isSelected) inGroupHtml += html;
+            else outGroupHtml += html;
+        });
+
+        // นำมาประกอบกัน โดยมีหัวข้อคั่นให้เห็นชัดเจน
+        let finalHtml = '';
+        if (inGroupHtml) finalHtml += `<div style="grid-column: 1 / -1; font-weight:bold; color:var(--success); border-bottom: 2px solid var(--success); padding-bottom:5px; margin-top: 5px;">🟢 อยู่ในกลุ่มนี้แล้ว</div>${inGroupHtml}`;
+        if (outGroupHtml) finalHtml += `<div style="grid-column: 1 / -1; font-weight:bold; color:var(--dark); border-bottom: 2px solid #cbd5e1; padding-bottom:5px; margin-top: 15px;">⚪ ยังไม่อยู่ในกลุ่มนี้</div>${outGroupHtml}`;
+
+        listEl.innerHTML = finalHtml;
+    }
+
+    // ✨ อัปเดตสีและสถานะเวลาคลิกติ๊ก/เอาออก (ไม่กระตุก) ✨
+    function handleBulkPharmCheck(checkbox) {
+        const code = checkbox.value;
+        const label = document.getElementById('label-bp-' + code);
+        if (checkbox.checked) {
+            bulkPharmSelectedGenerics.add(code);
+            label.style.borderColor = 'var(--success)';
+            label.style.backgroundColor = '#ecfdf5';
+        } else {
+            bulkPharmSelectedGenerics.delete(code);
+            label.style.borderColor = '#e2e8f0';
+            label.style.backgroundColor = '#f8fafc';
+        }
+    }
+
+    function filterBulkPharmGenerics() { renderBulkPharmGenerics(); }
+
+    function toggleBulkPharmCheckboxes(check) { 
+        document.querySelectorAll('.bulk-pharm-gen-cb').forEach(cb => { 
+            if (cb.checked !== check) {
+                cb.checked = check;
+                handleBulkPharmCheck(cb);
+            }
+        }); 
+    }
+
+    // ✨ บันทึกข้อมูล โดยล้างของเก่าออกทั้งหมด และใส่ค่าใหม่จากการจัดกลุ่มล่าสุด ✨
+    async function executeBulkPharmAdd() { 
+        const className = document.getElementById('bulk-pharm-select').value; 
+        
+        // ลบข้อมูลกลุ่มเดิมทิ้ง
+        const { error: delError } = await supabaseClient.from('generic_pharm_mapping').delete().eq('class_name', className);
+        if (delError) return alert("เกิดข้อผิดพลาดในการเตรียมข้อมูล: " + delError.message);
+        
+        // ใส่ข้อมูลชุดใหม่เข้าไป
+        const payload = Array.from(bulkPharmSelectedGenerics).map(code => ({ generic_code: code, class_name: className })); 
+        if (payload.length > 0) {
+            const { error: insError } = await supabaseClient.from('generic_pharm_mapping').insert(payload); 
+            if (insError) return alert("เกิดข้อผิดพลาดในการบันทึก: " + insError.message); 
+        }
+        
+        alert(`✅ อัปเดตกลุ่มยา ${className} สำเร็จ! (รวม ${payload.length} รายการ)`); 
+        closeModal('bulk-pharm-modal'); 
+        fetchGenerics(); 
+        fetchDrugs(); 
+    }
     async function saveMasterNlem() { 
         const code = document.getElementById('master-nlem-code').value.trim();
         const desc = document.getElementById('master-nlem-desc').value.trim();
