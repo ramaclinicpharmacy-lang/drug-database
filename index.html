@@ -1007,9 +1007,6 @@
 
     let bulkPharmSelectedGenerics = new Set();
 
-    // ✨ ตัวแปรเก็บสถานะว่ามียาสามัญตัวไหนถูกเลือกอยู่บ้าง ✨
-    let bulkPharmSelectedGenerics = new Set();
-
     function openBulkPharmModal() { 
         document.getElementById('bulk-pharm-select').innerHTML = allPharmClasses.map(p => `<option value="${p.class_name}">${p.class_name}</option>`).join(''); 
         document.getElementById('search-bulk-pharm-gen').value = ''; 
