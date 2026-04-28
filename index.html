@@ -349,8 +349,19 @@
 
 <div id="bulk-pharm-modal" class="modal"><div class="modal-content" style="max-width: 800px;"><h3 style="color:var(--indigo); margin-top:0;">🗂️ จัดกลุ่มยาให้ยาสามัญ (Bulk Pharm)</h3><div class="section-box" style="background: #eef2ff; border-color: #c7d2fe;"><label style="font-size:0.9rem; font-weight:bold; display:block;">เลือกกลุ่มยา (Pharmacology)</label><select id="bulk-pharm-select" style="font-weight:bold; color:var(--indigo);"></select></div><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">เลือกยาสามัญที่ต้องการผูกกลุ่มยานี้:</label><input type="text" id="search-bulk-pharm-gen" placeholder="🔍 ค้นหาชื่อยาสามัญ..." onkeyup="filterBulkPharmGenerics()" style="margin-bottom: 10px;"><div style="margin-bottom: 10px; font-size: 0.85rem;"><button class="btn btn-outline" style="padding: 4px 8px;" onclick="toggleBulkPharmCheckboxes(true)">☑️ เลือกทั้งหมดที่แสดง</button><button class="btn btn-outline" style="padding: 4px 8px;" onclick="toggleBulkPharmCheckboxes(false)">☐ เอาออกทั้งหมด</button></div><div id="bulk-pharm-gen-list" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 8px; margin-bottom: 15px; background: white; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;"></div><div style="display:flex; gap:10px;"><button class="btn" style="background:var(--indigo); color:white; flex:1; font-size:1rem; height:45px;" onclick="executeBulkPharmAdd()">✅ บันทึกข้อมูล</button><button class="btn btn-outline" style="flex:1; height:45px;" onclick="closeModal('bulk-pharm-modal')">ยกเลิก</button></div></div></div>
 <div id="bulk-nlem-modal" class="modal"><div class="modal-content" style="max-width: 800px;"><h3 style="color:var(--pink); margin-top:0;">🗂️ จัดกลุ่มยาเข้าบัญชี (Bulk Add)</h3><div class="section-box" style="background: #fdf2f8; border-color: #fbcfe8;"><label style="font-size:0.9rem; font-weight:bold; display:block;">เลือกหมวดบัญชียาหลัก</label><select id="bulk-nlem-select" style="font-weight:bold; color:var(--pink);"></select><label style="font-size:0.9rem; font-weight:bold; margin-top:10px; display:block;">เงื่อนไขการใช้ (Condition Note) - <small style="font-weight:normal;">ใช้ร่วมกันทุกยาที่เลือก</small></label><textarea id="bulk-nlem-note" placeholder="เช่น 'เฉพาะผู้ป่วยดื้อยา' (เว้นว่างได้)"></textarea></div><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">เลือกยาที่ต้องการเพิ่มเข้าบัญชีนี้:</label><input type="text" id="search-bulk-nlem-drug" placeholder="🔍 ค้นหาชื่อยาเพื่อเลือก..." onkeyup="filterBulkNlemDrugs()" style="margin-bottom: 10px;"><div style="margin-bottom: 10px; font-size: 0.85rem;"><button class="btn btn-outline" style="padding: 4px 8px;" onclick="toggleBulkNlemCheckboxes(true)">☑️ เลือกทั้งหมดที่แสดง</button><button class="btn btn-outline" style="padding: 4px 8px;" onclick="toggleBulkNlemCheckboxes(false)">☐ เอาออกทั้งหมด</button></div><div id="bulk-nlem-drug-list" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 8px; margin-bottom: 15px; background: white; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;"></div><div style="display:flex; gap:10px;"><button class="btn" style="background:var(--pink); color:white; flex:1; font-size:1rem; height:45px;" onclick="executeBulkNlemAdd()">✅ บันทึกข้อมูลเข้าบัญชี</button><button class="btn btn-outline" style="flex:1; height:45px;" onclick="closeModal('bulk-nlem-modal')">ยกเลิก</button></div></div></div>
-
-<div id="nlem-master-modal" class="modal"><div class="modal-content"><h3>จัดการหมวดบัญชียาหลัก</h3><div class="section-box"><input type="text" id="master-nlem-code" placeholder="หมวด (เช่น ED ก)"><input type="text" id="master-nlem-desc" placeholder="คำอธิบาย"><button class="btn btn-success" style="width:100%" onclick="saveMasterNlem()">บันทึก</button></div><div id="master-nlem-list"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('nlem-master-modal')">ปิด</button></div></div>
+<div id="nlem-master-modal" class="modal">
+    <div class="modal-content">
+        <h3>จัดการหมวดบัญชียาหลัก</h3>
+        <div class="section-box">
+            <input type="text" id="master-nlem-code" placeholder="หมวด (เช่น ED ก)">
+            <input type="text" id="master-nlem-desc" placeholder="คำอธิบาย">
+            <input type="number" id="master-nlem-rank" placeholder="ลำดับการแสดงผล (เช่น 1, 2, 3...)">
+            <button class="btn btn-success" style="width:100%" onclick="saveMasterNlem()">บันทึก</button>
+        </div>
+        <div id="master-nlem-list"></div>
+        <button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('nlem-master-modal')">ปิด</button>
+    </div>
+</div>
 <div id="nlem-mapping-modal" class="modal"><div class="modal-content"><h3>บัญชียาหลัก: <span id="target-nlem-drug-name"></span></h3><input type="hidden" id="target-nlem-drug-code"><div class="section-box"><select id="select-nlem"></select><textarea id="input-nlem-note" style="margin-top:10px;" placeholder="เงื่อนไขการใช้..."></textarea><button class="btn btn-primary" style="width:100%; margin-top:10px; height:42px;" onclick="addNlemMapping()">+ เพิ่ม</button></div><div id="current-nlem-list"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('nlem-mapping-modal')">ปิด</button></div></div>
 <div id="tag-master-modal" class="modal"><div class="modal-content"><div class="section-box"><input type="text" id="master-tag-name" placeholder="ระบุสถานะ"><button class="btn btn-success" style="width:100%" onclick="saveMasterTag()">บันทึก</button></div><div id="master-tag-list"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('tag-master-modal')">ปิด</button></div></div>
 <div id="route-master-modal" class="modal"><div class="modal-content"><div class="section-box"><input type="text" id="master-route-code" placeholder="รหัส"><input type="text" id="master-route-name" placeholder="ชื่อเต็ม"><button class="btn btn-success" style="width:100%" onclick="saveMasterRoute()">บันทึก</button></div><div id="master-route-list"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('route-master-modal')">ปิด</button></div></div>
@@ -625,8 +636,16 @@
         }).join(''); 
         filterSidebarNlem(); 
     }
-    async function fetchNlemMaster() { const { data } = await supabaseClient.from('nlem_categories').select('*').order('category_code'); allNlem = data || []; renderNlemSidebar(); document.getElementById('select-nlem').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); document.getElementById('bulk-nlem-select').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); document.getElementById('master-nlem-list').innerHTML = allNlem.map(n => `<div class="list-item"><span><b>${n.category_code}</b> ${n.description||''}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('nlem_categories','category_code','${n.category_code}')">🗑️</button></div>`).join(''); }
-
+    async function fetchNlemMaster() { 
+        // ✨ เปลี่ยน order ตรงนี้ ✨
+        const { data } = await supabaseClient.from('nlem_categories').select('*').order('rank', { ascending: true, nullsFirst: false }); 
+        allNlem = data || []; 
+        renderNlemSidebar(); 
+        document.getElementById('select-nlem').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); 
+        document.getElementById('bulk-nlem-select').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); 
+        // ✨ แอบโชว์เลข Rank ให้เห็นในวงเล็บ ✨
+        document.getElementById('master-nlem-list').innerHTML = allNlem.map(n => `<div class="list-item"><span><b>${n.category_code}</b> ${n.description||''} <small style="color:gray;">(Rank: ${n.rank || '-'})</small></span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('nlem_categories','category_code','${n.category_code}')">🗑️</button></div>`).join(''); 
+    }
     function filterSidebarForms() { const input = document.getElementById('search-form-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-form-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
     function toggleFormFilter(formName) { if (selectedFormFilters.includes(formName)) selectedFormFilters = selectedFormFilters.filter(f => f !== formName); else selectedFormFilters.push(formName); renderFormSidebar(); filterDrugs(); }
     function renderFormSidebar() { 
@@ -975,11 +994,16 @@
     async function saveMasterNlem() { 
         const code = document.getElementById('master-nlem-code').value.trim();
         const desc = document.getElementById('master-nlem-desc').value.trim();
+        const rankVal = document.getElementById('master-nlem-rank').value;
+        const rank = rankVal ? parseInt(rankVal) : 99; // ถ้าไม่กรอกให้ไปอยู่ท้ายสุด (99)
+
         if(!code) return alert('กรุณาระบุหมวดบัญชี');
-        const {error} = await supabaseClient.from('nlem_categories').upsert({ category_code: code, description: desc }); 
+        const {error} = await supabaseClient.from('nlem_categories').upsert({ category_code: code, description: desc, rank: rank }); 
         if(error) return alert("เกิดข้อผิดพลาด: " + error.message);
+        
         document.getElementById('master-nlem-code').value = '';
         document.getElementById('master-nlem-desc').value = '';
+        document.getElementById('master-nlem-rank').value = ''; // เคลียร์ช่อง
         fetchNlemMaster(); 
         alert('✅ บันทึกบัญชีสำเร็จ!');
     }
