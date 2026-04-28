@@ -78,6 +78,23 @@
         .clickable-header { cursor: pointer; user-select: none; transition: opacity 0.2s; flex: 1; min-width: 250px;}
         .clickable-header:hover { opacity: 0.8; }
         .toggle-icon { display: inline-block; width: 20px; transition: transform 0.3s ease; color: var(--primary); font-size: 1.1rem; }
+
+        /* ✨ ควบคุมขนาดชื่อยาบนการ์ด ให้พอดีและตอบสนองตามขนาดจอ ✨ */
+        .clickable-header h2 { 
+            margin: 0 0 5px 0; 
+            color: var(--primary); 
+            display: flex; 
+            align-items: flex-start; /* เปลี่ยนจาก center เป็น flex-start เพื่อให้ไอคอนสามเหลี่ยมอยู่บรรทัดแรกเสมอ */
+            gap: 8px; 
+            font-size: clamp(1.1rem, 2.5vw, 1.4rem); /* 📱มือถือ: 1.1rem, 💻คอม: สูงสุด 1.4rem */
+            line-height: 1.3;
+        }
+        
+        .clickable-header h2 small {
+            font-size: clamp(0.85rem, 1.5vw, 1rem); /* ย่อขนาดตัวหนังสือในวงเล็บ (ชนิดยา) ให้เล็กลงตามสัดส่วน */
+            font-weight: normal;
+            margin-top: 2px;
+        }
         
         .card-body { display: none; padding-top: 15px; border-top: 1px dashed #cbd5e1; margin-top: 15px; animation: fadeIn 0.3s ease; }
         .card-body.expanded { display: block; }
@@ -854,7 +871,7 @@
             <div class="drug-card ${cardThemeClass}" data-code="${safeCode}">
                 <div class="card-header-flex">
                     <div class="clickable-header" onclick="toggleCard('${safeCode}')">
-                        <h2 style="margin:0 0 5px 0; color:var(--primary); display:flex; align-items:center; gap:8px;"><span class="toggle-icon" id="icon-${safeCode}" style="transform: ${isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}">▶</span><span>${drug.drug_name} <small style="color:gray;">[${drug.dosage_form || '-'}]</small></span></h2>
+                        <h2><span class="toggle-icon" id="icon-${safeCode}" style="transform: ${isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}">▶</span><span>${drug.drug_name} <small style="color:gray;">[${drug.dosage_form || '-'}]</small></span></h2>
                         <div style="margin-bottom:5px; padding-left: 28px;">${adminStatusBadge} ${nlemBadges} ${pharmHtml} ${tagsHtml}</div>
                         ${remarksHtml ? `<div style="padding-left: 28px;">${remarksHtml}</div>` : ''}
                     </div>
