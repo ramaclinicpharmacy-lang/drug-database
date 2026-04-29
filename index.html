@@ -488,7 +488,6 @@
             </div>
             
             <button class="btn btn-success" style="width:100%; margin-top:10px; height:42px;" onclick="saveMasterLabel()">💾 บันทึกฉลากยา</button>
-            <button class="btn btn-outline hidden" id="btn-cancel-label-edit" style="flex:1; height:42px;" onclick="resetLabelForm()">ยกเลิก</button>
         </div>
         <div id="master-label-list" style="max-height:300px; overflow-y:auto;"></div>
         <button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('label-master-modal')">ปิด</button>
@@ -2063,87 +2062,6 @@
     }
 
     init(); 
-
-    // ✨ 1. ฟังก์ชันล้างค่าฟอร์ม (Reset) และกลับสู่โหมด "เพิ่มใหม่"
-    function resetLabelForm() {
-        document.getElementById('master-label-code').value = '';
-        document.getElementById('master-label-code').disabled = false; // เปิดให้กรอกรหัสได้กรณีเพิ่มใหม่
-        document.getElementById('master-label-name').value = '';
-        document.getElementById('master-label-type').value = '';
-        document.getElementById('master-label-status').value = 'Active';
-        
-        document.getElementById('btn-save-master-label').innerText = "💾 บันทึกฉลากยา";
-        document.getElementById('btn-cancel-label-edit').classList.add('hidden');
-    }
-
-    // ✨ 2. ฟังก์ชันเตรียมการแก้ไข (ดึงข้อมูลมาใส่ช่องกรอก)
-    function prepareEditLabel(code) {
-        const label = allLabels.find(l => l.label_code === code);
-        if (!label) return;
-
-        document.getElementById('master-label-code').value = label.label_code;
-        document.getElementById('master-label-code').disabled = true; // ห้ามแก้รหัสหลัก (Primary Key)
-        document.getElementById('master-label-name').value = label.label_name || '';
-        document.getElementById('master-label-type').value = label.label_type || '';
-        document.getElementById('master-label-status').value = label.statuscode || 'Active';
-
-        document.getElementById('btn-save-master-label').innerText = "💾 ยืนยันแก้ไขฉลาก";
-        document.getElementById('btn-cancel-label-edit').classList.remove('hidden');
-        
-        // เลื่อนขึ้นไปด้านบนของ Modal ให้คนเห็นว่าข้อมูลเด้งขึ้นไปแล้ว
-        document.querySelector('#label-master-modal .modal-content').scrollTop = 0;
-    }
-
-    // ✨ 3. ปรับปรุงฟังก์ชันบันทึก (ให้เรียก Reset Form หลังเซฟ)
-    async function saveMasterLabel() { 
-        const code = document.getElementById('master-label-code').value.trim();
-        const name = document.getElementById('master-label-name').value.trim();
-        const type = document.getElementById('master-label-type').value.trim() || null;
-        const status = document.getElementById('master-label-status').value.trim() || 'Active';
-
-        if(!code || !name) return alert('กรุณาระบุรหัสและข้อความฉลากให้ครบถ้วน');
-        
-        const {error} = await supabaseClient.from('labels').upsert({ 
-            label_code: code, 
-            label_name: name,
-            label_type: type,
-            statuscode: status
-        }); 
-        
-        if(error) return alert("เกิดข้อผิดพลาด: " + error.message);
-        
-        alert('✅ บันทึกข้อมูลฉลากสำเร็จ!');
-        resetLabelForm(); // ล้างฟอร์ม
-        fetchLabelsMaster(); // โหลดรายการใหม่
-    }
-
-    // ✨ 4. ปรับปรุงการวาดรายการ (เพิ่มปุ่ม ✏️ แก้ไข)
-    async function fetchLabelsMaster() {
-        const { data } = await supabaseClient.from('labels').select('*').order('label_code');
-        allLabels = data || [];
-        renderLabelSidebar();
-        
-        const listEl = document.getElementById('master-label-list');
-        if(listEl) {
-            listEl.innerHTML = allLabels.map(l => {
-                const statusColor = l.statuscode === 'Active' ? 'var(--success)' : 'var(--danger)';
-                return `
-                <div class="list-item" style="flex-wrap:wrap; border-left: 3px solid var(--info);">
-                    <div style="flex:1; min-width:180px;">
-                        <b style="color:var(--info);">${l.label_code}:</b> <span style="font-weight:bold; color:var(--dark);">${l.label_name}</span>
-                        <div style="font-size:0.8rem; color:gray; margin-top:4px;">
-                            Type: <b>${l.label_type || '-'}</b> | 
-                            Status: <b style="color:${statusColor};">${l.statuscode || 'Active'}</b>
-                        </div>
-                    </div>
-                    <div style="display:flex; gap:5px;">
-                        <button class="btn btn-outline" style="color:var(--primary); padding:4px 8px; font-size:0.75rem;" onclick="prepareEditLabel('${l.label_code}')">✏️</button>
-                        <button class="btn btn-outline" style="color:red; padding:4px 8px; font-size:0.75rem;" onclick="deleteMaster('labels','label_code','${l.label_code}')">🗑️</button>
-                    </div>
-                </div>`;
-            }).join('');
-        }
-    }
 </script>
 </body>
 </html>
