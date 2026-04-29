@@ -456,6 +456,20 @@
     </div>
 </div>
 <div id="nlem-mapping-modal" class="modal"><div class="modal-content"><h3>บัญชียาหลัก: <span id="target-nlem-drug-name"></span></h3><input type="hidden" id="target-nlem-drug-code"><div class="section-box"><select id="select-nlem"></select><textarea id="input-nlem-note" style="margin-top:10px;" placeholder="เงื่อนไขการใช้..."></textarea><button class="btn btn-primary" style="width:100%; margin-top:10px; height:42px;" onclick="addNlemMapping()">+ เพิ่ม</button></div><div id="current-nlem-list"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('nlem-mapping-modal')">ปิด</button></div></div>
+<div id="label-mapping-modal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <h3 style="color:var(--info); margin-top:0;">🏷️ จัดการฉลาก: <span id="target-label-drug-name"></span></h3>
+        <input type="hidden" id="target-label-drug-code">
+        <div class="section-box" style="background:#f0f9ff; border-color:#bae6fd;">
+            <label style="font-size:0.85rem; font-weight:bold; display:block;">เลือกฉลากที่ต้องการเพิ่ม</label>
+            <select id="select-mapping-label" style="margin-bottom:10px; width:100%;"></select>
+            <button class="btn" style="background:var(--info); color:white; width:100%; height:42px;" onclick="addLabelMapping()">+ เพิ่มฉลากยานี้</button>
+        </div>
+        <div style="font-size:0.85rem; font-weight:bold; margin-top:15px; margin-bottom:5px; color:var(--dark);">ฉลากที่ผูกไว้ปัจจุบัน:</div>
+        <div id="current-label-mapping-list" style="max-height:300px; overflow-y:auto;"></div>
+        <button class="btn btn-outline" style="width:100%; margin-top:15px;" onclick="closeModal('label-mapping-modal')">ปิดหน้าต่าง</button>
+    </div>
+</div>
 <div id="tag-master-modal" class="modal"><div class="modal-content"><div class="section-box"><input type="text" id="master-tag-name" placeholder="ระบุสถานะ"><button class="btn btn-success" style="width:100%" onclick="saveMasterTag()">บันทึก</button></div><div id="master-tag-list"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('tag-master-modal')">ปิด</button></div></div>
 <div id="route-master-modal" class="modal"><div class="modal-content"><div class="section-box"><input type="text" id="master-route-code" placeholder="รหัส"><input type="text" id="master-route-name" placeholder="ชื่อเต็ม"><input type="number" id="master-route-rank" placeholder="ลำดับแสดงผล Dropdown (Rank)"><button class="btn btn-success" style="width:100%; margin-top:10px;" onclick="saveMasterRoute()">บันทึก</button></div><div id="master-route-list"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('route-master-modal')">ปิด</button></div></div>
 <div id="fluid-master-modal" class="modal"><div class="modal-content"><div class="section-box"><input type="text" id="master-fluid-short" placeholder="ชื่อย่อ"><input type="text" id="master-fluid-full" placeholder="ชื่อเต็ม"><button class="btn btn-success" style="width:100%" onclick="saveMasterFluid()">บันทึก</button></div><div id="master-fluid-list"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('fluid-master-modal')">ปิด</button></div></div>
@@ -1325,12 +1339,11 @@
                         <div style="margin-bottom:5px; padding-left: 28px;">${adminStatusBadge} ${nlemBadges} ${pharmHtml} ${tagsHtml}</div>
                         ${remarksHtml ? `<div style="padding-left: 28px;">${remarksHtml}</div>` : ''}
                     </div>
-                    ${isAdmin ? `<div class="admin-actions">
+                   ${isAdmin ? `<div class="admin-actions">
+                        <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--info); border-color:var(--info);" onclick="event.stopPropagation(); openLabelManager('${safeCode}', '${safeName}')">🏷️ ฉลาก</button>
+                        
                         <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--pink); border-color:var(--pink);" onclick="event.stopPropagation(); openNlemManager('${safeCode}', '${safeName}')">📋 บัญชี</button>
                         <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openAdminManager('${safeCode}', '${safeName}')">💉 วิธีใช้</button>
-                        <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openIngredientManager('${safeCode}', '${safeName}')">🧪 ส่วนผสม</button>
-                        <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openEditDrug('${safeCode}')">✏️</button>
-                        <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:red" onclick="event.stopPropagation(); deleteDrug('${safeCode}')">🗑️</button>
                     </div>` : ''}
                 </div>
                 <div id="body-${safeCode}" class="card-body ${isExpanded ? 'expanded' : ''}">
@@ -1674,7 +1687,65 @@
     async function fetchCurrentNlem(c) { const { data } = await supabaseClient.from('drug_nlem_mapping').select('*').eq('drug_code', c); document.getElementById('current-nlem-list').innerHTML = (data || []).map(n => `<div class="list-item" style="flex-wrap:wrap; border-left:3px solid var(--pink);"><div style="flex:1;"><b>${n.nlem_code}</b><br><small style="color:gray">${n.condition_note || 'ไม่มีเงื่อนไข'}</small></div><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="removeNlemMapping('${n.drug_code}', '${n.nlem_code}')">ลบ</button></div>`).join(''); }
     async function addNlemMapping() { const drug_code = document.getElementById('target-nlem-drug-code').value; await supabaseClient.from('drug_nlem_mapping').upsert({ drug_code, nlem_code: document.getElementById('select-nlem').value, condition_note: document.getElementById('input-nlem-note').value }); document.getElementById('input-nlem-note').value = ''; fetchCurrentNlem(drug_code); fetchDrugs(); }
     async function removeNlemMapping(d, n) { await supabaseClient.from('drug_nlem_mapping').delete().match({ drug_code: d, nlem_code: n }); fetchCurrentNlem(d); fetchDrugs(); }
-    
+    async function openLabelManager(c, n) { 
+        document.getElementById('target-label-drug-code').value = c; 
+        document.getElementById('target-label-drug-name').innerText = n; 
+        
+        // เอาข้อมูลฉลากที่มีทั้งหมด (allLabels) มาใส่ใน Dropdown
+        const selectEl = document.getElementById('select-mapping-label');
+        if (allLabels.length > 0) {
+            selectEl.innerHTML = allLabels.map(l => `<option value="${l.label_code}">${l.label_code}: ${l.label_name}</option>`).join('');
+        } else {
+            selectEl.innerHTML = `<option value="">-- ไม่มีข้อมูลฉลากในระบบ --</option>`;
+        }
+        
+        await fetchCurrentLabelMapping(c); 
+        openModal('label-mapping-modal'); 
+    }
+
+    async function fetchCurrentLabelMapping(c) { 
+        const { data, error } = await supabaseClient
+            .from('drug_label_mapping')
+            .select('label_code, labels(label_name)')
+            .eq('drug_code', c); 
+            
+        const listEl = document.getElementById('current-label-mapping-list');
+        
+        if (error || !data || data.length === 0) {
+            listEl.innerHTML = '<div style="color:gray; padding:10px; text-align:center; border:1px dashed #cbd5e1; border-radius:8px;">ยังไม่มีฉลากผูกกับยานี้</div>';
+            return;
+        }
+
+        listEl.innerHTML = data.map(l => `
+            <div class="list-item" style="border-left:3px solid var(--info); flex-wrap:wrap; gap:10px;">
+                <div style="flex:1;">
+                    <b style="color:var(--info);">${l.label_code}</b><br>
+                    <small style="color:gray;">${l.labels?.label_name || 'ไม่ทราบชื่อฉลาก'}</small>
+                </div>
+                <button class="btn btn-outline" style="color:red; padding:4px 8px; font-size:0.75rem;" onclick="removeLabelMapping('${c}', '${l.label_code}')">ลบ</button>
+            </div>
+        `).join(''); 
+    }
+
+    async function addLabelMapping() { 
+        const drug_code = document.getElementById('target-label-drug-code').value; 
+        const label_code = document.getElementById('select-mapping-label').value; 
+        if(!label_code) return alert('กรุณาเลือกฉลากยา');
+        
+        const { error } = await supabaseClient.from('drug_label_mapping').upsert({ drug_code, label_code }); 
+        if (error) return alert("เกิดข้อผิดพลาด: " + error.message);
+        
+        fetchCurrentLabelMapping(drug_code); 
+        fetchDrugs(); // โหลดหน้าหลักใหม่ให้ป้ายฉลากเด้งขึ้นการ์ดทันที
+    }
+
+    async function removeLabelMapping(d, l) { 
+        const { error } = await supabaseClient.from('drug_label_mapping').delete().match({ drug_code: d, label_code: l }); 
+        if (error) return alert("เกิดข้อผิดพลาด: " + error.message);
+        
+        fetchCurrentLabelMapping(d); 
+        fetchDrugs(); // โหลดหน้าหลักใหม่ให้ป้ายฉลากหายไปจากการ์ดทันที
+    }
     function openBulkNlemModal() { document.getElementById('bulk-nlem-note').value = ''; document.getElementById('search-bulk-nlem-drug').value = ''; renderBulkNlemDrugs(allDrugsRaw); openModal('bulk-nlem-modal'); }
     function renderBulkNlemDrugs(drugsToRender) { const listEl = document.getElementById('bulk-nlem-drug-list'); if (drugsToRender.length === 0) { listEl.innerHTML = '<div style="color:gray; padding:10px; grid-column: 1 / -1;">ไม่พบยาที่ค้นหา</div>'; return; } listEl.innerHTML = drugsToRender.map(d => `<label style="display:flex; align-items:flex-start; gap:10px; padding:10px; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; background:#f8fafc; font-size:0.9rem; text-align:left; transition:0.2s;"><input type="checkbox" class="bulk-nlem-drug-cb" style="margin-top: 4px; transform: scale(1.2);" value="${encodeHTML(d.drug_code)}"><div style="flex:1;"><b style="color:var(--dark);">${encodeHTML(d.drug_name)}</b><br><small style="color:gray;">${d.dosage_form || '-'}</small></div></label>`).join(''); }
     function filterBulkNlemDrugs() { const q = document.getElementById('search-bulk-nlem-drug').value.toLowerCase(); const filtered = allDrugsRaw.filter(d => (d.drug_name||'').toLowerCase().includes(q) || (d.drug_code||'').toLowerCase().includes(q)); renderBulkNlemDrugs(filtered); }
