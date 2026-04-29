@@ -53,7 +53,9 @@
 
         .filter-count { font-size: 0.75rem; background: rgba(0,0,0,0.06); padding: 2px 8px; border-radius: 12px; font-weight: bold; }
         .filter-pill.active .filter-count { background: rgba(255,255,255,0.3); color: white; }
-
+        .filter-grid > div { min-width: 0; }
+        .filter-list-container { overflow-x: hidden; }
+        .filter-pill > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; margin-right: 8px; }
         .sidebar-search { width: 100%; padding: 8px 12px; margin-bottom: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; box-sizing: border-box; outline: none; }
         .sidebar-search:focus { border-color: var(--primary); }
 
