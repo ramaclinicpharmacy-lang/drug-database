@@ -945,17 +945,20 @@
         const baseDrugs = getBaseDrugs();
         let html = '';
 
-        // ดึงหมวดหมู่ที่มีทั้งหมดในระบบ (ถ้ายาเก่าไม่มีข้อมูลให้ถือว่าเป็น 'drug' เป็นค่าเริ่มต้น)
-        const uniqueTypes = [...new Set(baseDrugs.map(d => d.drug_type || 'drug'))].sort();
+        // ✨ วาดปุ่ม ยาที่ไม่มี Drug Type ✨
+        const nullCount = baseDrugs.filter(d => !d.drug_type || d.drug_type.trim() === '').length;
+        const isNullActive = selectedDrugTypeFilters.includes('NULL_VALUE') ? 'active' : '';
+        html += `<div class="filter-pill ${isNullActive}" onclick="toggleDrugTypeFilter('NULL_VALUE')" style="${isNullActive ? 'background:#475569; border-color:#475569; color:white;' : 'border:1px dashed #cbd5e1; color:#64748b;'}"><span>[ไม่ระบุหมวดหมู่]</span><span class="filter-count" style="${isNullActive?'background:rgba(255,255,255,0.3); color:white;':''}">${nullCount}</span></div>`;
+
+        // ✨ ดึงหมวดหมู่ที่มีทั้งหมดในระบบ (คัดแยกตัวที่ว่างออกไป) ✨
+        const uniqueTypes = [...new Set(baseDrugs.map(d => d.drug_type).filter(t => t && t.trim() !== ''))].sort();
 
         if (uniqueTypes.length > 0) {
             html += uniqueTypes.map(t => { 
                 const isActive = selectedDrugTypeFilters.includes(t) ? 'active' : ''; 
-                const count = baseDrugs.filter(d => (d.drug_type || 'drug') === t).length;
+                const count = baseDrugs.filter(d => d.drug_type === t).length;
                 return `<div class="filter-pill ${isActive}" onclick="toggleDrugTypeFilter('${t}')" style="${isActive ? 'background:var(--warning); border-color:var(--warning); color:white;' : ''}"><span>${t}</span><span class="filter-count" style="${isActive?'background:rgba(255,255,255,0.3); color:white;':''}">${count}</span></div>`; 
             }).join(''); 
-        } else {
-            html = '<div style="color:gray; font-size:0.8rem;">ไม่มีข้อมูล</div>';
         }
         
         sidebar.innerHTML = html;
@@ -992,8 +995,9 @@
             // ✨ 1. เพิ่มเงื่อนไขเช็ก Drug Type ✨
             let matchDrugType = true;
             if (selectedDrugTypeFilters.length > 0) {
-                const dType = d.drug_type || 'drug'; // ผูกค่าดีฟอลต์เป็น drug
-                matchDrugType = selectedDrugTypeFilters.includes(dType);
+                matchDrugType = selectedDrugTypeFilters.some(filter => 
+                    filter === 'NULL_VALUE' ? (!d.drug_type || d.drug_type.trim() === '') : d.drug_type === filter
+                );
             }
             
             // ✨ รองรับฟิลเตอร์ กลุ่มยาที่ว่างเปล่า ✨
