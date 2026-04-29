@@ -1036,6 +1036,15 @@
         sidebar.innerHTML = html;
         filterSidebarLabels(); 
     }
+
+    async function fetchPharmClasses() { 
+        const { data } = await supabaseClient.from('pharm_classes').select('*').order('class_name'); 
+        allPharmClasses = data || []; 
+        renderPharmSidebar(); 
+        const group = document.getElementById('gen-pharm-checkbox-group'); 
+        if (group) group.innerHTML = allPharmClasses.map(c => `<div><input type="checkbox" id="p-${c.class_name}" name="gen-pharm" value="${c.class_name}"><label for="p-${c.class_name}">${c.class_name}</label></div>`).join(''); 
+        filterMasterPharmList(); 
+    }
     
     async function fetchFluids() { const { data } = await supabaseClient.from('fluids').select('*').order('short_name'); allFluids = data || []; const group = document.getElementById('fluid-checkbox-group'); if (group) group.innerHTML = allFluids.map(f => `<div><input type="checkbox" id="fluid-${f.short_name}" name="comp-fluids" value="${f.short_name}"><label for="fluid-${f.short_name}">${f.short_name}</label></div>`).join(''); document.getElementById('master-fluid-list').innerHTML = allFluids.map(f => `<div class="list-item"><span><b>${f.short_name}:</b> ${f.full_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('fluids','short_name','${f.short_name}')">🗑️</button></div>`).join(''); }
     async function fetchTags() { const { data } = await supabaseClient.from('drug_tags').select('*').order('tag_name'); allTags = data || []; const group = document.getElementById('drug-tags-checkbox-group'); if (group) group.innerHTML = allTags.map(t => `<div><input type="checkbox" id="tag-${t.tag_name}" name="drug-tags" value="${t.tag_name}"><label for="tag-${t.tag_name}">${t.tag_name}</label></div>`).join(''); document.getElementById('master-tag-list').innerHTML = allTags.map(t => `<div class="list-item"><span>${t.tag_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('drug_tags','tag_name','${t.tag_name}')">🗑️</button></div>`).join(''); }
