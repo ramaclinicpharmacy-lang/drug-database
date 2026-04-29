@@ -1228,26 +1228,27 @@
         const remarks = document.getElementById('form-drug-remarks').value.trim() || null; 
         const trade_name = document.getElementById('form-drug-tradename').value.trim() || null; 
         const drug_type = document.getElementById('form-drug-classification').value; 
+        
+        // ✨ ดึงค่าชนิดยา และแปลงเป็น null ถ้ามันว่างเปล่า ✨
+        const dosage_form_val = document.getElementById('form-drug-type').value.trim() || null;
+        const special_note_val = document.getElementById('form-drug-note').value.trim() || null;
 
-        // ✨ เพิ่ม { onConflict: 'drug_code' } บังคับให้ค้นหาและอัปเดตทับรหัสยาเดิม ✨
         const { error } = await supabaseClient.from('drugs').upsert({ 
             drug_code, 
             drug_type: drug_type, 
             drug_name: document.getElementById('form-drug-name').value, 
             trade_name: trade_name, 
-            dosage_form: document.getElementById('form-drug-type').value, 
-            special_note: document.getElementById('form-drug-note').value, 
+            dosage_form: dosage_form_val, // ✨ ส่งค่า null แทนค่าว่าง
+            special_note: special_note_val, 
             statuscode: statuscode, 
             remarks: remarks 
         }, { onConflict: 'drug_code' }); 
 
-        // ✨ ดัก Error: ถ้าไม่เข้า Database ให้แจ้งเตือนเลย จะได้รู้ปัญหา ✨
         if (error) {
             alert("❌ เกิดข้อผิดพลาดในการบันทึกยา: " + error.message);
             return;
         }
 
-        // ส่วนอัปเดต Tags ทำงานต่อเมื่อผ่านด้านบนมาแล้ว
         await supabaseClient.from('drug_tag_mapping').delete().eq('drug_code', drug_code); 
         const selectedTags = Array.from(document.querySelectorAll('input[name="drug-tags"]:checked')).map(cb => ({ drug_code, tag_name: cb.value })); 
         if (selectedTags.length > 0) await supabaseClient.from('drug_tag_mapping').insert(selectedTags); 
