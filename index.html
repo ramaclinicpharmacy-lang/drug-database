@@ -1061,7 +1061,6 @@
     function formatConc(min, max, unit) { if (!min && !max) return ''; const u = unit || 'mg/mL'; let t = '<br><small style="color:var(--danger)"><b>ความเข้มข้น:</b> '; if (min && max) t += `${min} - ${max} ${u}`; else if (max) t += `ไม่เกิน ${max} ${u}`; else t += `ไม่น้อยกว่า ${min} ${u}`; return t + '</small>'; }
 
     // ✨ ฟังก์ชันอัจฉริยะสำหรับสร้างชื่อยามาตรฐาน ✨
-    // ✨ ฟังก์ชันอัจฉริยะสำหรับสร้างชื่อยามาตรฐาน ✨
     function generateStandardDrugName(drug) {
         let genParts = [];
         let strengthParts = [];
@@ -1081,31 +1080,28 @@
 
         if (dType === 'enteral nutrition') {
             genText = "อาหารทางการแพทย์";
-            hideStrength = true; // อาหารทางการแพทย์ ไม่ต้องโชว์ส่วนประกอบและความแรง
+            hideStrength = true; 
             
         } else if (dType === 'vaccine') {
             if (genParts.length === 0) {
                 genText = "วัคซีน";
             } else if (genParts.length >= 2) {
-                genText = `วัคซีนรวม ${genParts.length} ชนิด`; // วัคซีนรวมหลายชนิด
+                genText = `วัคซีนรวม ${genParts.length} ชนิด`; 
             } else {
-                genText = genParts; // ดึงข้อความตัวแรกออกมาโชว์
+                genText = genParts; // ✨ แก้ไขเป็น ให้ดึงตัวอักษรออกมาโชว์
             }
 
         } else if (dType === 'fluid') {
             genText = "สารน้ำ";
             hideStrength = true;
-            }
 
         } else if (dType === 'supplement') {
             genText = "อาหารเสริม";
             hideStrength = true;
-            }
 
         } else if (dType === 'supply') {
             genText = "เวชภัณฑ์";
             hideStrength = true;
-            }
             
         } else {
             // กรณีเป็น ยาปกติ (drug) หรืออื่นๆ
