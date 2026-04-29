@@ -1027,7 +1027,14 @@
             html += allLabels.map(l => { 
                 const isActive = selectedLabelFilters.includes(l.label_code) ? 'active' : ''; 
                 const count = baseDrugs.filter(d => (d.drug_label_mapping || []).some(m => m.label_code === l.label_code)).length;
-                return `<div class="filter-pill ${isActive}" onclick="toggleLabelFilter('${l.label_code}')" style="${isActive ? 'background:var(--info); border-color:var(--info); color:white;' : ''}"><span>${l.label_code}</span><span class="filter-count" style="${isActive?'background:rgba(255,255,255,0.3); color:white;':''}">${count}</span></div>`; 
+                
+                // ✨ เปลี่ยนตรงนี้: ดึง l.label_name มาต่อท้าย l.label_code พร้อมบีบคำยาวๆ ให้เป็น ... ✨
+                return `<div class="filter-pill ${isActive}" onclick="toggleLabelFilter('${l.label_code}')" style="${isActive ? 'background:var(--info); border-color:var(--info); color:white;' : ''}">
+                    <span style="flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-right:8px;" title="${l.label_name}">
+                        <b>${l.label_code}:</b> ${l.label_name}
+                    </span>
+                    <span class="filter-count" style="${isActive?'background:rgba(255,255,255,0.3); color:white;':''}">${count}</span>
+                </div>`; 
             }).join(''); 
         } else {
             html = '<div style="color:gray; font-size:0.8rem;">ไม่มีข้อมูลฉลาก</div>';
