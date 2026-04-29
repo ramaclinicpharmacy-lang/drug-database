@@ -918,7 +918,12 @@
     async function fetchDrugs() { 
         let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; 
         while (hasMore) { 
-            const { data, error } = await supabaseClient.from('drugs').select(`*, drug_tag_mapping(tag_name), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, generic_type, special_note, generic_pharm_mapping(class_name))), drug_administrations(id, instructions, min_conc, max_conc, conc_unit, routes(route_name, route_code), administration_fluids(fluid_short_name))`).order('drug_name').range(from, from + step - 1); 
+            const { data, error } = await supabaseClient.from('drugs')
+                .select(`*, drug_tag_mapping(tag_name), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, generic_type, special_note, generic_pharm_mapping(class_name))), drug_administrations(id, instructions, min_conc, max_conc, conc_unit, routes(route_name, route_code), administration_fluids(fluid_short_name))`)
+                .eq('is_active', true) // ✨ กรองเอาเฉพาะยาที่เปิดใช้งาน (true) ตั้งแต่ระดับ Database ✨
+                .order('drug_name')
+                .range(from, from + step - 1); 
+                
             if (error) { document.getElementById('drug-list-container').innerHTML = `<div style="text-align:center; padding:50px; color:var(--danger);"><h3 style="margin-top:0;">❌ ข้อมูลไม่สามารถโหลดได้</h3><p>${error.message}</p></div>`; return; } 
             fetchedData = fetchedData.concat(data); 
             if (data.length < step) hasMore = false; else from += step; 
