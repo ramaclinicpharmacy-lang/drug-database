@@ -257,7 +257,6 @@
             
         </div>
         
-
         <div id="admin-toolbar" class="hidden admin-box">
             <h3>🛠️ เครื่องมือจัดการ (Admin)</h3>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px;">
@@ -330,7 +329,6 @@
                 <span id="calc-dose-unit" style="font-weight:bold; color:gray; width:40px;">mg</span>
             </div>
         </div>
-        
         <div style="margin-top:15px; padding:15px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">
             <div style="margin-bottom:10px;">
                 <span style="font-size:0.85rem; color:gray;">💧 สารน้ำน้อยที่สุด (อิงจาก Max Conc):</span><br>
@@ -341,7 +339,6 @@
                 <b id="calc-result-max-fluid" style="font-size:1.2rem; color:var(--success);">...</b>
             </div>
         </div>
-
         <button class="btn btn-outline" style="width:100%; margin-top:15px; height:42px;" onclick="closeModal('calc-modal')">ปิดหน้าต่าง</button>
     </div>
 </div>
@@ -384,7 +381,6 @@
             <button class="btn btn-success" style="width:100%" onclick="saveMasterPharm()">บันทึกกลุ่มยา</button>
         </div>
         <input type="text" id="search-master-pharm" placeholder="🔍 ค้นหารายชื่อกลุ่มยาที่มีอยู่..." onkeyup="filterMasterPharmList()" style="margin-bottom:10px;">
-        
         <div id="master-pharm-list" style="max-height:300px; overflow-y:auto;"></div>
         <button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('pharm-master-modal')">ปิด</button>
     </div>
@@ -404,15 +400,12 @@
                 <option value="fluid"></option>
                 <option value="supply"></option>
             </datalist>
-            
             <label style="font-size:0.9rem; font-weight:bold; margin-top:10px; display:block;">กลุ่มยา (Pharmacology)</label>
             <div class="selected-tags-area" id="selected-pharm-tags"></div>
-            
             <div class="autocomplete-wrapper">
                 <input type="text" id="search-pharm-input" placeholder="🔍 ค้นหากลุ่มยา หรือพิมพ์ชื่อใหม่เพื่อเพิ่ม..." onkeyup="handlePharmSearch(event)" onfocus="showPharmSuggestions()">
                 <div id="pharm-suggestions" class="suggestions-dropdown"></div>
             </div>
-
             <textarea id="master-gen-note" style="margin-top:15px;" placeholder="บันทึกยาสามัญ (Generic Note)..."></textarea>
             <button class="btn btn-success" style="width:100%; margin-top:15px; height:42px;" onclick="saveMasterGeneric()">บันทึกยาสามัญ</button>
         </div>
@@ -436,13 +429,13 @@
             <button class="btn btn-outline" style="padding: 4px 8px;" onclick="toggleBulkPharmCheckboxes(false)">☐ เอาออกทั้งหมดที่แสดง</button>
         </div>
         <div id="bulk-pharm-gen-list" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 8px; margin-bottom: 15px; background: white; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; align-items: start;"></div>
-        
         <div style="display:flex; gap:10px;">
             <button class="btn" style="background:var(--indigo); color:white; flex:1; font-size:1rem; height:45px;" onclick="executeBulkPharmAdd()">✅ บันทึกข้อมูล</button>
             <button class="btn btn-outline" style="flex:1; height:45px;" onclick="closeModal('bulk-pharm-modal')">ยกเลิก</button>
         </div>
     </div>
 </div>
+
 <div id="bulk-nlem-modal" class="modal"><div class="modal-content" style="max-width: 800px;"><h3 style="color:var(--pink); margin-top:0;">🗂️ จัดกลุ่มยาเข้าบัญชี (Bulk Add)</h3><div class="section-box" style="background: #fdf2f8; border-color: #fbcfe8;"><label style="font-size:0.9rem; font-weight:bold; display:block;">เลือกหมวดบัญชียาหลัก</label><select id="bulk-nlem-select" style="font-weight:bold; color:var(--pink);"></select><label style="font-size:0.9rem; font-weight:bold; margin-top:10px; display:block;">เงื่อนไขการใช้ (Condition Note) - <small style="font-weight:normal;">ใช้ร่วมกันทุกยาที่เลือก</small></label><textarea id="bulk-nlem-note" placeholder="เช่น 'เฉพาะผู้ป่วยดื้อยา' (เว้นว่างได้)"></textarea></div><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">เลือกยาที่ต้องการเพิ่มเข้าบัญชีนี้:</label><input type="text" id="search-bulk-nlem-drug" placeholder="🔍 ค้นหาชื่อยาเพื่อเลือก..." onkeyup="filterBulkNlemDrugs()" style="margin-bottom: 10px;"><div style="margin-bottom: 10px; font-size: 0.85rem;"><button class="btn btn-outline" style="padding: 4px 8px;" onclick="toggleBulkNlemCheckboxes(true)">☑️ เลือกทั้งหมดที่แสดง</button><button class="btn btn-outline" style="padding: 4px 8px;" onclick="toggleBulkNlemCheckboxes(false)">☐ เอาออกทั้งหมด</button></div><div id="bulk-nlem-drug-list" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 8px; margin-bottom: 15px; background: white; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;"></div><div style="display:flex; gap:10px;"><button class="btn" style="background:var(--pink); color:white; flex:1; font-size:1rem; height:45px;" onclick="executeBulkNlemAdd()">✅ บันทึกข้อมูลเข้าบัญชี</button><button class="btn btn-outline" style="flex:1; height:45px;" onclick="closeModal('bulk-nlem-modal')">ยกเลิก</button></div></div></div>
 <div id="nlem-master-modal" class="modal">
     <div class="modal-content">
@@ -530,7 +523,6 @@
     let inactivityTimer; const TIMEOUT_MS = 30 * 60 * 1000; 
     let activePharmTags = [];
 
-    // ✨ ตัวแปรเก็บข้อมูล Admin ที่ใช้คำนวณได้ ✨
     let currentCalcAdmins = [];
 
     document.addEventListener('click', function(e) {
@@ -1014,16 +1006,6 @@
             pill.style.display = text.includes(q) ? 'flex' : 'none'; 
         }); 
     }
-    
-    async function fetchPharmClasses() { 
-        const { data } = await supabaseClient.from('pharm_classes').select('*').order('class_name'); 
-        allPharmClasses = data || []; 
-        renderPharmSidebar(); 
-        const group = document.getElementById('gen-pharm-checkbox-group'); 
-        if (group) group.innerHTML = allPharmClasses.map(c => `<div><input type="checkbox" id="p-${c.class_name}" name="gen-pharm" value="${c.class_name}"><label for="p-${c.class_name}">${c.class_name}</label></div>`).join(''); 
-        
-        filterMasterPharmList(); 
-    }
 
     function toggleLabelFilter(code) { 
         if (selectedLabelFilters.includes(code)) selectedLabelFilters = selectedLabelFilters.filter(l => l !== code); 
@@ -1126,7 +1108,7 @@
     async function fetchDrugs() { 
         let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; 
         while (hasMore) { 
-            // 🚨 ลบ order ออกจากฟังก์ชันนี้แล้ว 🚨
+            // 🚨 แก้ไขให้เรียบร้อยแล้ว: ลบการดึงข้อมูล `order` จาก drug_administrations และดึงข้อมูล labels แบบคลีนๆ 🚨
             const { data, error } = await supabaseClient.from('drugs')
                 .select(`*, drug_tag_mapping(tag_name), drug_label_mapping(label_code, labels(label_name)), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, generic_type, special_note, generic_pharm_mapping(class_name))), drug_administrations(id, instructions, min_conc, max_conc, conc_unit, routes(route_name, route_code), administration_fluids(fluid_short_name))`)
                 .eq('is_active', true) 
