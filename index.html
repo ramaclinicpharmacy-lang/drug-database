@@ -1096,7 +1096,7 @@
                     </div>` : ''}
                 </div>
                 <div id="body-${safeCode}" class="card-body ${isExpanded ? 'expanded' : ''}">
-                    <small>ID: ${drug.drug_code}</small>
+                    <small>ID: ${drug.drug_code} | ${safeName}</small>
                     <div style="margin-top:10px;"><strong>🧪 ส่วนประกอบ:</strong><br>${(drug.drug_contents || []).map(c => {
                          const gType = (c.generics?.generic_type || 'drug').toLowerCase();
                          const isDrug = gType === 'drug';
