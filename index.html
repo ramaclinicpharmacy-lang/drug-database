@@ -56,6 +56,7 @@
         .filter-grid > div { min-width: 0; }
         .filter-list-container { overflow-x: hidden; }
         .filter-pill > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; margin-right: 8px; }
+
         .sidebar-search { width: 100%; padding: 8px 12px; margin-bottom: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; box-sizing: border-box; outline: none; }
         .sidebar-search:focus { border-color: var(--primary); }
 
@@ -456,6 +457,7 @@
     </div>
 </div>
 <div id="nlem-mapping-modal" class="modal"><div class="modal-content"><h3>บัญชียาหลัก: <span id="target-nlem-drug-name"></span></h3><input type="hidden" id="target-nlem-drug-code"><div class="section-box"><select id="select-nlem"></select><textarea id="input-nlem-note" style="margin-top:10px;" placeholder="เงื่อนไขการใช้..."></textarea><button class="btn btn-primary" style="width:100%; margin-top:10px; height:42px;" onclick="addNlemMapping()">+ เพิ่ม</button></div><div id="current-nlem-list"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('nlem-mapping-modal')">ปิด</button></div></div>
+
 <div id="label-mapping-modal" class="modal">
     <div class="modal-content" style="max-width: 500px;">
         <h3 style="color:var(--info); margin-top:0;">🏷️ จัดการฉลาก: <span id="target-label-drug-name"></span></h3>
@@ -470,6 +472,7 @@
         <button class="btn btn-outline" style="width:100%; margin-top:15px;" onclick="closeModal('label-mapping-modal')">ปิดหน้าต่าง</button>
     </div>
 </div>
+
 <div id="tag-master-modal" class="modal"><div class="modal-content"><div class="section-box"><input type="text" id="master-tag-name" placeholder="ระบุสถานะ"><button class="btn btn-success" style="width:100%" onclick="saveMasterTag()">บันทึก</button></div><div id="master-tag-list"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('tag-master-modal')">ปิด</button></div></div>
 <div id="route-master-modal" class="modal"><div class="modal-content"><div class="section-box"><input type="text" id="master-route-code" placeholder="รหัส"><input type="text" id="master-route-name" placeholder="ชื่อเต็ม"><input type="number" id="master-route-rank" placeholder="ลำดับแสดงผล Dropdown (Rank)"><button class="btn btn-success" style="width:100%; margin-top:10px;" onclick="saveMasterRoute()">บันทึก</button></div><div id="master-route-list"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('route-master-modal')">ปิด</button></div></div>
 <div id="fluid-master-modal" class="modal"><div class="modal-content"><div class="section-box"><input type="text" id="master-fluid-short" placeholder="ชื่อย่อ"><input type="text" id="master-fluid-full" placeholder="ชื่อเต็ม"><button class="btn btn-success" style="width:100%" onclick="saveMasterFluid()">บันทึก</button></div><div id="master-fluid-list"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('fluid-master-modal')">ปิด</button></div></div>
@@ -487,7 +490,10 @@
                 <input type="text" id="master-label-status" placeholder="สถานะ (เช่น Active)" value="Active" style="flex:1;">
             </div>
             
-            <button class="btn btn-success" style="width:100%; margin-top:10px; height:42px;" onclick="saveMasterLabel()">💾 บันทึกฉลากยา</button>
+            <div style="display:flex; gap:10px; margin-top:10px;">
+                <button class="btn btn-success" id="btn-save-master-label" style="flex:2; height:42px;" onclick="saveMasterLabel()">💾 บันทึกฉลากยา</button>
+                <button class="btn btn-outline hidden" id="btn-cancel-label-edit" style="flex:1; height:42px;" onclick="resetLabelForm()">ยกเลิก</button>
+            </div>
         </div>
         <div id="master-label-list" style="max-height:300px; overflow-y:auto;"></div>
         <button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('label-master-modal')">ปิด</button>
@@ -876,6 +882,7 @@
         sidebar.innerHTML = html;
         filterSidebarNlem(); 
     }
+    
     async function fetchNlemMaster() { 
         const { data } = await supabaseClient.from('nlem_categories').select('*').order('rank', { ascending: true, nullsFirst: false }); 
         allNlem = data || []; 
@@ -884,6 +891,7 @@
         document.getElementById('bulk-nlem-select').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); 
         document.getElementById('master-nlem-list').innerHTML = allNlem.map(n => `<div class="list-item"><span><b>${n.category_code}</b> ${n.description||''} <small style="color:gray;">(Rank: ${n.rank || '-'})</small></span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('nlem_categories','category_code','${n.category_code}')">🗑️</button></div>`).join(''); 
     }
+    
     function filterSidebarForms() { const input = document.getElementById('search-form-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-form-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
     function toggleFormFilter(formName) { if (selectedFormFilters.includes(formName)) selectedFormFilters = selectedFormFilters.filter(f => f !== formName); else selectedFormFilters.push(formName); renderFormSidebar(); filterDrugs(); }
     function renderFormSidebar() { 
@@ -905,6 +913,7 @@
         sidebar.innerHTML = html;
         filterSidebarForms(); 
     }
+    
     async function fetchDosageForms() { const { data } = await supabaseClient.from('dosage_forms').select('*').order('form_name'); allDosageForms = data || []; renderFormSidebar(); document.getElementById('form-drug-type').innerHTML = allDosageForms.map(f => `<option value="${f.form_name}">${f.form_name}</option>`).join(''); document.getElementById('master-form-list').innerHTML = allDosageForms.map(f => `<div class="list-item"><span>${f.form_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('dosage_forms','form_name','${f.form_name}')">🗑️</button></div>`).join(''); }
 
     function filterSidebarRoutes() { const input = document.getElementById('search-route-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-route-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
@@ -929,14 +938,11 @@
         filterSidebarRoutes(); 
     }
     
-    // ✨ ดึง Route ตาม Rank สำหรับ Dropdown แบบสมบูรณ์ ✨
     async function fetchRoutes() { 
         const { data } = await supabaseClient.from('routes').select('*').order('rank', { ascending: true, nullsFirst: false }); 
         allRoutes = data || []; 
         renderRouteSidebar(); 
-        
         document.getElementById('select-route').innerHTML = allRoutes.map(r => `<option value="${r.route_code}">${r.route_name}</option>`).join(''); 
-        
         document.getElementById('master-route-list').innerHTML = allRoutes.map(r => `<div class="list-item"><span><b>${r.route_code}:</b> ${r.route_name} <small style="color:gray;">(Rank: ${r.rank || '-'})</small></span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('routes','route_code','${r.route_code}')">🗑️</button></div>`).join(''); 
     }
 
@@ -988,6 +994,15 @@
         filterSidebarPharms(); 
     }
 
+    async function fetchPharmClasses() { 
+        const { data } = await supabaseClient.from('pharm_classes').select('*').order('class_name'); 
+        allPharmClasses = data || []; 
+        renderPharmSidebar(); 
+        const group = document.getElementById('gen-pharm-checkbox-group'); 
+        if (group) group.innerHTML = allPharmClasses.map(c => `<div><input type="checkbox" id="p-${c.class_name}" name="gen-pharm" value="${c.class_name}"><label for="p-${c.class_name}">${c.class_name}</label></div>`).join(''); 
+        filterMasterPharmList(); 
+    }
+
     function filterSidebarDrugTypes() { 
         const input = document.getElementById('search-drugtype-filter'); 
         if(!input) return; 
@@ -1034,24 +1049,52 @@
         allLabels = data || [];
         renderLabelSidebar();
         
-        // วาดรายชื่อฉลากในหน้าต่าง Admin
         const listEl = document.getElementById('master-label-list');
         if(listEl) {
             listEl.innerHTML = allLabels.map(l => {
                 const statusColor = l.statuscode === 'Active' ? 'var(--success)' : 'var(--danger)';
                 return `
                 <div class="list-item" style="flex-wrap:wrap; border-left: 3px solid var(--info);">
-                    <div style="flex:1; min-width:200px;">
+                    <div style="flex:1; min-width:180px;">
                         <b style="color:var(--info);">${l.label_code}:</b> <span style="font-weight:bold; color:var(--dark);">${l.label_name}</span>
                         <div style="font-size:0.8rem; color:gray; margin-top:4px;">
                             Type: <b>${l.label_type || '-'}</b> | 
                             Status: <b style="color:${statusColor};">${l.statuscode || 'Active'}</b>
                         </div>
                     </div>
-                    <button class="btn btn-outline" style="color:red; padding:4px 8px; font-size:0.75rem;" onclick="deleteMaster('labels','label_code','${l.label_code}')">🗑️ ลบ</button>
+                    <div style="display:flex; gap:5px;">
+                        <button class="btn btn-outline" style="color:var(--primary); padding:4px 8px; font-size:0.75rem;" onclick="prepareEditLabel('${l.label_code}')">✏️</button>
+                        <button class="btn btn-outline" style="color:red; padding:4px 8px; font-size:0.75rem;" onclick="deleteMaster('labels','label_code','${l.label_code}')">🗑️</button>
+                    </div>
                 </div>`;
             }).join('');
         }
+    }
+
+    function resetLabelForm() {
+        document.getElementById('master-label-code').value = '';
+        document.getElementById('master-label-code').disabled = false;
+        document.getElementById('master-label-name').value = '';
+        document.getElementById('master-label-type').value = '';
+        document.getElementById('master-label-status').value = 'Active';
+        
+        document.getElementById('btn-save-master-label').innerText = "💾 บันทึกฉลากยา";
+        document.getElementById('btn-cancel-label-edit').classList.add('hidden');
+    }
+
+    function prepareEditLabel(code) {
+        const label = allLabels.find(l => l.label_code === code);
+        if (!label) return;
+
+        document.getElementById('master-label-code').value = label.label_code;
+        document.getElementById('master-label-code').disabled = true; 
+        document.getElementById('master-label-name').value = label.label_name || '';
+        document.getElementById('master-label-type').value = label.label_type || '';
+        document.getElementById('master-label-status').value = label.statuscode || 'Active';
+
+        document.getElementById('btn-save-master-label').innerText = "💾 ยืนยันแก้ไขฉลาก";
+        document.getElementById('btn-cancel-label-edit').classList.remove('hidden');
+        document.querySelector('#label-master-modal .modal-content').scrollTop = 0;
     }
 
     async function saveMasterLabel() { 
@@ -1071,13 +1114,9 @@
         
         if(error) return alert("เกิดข้อผิดพลาด: " + error.message);
         
-        document.getElementById('master-label-code').value = '';
-        document.getElementById('master-label-name').value = '';
-        document.getElementById('master-label-type').value = '';
-        document.getElementById('master-label-status').value = 'Active';
-        
+        alert('✅ บันทึกข้อมูลฉลากสำเร็จ!');
+        resetLabelForm(); 
         fetchLabelsMaster(); 
-        alert('✅ บันทึกฉลากยาสำเร็จ!');
     }
 
     function filterSidebarLabels() { 
@@ -1125,18 +1164,10 @@
         sidebar.innerHTML = html;
         filterSidebarLabels(); 
     }
-        async function fetchPharmClasses() { 
-        const { data } = await supabaseClient.from('pharm_classes').select('*').order('class_name'); 
-        allPharmClasses = data || []; 
-        renderPharmSidebar(); 
-        const group = document.getElementById('gen-pharm-checkbox-group'); 
-        if (group) group.innerHTML = allPharmClasses.map(c => `<div><input type="checkbox" id="p-${c.class_name}" name="gen-pharm" value="${c.class_name}"><label for="p-${c.class_name}">${c.class_name}</label></div>`).join(''); 
-        filterMasterPharmList(); 
-    }
- 
- 
+
     async function fetchFluids() { const { data } = await supabaseClient.from('fluids').select('*').order('short_name'); allFluids = data || []; const group = document.getElementById('fluid-checkbox-group'); if (group) group.innerHTML = allFluids.map(f => `<div><input type="checkbox" id="fluid-${f.short_name}" name="comp-fluids" value="${f.short_name}"><label for="fluid-${f.short_name}">${f.short_name}</label></div>`).join(''); document.getElementById('master-fluid-list').innerHTML = allFluids.map(f => `<div class="list-item"><span><b>${f.short_name}:</b> ${f.full_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('fluids','short_name','${f.short_name}')">🗑️</button></div>`).join(''); }
     async function fetchTags() { const { data } = await supabaseClient.from('drug_tags').select('*').order('tag_name'); allTags = data || []; const group = document.getElementById('drug-tags-checkbox-group'); if (group) group.innerHTML = allTags.map(t => `<div><input type="checkbox" id="tag-${t.tag_name}" name="drug-tags" value="${t.tag_name}"><label for="tag-${t.tag_name}">${t.tag_name}</label></div>`).join(''); document.getElementById('master-tag-list').innerHTML = allTags.map(t => `<div class="list-item"><span>${t.tag_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('drug_tags','tag_name','${t.tag_name}')">🗑️</button></div>`).join(''); }
+
     function changeItemsPerPage() { itemsPerPage = parseInt(document.getElementById('items-per-page-select').value); currentPage = 1; updatePaginationUI(); }
     function changePage(delta) { const totalPages = Math.ceil(filteredDrugsList.length / itemsPerPage) || 1; currentPage += delta; if (currentPage < 1) currentPage = 1; if (currentPage > totalPages) currentPage = totalPages; updatePaginationUI(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
     function updatePaginationUI() { if (filteredDrugsList.length === 0) { document.getElementById('pagination-wrapper').style.display = 'none'; renderDrugs([]); return; } document.getElementById('pagination-wrapper').style.display = 'flex'; const totalPages = Math.ceil(filteredDrugsList.length / itemsPerPage) || 1; if (currentPage > totalPages) currentPage = totalPages; const startIndex = (currentPage - 1) * itemsPerPage; const endIndex = startIndex + itemsPerPage; const slicedDrugs = filteredDrugsList.slice(startIndex, endIndex); renderDrugs(slicedDrugs); document.getElementById('page-info').innerText = `${currentPage} / ${totalPages}`; document.getElementById('btn-prev-page').disabled = currentPage === 1; document.getElementById('btn-next-page').disabled = currentPage === totalPages; }
@@ -1206,7 +1237,7 @@
         let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; 
         while (hasMore) { 
             const { data, error } = await supabaseClient.from('drugs')
-                .select(`*, drug_tag_mapping(tag_name), drug_label_mapping(label_code, labels(label_name, label_type, statuscode)), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, generic_type, special_note, generic_pharm_mapping(class_name))), drug_administrations(id, instructions, min_conc, max_conc, conc_unit, routes(route_name, route_code), administration_fluids(fluid_short_name))`)
+                .select(`*, drug_tag_mapping(tag_name), drug_label_mapping(label_code, labels(label_name)), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, generic_type, special_note, generic_pharm_mapping(class_name))), drug_administrations(id, instructions, min_conc, max_conc, conc_unit, routes(route_name, route_code), administration_fluids(fluid_short_name))`)
                 .eq('is_active', true) 
                 .order('drug_name')
                 .range(from, from + step - 1); 
@@ -1339,11 +1370,13 @@
                         <div style="margin-bottom:5px; padding-left: 28px;">${adminStatusBadge} ${nlemBadges} ${pharmHtml} ${tagsHtml}</div>
                         ${remarksHtml ? `<div style="padding-left: 28px;">${remarksHtml}</div>` : ''}
                     </div>
-                   ${isAdmin ? `<div class="admin-actions">
+                    ${isAdmin ? `<div class="admin-actions">
                         <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--info); border-color:var(--info);" onclick="event.stopPropagation(); openLabelManager('${safeCode}', '${safeName}')">🏷️ ฉลาก</button>
-                        
                         <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--pink); border-color:var(--pink);" onclick="event.stopPropagation(); openNlemManager('${safeCode}', '${safeName}')">📋 บัญชี</button>
                         <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openAdminManager('${safeCode}', '${safeName}')">💉 วิธีใช้</button>
+                        <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openIngredientManager('${safeCode}', '${safeName}')">🧪 ส่วนผสม</button>
+                        <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openEditDrug('${safeCode}')">✏️</button>
+                        <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:red" onclick="event.stopPropagation(); deleteDrug('${safeCode}')">🗑️</button>
                     </div>` : ''}
                 </div>
                 <div id="body-${safeCode}" class="card-body ${isExpanded ? 'expanded' : ''}">
@@ -1687,11 +1720,11 @@
     async function fetchCurrentNlem(c) { const { data } = await supabaseClient.from('drug_nlem_mapping').select('*').eq('drug_code', c); document.getElementById('current-nlem-list').innerHTML = (data || []).map(n => `<div class="list-item" style="flex-wrap:wrap; border-left:3px solid var(--pink);"><div style="flex:1;"><b>${n.nlem_code}</b><br><small style="color:gray">${n.condition_note || 'ไม่มีเงื่อนไข'}</small></div><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="removeNlemMapping('${n.drug_code}', '${n.nlem_code}')">ลบ</button></div>`).join(''); }
     async function addNlemMapping() { const drug_code = document.getElementById('target-nlem-drug-code').value; await supabaseClient.from('drug_nlem_mapping').upsert({ drug_code, nlem_code: document.getElementById('select-nlem').value, condition_note: document.getElementById('input-nlem-note').value }); document.getElementById('input-nlem-note').value = ''; fetchCurrentNlem(drug_code); fetchDrugs(); }
     async function removeNlemMapping(d, n) { await supabaseClient.from('drug_nlem_mapping').delete().match({ drug_code: d, nlem_code: n }); fetchCurrentNlem(d); fetchDrugs(); }
+    
     async function openLabelManager(c, n) { 
         document.getElementById('target-label-drug-code').value = c; 
         document.getElementById('target-label-drug-name').innerText = n; 
         
-        // เอาข้อมูลฉลากที่มีทั้งหมด (allLabels) มาใส่ใน Dropdown
         const selectEl = document.getElementById('select-mapping-label');
         if (allLabels.length > 0) {
             selectEl.innerHTML = allLabels.map(l => `<option value="${l.label_code}">${l.label_code}: ${l.label_name}</option>`).join('');
@@ -1736,7 +1769,7 @@
         if (error) return alert("เกิดข้อผิดพลาด: " + error.message);
         
         fetchCurrentLabelMapping(drug_code); 
-        fetchDrugs(); // โหลดหน้าหลักใหม่ให้ป้ายฉลากเด้งขึ้นการ์ดทันที
+        fetchDrugs();
     }
 
     async function removeLabelMapping(d, l) { 
@@ -1744,8 +1777,9 @@
         if (error) return alert("เกิดข้อผิดพลาด: " + error.message);
         
         fetchCurrentLabelMapping(d); 
-        fetchDrugs(); // โหลดหน้าหลักใหม่ให้ป้ายฉลากหายไปจากการ์ดทันที
+        fetchDrugs();
     }
+
     function openBulkNlemModal() { document.getElementById('bulk-nlem-note').value = ''; document.getElementById('search-bulk-nlem-drug').value = ''; renderBulkNlemDrugs(allDrugsRaw); openModal('bulk-nlem-modal'); }
     function renderBulkNlemDrugs(drugsToRender) { const listEl = document.getElementById('bulk-nlem-drug-list'); if (drugsToRender.length === 0) { listEl.innerHTML = '<div style="color:gray; padding:10px; grid-column: 1 / -1;">ไม่พบยาที่ค้นหา</div>'; return; } listEl.innerHTML = drugsToRender.map(d => `<label style="display:flex; align-items:flex-start; gap:10px; padding:10px; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; background:#f8fafc; font-size:0.9rem; text-align:left; transition:0.2s;"><input type="checkbox" class="bulk-nlem-drug-cb" style="margin-top: 4px; transform: scale(1.2);" value="${encodeHTML(d.drug_code)}"><div style="flex:1;"><b style="color:var(--dark);">${encodeHTML(d.drug_name)}</b><br><small style="color:gray;">${d.dosage_form || '-'}</small></div></label>`).join(''); }
     function filterBulkNlemDrugs() { const q = document.getElementById('search-bulk-nlem-drug').value.toLowerCase(); const filtered = allDrugsRaw.filter(d => (d.drug_name||'').toLowerCase().includes(q) || (d.drug_code||'').toLowerCase().includes(q)); renderBulkNlemDrugs(filtered); }
@@ -2000,7 +2034,7 @@
             const hasStarPharm = (i.generics?.generic_pharm_mapping || []).some(pm => pm.class_name && pm.class_name.startsWith('*'));
 
             let typeColor = isDrug ? 'var(--dark)' : '#d97706';
-            let leftBorder = isDrug ? '#cbd5e1' : '#f59e0b';
+            let leftBorder = isDrug ? 'var(--primary)' : '#f59e0b';
             
             if (hasStarPharm) {
                 typeColor = '#e11d48'; 
