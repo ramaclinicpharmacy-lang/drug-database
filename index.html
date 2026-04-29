@@ -234,7 +234,17 @@
                     <div id="sidebar-pharm-filters" class="filter-list-container" style="margin-bottom:0;"><div style="text-align:center; color:gray; font-size:0.8rem;">Loading...</div></div>
                 </div>
             </div>
+            <div>
+                <div class="filter-header" style="border-bottom-color: var(--warning); color:var(--warning);" onclick="toggleFilterGroup('drugtype')">
+                    <span class="filter-toggle-icon" id="icon-drugtype">▶</span> 🏷️ หมวดหมู่ (Type)
+                </div>
+                <div class="filter-body" id="body-drugtype" style="display: none;">
+                    <input type="text" id="search-drugtype-filter" class="sidebar-search" placeholder="ค้นหา..." onkeyup="filterSidebarDrugTypes()">
+                    <div id="sidebar-drugtype-filters" class="filter-list-container"><div style="text-align:center; color:gray; font-size:0.8rem;">Loading...</div></div>
+                </div>
+            </div>
         </div>
+        
 
         <div id="admin-toolbar" class="hidden admin-box">
             <h3>🛠️ เครื่องมือจัดการ (Admin)</h3>
@@ -754,11 +764,11 @@
 
     function clearAllFilters() {
         document.getElementById('main-search').value = '';
-        selectedNlemFilters = []; selectedFormFilters = []; selectedRouteFilters = []; selectedPharmFilters = [];
-        if(document.getElementById('search-nlem-filter')) document.getElementById('search-nlem-filter').value = '';
-        if(document.getElementById('search-form-filter')) document.getElementById('search-form-filter').value = '';
-        if(document.getElementById('search-route-filter')) document.getElementById('search-route-filter').value = '';
-        if(document.getElementById('search-pharm-filter')) document.getElementById('search-pharm-filter').value = '';
+        selectedNlemFilters = []; selectedFormFilters = []; selectedRouteFilters = []; selectedPharmFilters = []; 
+        selectedDrugTypeFilters = []; // ✨ เคลียร์ตัวกรอง
+        
+        // ... (เคลียร์ input เดิม) ...
+        if(document.getElementById('search-drugtype-filter')) document.getElementById('search-drugtype-filter').value = ''; // ✨ เคลียร์ช่องค้นหา
         updateBaseVisibilityAndFilter();
     }
 
@@ -775,7 +785,7 @@
     }
 
     function updateBaseVisibilityAndFilter() {
-        renderNlemSidebar(); renderFormSidebar(); renderRouteSidebar(); renderPharmSidebar();
+        renderNlemSidebar(); renderFormSidebar(); renderRouteSidebar(); renderPharmSidebar(); renderDrugTypeSidebar(); // ✨ เพิ่ม renderDrugTypeSidebar()
         filterDrugs();
     }
 
@@ -905,6 +915,52 @@
         sidebar.innerHTML = html;
         filterSidebarPharms(); 
     }
+
+    // ✨ 1. ประกาศตัวแปรเก็บสถานะตัวกรอง (วางรวมกับ let selected... ด้านบนสุดก็ได้ครับ)
+    let selectedDrugTypeFilters = [];
+
+    // ✨ 2. ฟังก์ชันค้นหาใน Sidebar
+    function filterSidebarDrugTypes() { 
+        const input = document.getElementById('search-drugtype-filter'); 
+        if(!input) return; 
+        const q = input.value.toLowerCase(); 
+        const pills = document.querySelectorAll('#sidebar-drugtype-filters .filter-pill'); 
+        pills.forEach(pill => { 
+            const text = pill.innerText.toLowerCase(); 
+            pill.style.display = text.includes(q) ? 'flex' : 'none'; 
+        }); 
+    }
+
+    // ✨ 3. ฟังก์ชันสลับการเลือก (Toggle)
+    function toggleDrugTypeFilter(type) { 
+        if (selectedDrugTypeFilters.includes(type)) selectedDrugTypeFilters = selectedDrugTypeFilters.filter(t => t !== type); 
+        else selectedDrugTypeFilters.push(type); 
+        renderDrugTypeSidebar(); 
+        filterDrugs(); 
+    }
+
+    // ✨ 4. ฟังก์ชันวาดปุ่มใน Sidebar 
+    function renderDrugTypeSidebar() { 
+        const sidebar = document.getElementById('sidebar-drugtype-filters'); 
+        const baseDrugs = getBaseDrugs();
+        let html = '';
+
+        // ดึงหมวดหมู่ที่มีทั้งหมดในระบบ (ถ้ายาเก่าไม่มีข้อมูลให้ถือว่าเป็น 'drug' เป็นค่าเริ่มต้น)
+        const uniqueTypes = [...new Set(baseDrugs.map(d => d.drug_type || 'drug'))].sort();
+
+        if (uniqueTypes.length > 0) {
+            html += uniqueTypes.map(t => { 
+                const isActive = selectedDrugTypeFilters.includes(t) ? 'active' : ''; 
+                const count = baseDrugs.filter(d => (d.drug_type || 'drug') === t).length;
+                return `<div class="filter-pill ${isActive}" onclick="toggleDrugTypeFilter('${t}')" style="${isActive ? 'background:var(--warning); border-color:var(--warning); color:white;' : ''}"><span>${t}</span><span class="filter-count" style="${isActive?'background:rgba(255,255,255,0.3); color:white;':''}">${count}</span></div>`; 
+            }).join(''); 
+        } else {
+            html = '<div style="color:gray; font-size:0.8rem;">ไม่มีข้อมูล</div>';
+        }
+        
+        sidebar.innerHTML = html;
+        filterSidebarDrugTypes(); 
+    }
     
     async function fetchPharmClasses() { 
         const { data } = await supabaseClient.from('pharm_classes').select('*').order('class_name'); 
@@ -932,6 +988,13 @@
             (d.drug_tag_mapping||[]).some(t => (t.tag_name||'').toLowerCase().includes(q)) ||
             (d.drug_nlem_mapping||[]).some(n => (n.nlem_code||'').toLowerCase().includes(q) || (n.condition_note||'').toLowerCase().includes(q)) ||
             (d.drug_contents||[]).some(c => (c.generics?.generic_name||'').toLowerCase().includes(q) || (c.generics?.special_note||'').toLowerCase().includes(q));
+
+            // ✨ 1. เพิ่มเงื่อนไขเช็ก Drug Type ✨
+            let matchDrugType = true;
+            if (selectedDrugTypeFilters.length > 0) {
+                const dType = d.drug_type || 'drug'; // ผูกค่าดีฟอลต์เป็น drug
+                matchDrugType = selectedDrugTypeFilters.includes(dType);
+            }
             
             // ✨ รองรับฟิลเตอร์ กลุ่มยาที่ว่างเปล่า ✨
             let matchPharm = true; 
@@ -961,12 +1024,12 @@
                 matchRoute = selectedRouteFilters.some(filter => filter === 'NULL_VALUE' ? drugRoutes.length === 0 : drugRoutes.includes(filter));
             }
 
-            return matchText && matchPharm && matchForm && matchNlem && matchRoute;
+            return matchText && matchPharm && matchForm && matchNlem && matchRoute && matchDrugType; 
         });
         
         const adminBypassEl = document.getElementById('admin-view-all-cb');
         const adminBypass = isAdmin && adminBypassEl && adminBypassEl.checked;
-        const isFiltering = q || selectedPharmFilters.length > 0 || selectedFormFilters.length > 0 || selectedNlemFilters.length > 0 || selectedRouteFilters.length > 0 || (!adminBypass && globalVisibleStatuses.length > 0);
+        const isFiltering = q || selectedPharmFilters.length > 0 || selectedFormFilters.length > 0 || selectedNlemFilters.length > 0 || selectedRouteFilters.length > 0 || selectedDrugTypeFilters.length > 0 || (!adminBypass && globalVisibleStatuses.length > 0);
         
         const statsEl = document.getElementById('search-stats');
         if(statsEl) { statsEl.innerText = isFiltering ? `พบ ${filteredDrugsList.length} รายการ` : `รายการยาทั้งหมด: ${filteredDrugsList.length} รายการ`; }
