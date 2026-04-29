@@ -772,13 +772,22 @@
     function toggleNlemFilter(code) { if (selectedNlemFilters.includes(code)) selectedNlemFilters = selectedNlemFilters.filter(n => n !== code); else selectedNlemFilters.push(code); renderNlemSidebar(); filterDrugs(); }
     function renderNlemSidebar() { 
         const sidebar = document.getElementById('sidebar-nlem-filters'); 
-        if (allNlem.length === 0) return sidebar.innerHTML = '<div style="color:gray; font-size:0.8rem;">ไม่มีข้อมูล</div>'; 
         const baseDrugs = getBaseDrugs();
-        sidebar.innerHTML = allNlem.map(n => { 
-            const isActive = selectedNlemFilters.includes(n.category_code) ? 'active' : ''; 
-            const count = baseDrugs.filter(d => (d.drug_nlem_mapping || []).some(m => m.nlem_code === n.category_code)).length;
-            return `<div class="filter-pill ${isActive}" onclick="toggleNlemFilter('${n.category_code}')" style="${isActive ? 'background:var(--pink); border-color:var(--pink);' : ''}"><span>${n.category_code}</span><span class="filter-count">${count}</span></div>`; 
-        }).join(''); 
+        let html = '';
+
+        // ✨ วาดปุ่ม ยาที่ไม่มี NLEM ✨
+        const nullCount = baseDrugs.filter(d => !d.drug_nlem_mapping || d.drug_nlem_mapping.length === 0).length;
+        const isNullActive = selectedNlemFilters.includes('NULL_VALUE') ? 'active' : '';
+        html += `<div class="filter-pill ${isNullActive}" onclick="toggleNlemFilter('NULL_VALUE')" style="${isNullActive ? 'background:#475569; border-color:#475569; color:white;' : 'border:1px dashed #cbd5e1; color:#64748b;'}"><span>[ไม่มีข้อมูลบัญชียา]</span><span class="filter-count" style="${isNullActive?'background:rgba(255,255,255,0.3); color:white;':''}">${nullCount}</span></div>`;
+
+        if (allNlem.length > 0) {
+            html += allNlem.map(n => { 
+                const isActive = selectedNlemFilters.includes(n.category_code) ? 'active' : ''; 
+                const count = baseDrugs.filter(d => (d.drug_nlem_mapping || []).some(m => m.nlem_code === n.category_code)).length;
+                return `<div class="filter-pill ${isActive}" onclick="toggleNlemFilter('${n.category_code}')" style="${isActive ? 'background:var(--pink); border-color:var(--pink);' : ''}"><span>${n.category_code}</span><span class="filter-count">${count}</span></div>`; 
+            }).join(''); 
+        }
+        sidebar.innerHTML = html;
         filterSidebarNlem(); 
     }
     async function fetchNlemMaster() { 
@@ -793,13 +802,22 @@
     function toggleFormFilter(formName) { if (selectedFormFilters.includes(formName)) selectedFormFilters = selectedFormFilters.filter(f => f !== formName); else selectedFormFilters.push(formName); renderFormSidebar(); filterDrugs(); }
     function renderFormSidebar() { 
         const sidebar = document.getElementById('sidebar-form-filters'); 
-        if (allDosageForms.length === 0) return sidebar.innerHTML = '<div style="color:gray; font-size:0.8rem;">ไม่มีข้อมูล</div>'; 
         const baseDrugs = getBaseDrugs();
-        sidebar.innerHTML = allDosageForms.map(f => { 
-            const isActive = selectedFormFilters.includes(f.form_name) ? 'active' : ''; 
-            const count = baseDrugs.filter(d => d.dosage_form === f.form_name).length;
-            return `<div class="filter-pill ${isActive}" onclick="toggleFormFilter('${f.form_name}')" style="${isActive ? 'background:var(--indigo); border-color:var(--indigo);' : ''}"><span>${f.form_name}</span><span class="filter-count">${count}</span></div>`; 
-        }).join(''); 
+        let html = '';
+
+        // ✨ วาดปุ่ม ยาที่ไม่มี Form ✨
+        const nullCount = baseDrugs.filter(d => !d.dosage_form || d.dosage_form.trim() === '').length;
+        const isNullActive = selectedFormFilters.includes('NULL_VALUE') ? 'active' : '';
+        html += `<div class="filter-pill ${isNullActive}" onclick="toggleFormFilter('NULL_VALUE')" style="${isNullActive ? 'background:#475569; border-color:#475569; color:white;' : 'border:1px dashed #cbd5e1; color:#64748b;'}"><span>[ไม่ระบุชนิดยา]</span><span class="filter-count" style="${isNullActive?'background:rgba(255,255,255,0.3); color:white;':''}">${nullCount}</span></div>`;
+
+        if (allDosageForms.length > 0) {
+            html += allDosageForms.map(f => { 
+                const isActive = selectedFormFilters.includes(f.form_name) ? 'active' : ''; 
+                const count = baseDrugs.filter(d => d.dosage_form === f.form_name).length;
+                return `<div class="filter-pill ${isActive}" onclick="toggleFormFilter('${f.form_name}')" style="${isActive ? 'background:var(--indigo); border-color:var(--indigo);' : ''}"><span>${f.form_name}</span><span class="filter-count">${count}</span></div>`; 
+            }).join(''); 
+        }
+        sidebar.innerHTML = html;
         filterSidebarForms(); 
     }
     async function fetchDosageForms() { const { data } = await supabaseClient.from('dosage_forms').select('*').order('form_name'); allDosageForms = data || []; renderFormSidebar(); document.getElementById('form-drug-type').innerHTML = allDosageForms.map(f => `<option value="${f.form_name}">${f.form_name}</option>`).join(''); document.getElementById('master-form-list').innerHTML = allDosageForms.map(f => `<div class="list-item"><span>${f.form_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('dosage_forms','form_name','${f.form_name}')">🗑️</button></div>`).join(''); }
@@ -808,13 +826,22 @@
     function toggleRouteFilter(code) { if (selectedRouteFilters.includes(code)) selectedRouteFilters = selectedRouteFilters.filter(r => r !== code); else selectedRouteFilters.push(code); renderRouteSidebar(); filterDrugs(); }
     function renderRouteSidebar() { 
         const sidebar = document.getElementById('sidebar-route-filters'); 
-        if (allRoutes.length === 0) return sidebar.innerHTML = '<div style="color:gray; font-size:0.8rem;">ไม่มีข้อมูล</div>'; 
         const baseDrugs = getBaseDrugs();
-        sidebar.innerHTML = allRoutes.map(r => { 
-            const isActive = selectedRouteFilters.includes(r.route_code) ? 'active' : ''; 
-            const count = baseDrugs.filter(d => (d.drug_administrations || []).some(a => a.routes?.route_code === r.route_code)).length;
-            return `<div class="filter-pill ${isActive}" onclick="toggleRouteFilter('${r.route_code}')" style="${isActive ? 'background:var(--success); border-color:var(--success);' : ''}"><span>${r.route_code} - ${r.route_name}</span><span class="filter-count">${count}</span></div>`; 
-        }).join(''); 
+        let html = '';
+
+        // ✨ วาดปุ่ม ยาที่ไม่มีวิธีใช้ ✨
+        const nullCount = baseDrugs.filter(d => !d.drug_administrations || d.drug_administrations.length === 0).length;
+        const isNullActive = selectedRouteFilters.includes('NULL_VALUE') ? 'active' : '';
+        html += `<div class="filter-pill ${isNullActive}" onclick="toggleRouteFilter('NULL_VALUE')" style="${isNullActive ? 'background:#475569; border-color:#475569; color:white;' : 'border:1px dashed #cbd5e1; color:#64748b;'}"><span>[ไม่มีข้อมูลวิธีใช้ยา]</span><span class="filter-count" style="${isNullActive?'background:rgba(255,255,255,0.3); color:white;':''}">${nullCount}</span></div>`;
+
+        if (allRoutes.length > 0) {
+            html += allRoutes.map(r => { 
+                const isActive = selectedRouteFilters.includes(r.route_code) ? 'active' : ''; 
+                const count = baseDrugs.filter(d => (d.drug_administrations || []).some(a => a.routes?.route_code === r.route_code)).length;
+                return `<div class="filter-pill ${isActive}" onclick="toggleRouteFilter('${r.route_code}')" style="${isActive ? 'background:var(--success); border-color:var(--success);' : ''}"><span>${r.route_code} - ${r.route_name}</span><span class="filter-count">${count}</span></div>`; 
+            }).join(''); 
+        }
+        sidebar.innerHTML = html;
         filterSidebarRoutes(); 
     }
     async function fetchRoutes() { const { data } = await supabaseClient.from('routes').select('*').order('route_code'); allRoutes = data || []; renderRouteSidebar(); document.getElementById('select-route').innerHTML = allRoutes.map(r => `<option value="${r.route_code}">${r.route_name}</option>`).join(''); document.getElementById('master-route-list').innerHTML = allRoutes.map(r => `<div class="list-item"><span><b>${r.route_code}:</b> ${r.route_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('routes','route_code','${r.route_code}')">🗑️</button></div>`).join(''); }
@@ -823,33 +850,48 @@
     function togglePharmFilter(className) { if (selectedPharmFilters.includes(className)) selectedPharmFilters = selectedPharmFilters.filter(c => c !== className); else selectedPharmFilters.push(className); renderPharmSidebar(); filterDrugs(); }
     function renderPharmSidebar() { 
         const sidebar = document.getElementById('sidebar-pharm-filters'); 
-        if (allPharmClasses.length === 0) return sidebar.innerHTML = '<div style="color:gray; font-size:0.8rem;">ไม่มีข้อมูล</div>'; 
         const baseDrugs = getBaseDrugs();
+        let html = '';
+
+        // ✨ วาดปุ่ม ยาที่ไม่มีกลุ่มยา (เช็กจาก generic_pharm_mapping) ✨
+        const nullCount = baseDrugs.filter(d => {
+            let hasPharm = false;
+            (d.drug_contents || []).forEach(cont => { 
+                if ((cont.generics?.generic_pharm_mapping || []).length > 0) hasPharm = true; 
+            }); 
+            return !hasPharm; // ดึงมาเฉพาะตัวที่ยังไม่มีกลุ่มยา
+        }).length;
         
-        sidebar.innerHTML = allPharmClasses.map(c => { 
-            const isActive = selectedPharmFilters.includes(c.class_name) ? 'active' : ''; 
-            const count = baseDrugs.filter(d => {
-                let hasPharm = false;
-                (d.drug_contents || []).forEach(cont => { 
-                    (cont.generics?.generic_pharm_mapping || []).forEach(pm => { if(pm.class_name === c.class_name) hasPharm = true; }); 
-                }); 
-                return hasPharm;
-            }).length;
-            
-            const lowerPc = c.class_name.toLowerCase();
-            let textStyle = ''; let bgStyle = '';
-            if (!isActive) {
-                if (lowerPc.includes('high alert')) { textStyle = 'color:#b91c1c; font-weight:bold;'; bgStyle = 'background:#fef2f2; border-color:#fca5a5;'; }
-                else if (lowerPc.includes('hazadous') || lowerPc.includes('hazardous')) { textStyle = 'color:#c2410c; font-weight:bold;'; bgStyle = 'background:#fff7ed; border-color:#fdba74;'; }
-                else if (lowerPc.includes('หยุดก่อนผ่าตัด')) { textStyle = 'color:#1d4ed8; font-weight:bold;'; bgStyle = 'background:#eff6ff; border-color:#bfdbfe;'; }
-            }
-            const activeStyle = isActive ? 'background:var(--primary); border-color:var(--primary); color:white;' : bgStyle;
-            
-            return `<div class="filter-pill ${isActive}" onclick="togglePharmFilter('${c.class_name}')" style="${activeStyle}">
-                <span style="${textStyle}">${c.class_name}</span>
-                <span class="filter-count" style="${isActive ? '' : (textStyle ? 'background:rgba(255,255,255,0.7); color:inherit;' : '')}">${count}</span>
-            </div>`; 
-        }).join(''); 
+        const isNullActive = selectedPharmFilters.includes('NULL_VALUE') ? 'active' : '';
+        html += `<div class="filter-pill ${isNullActive}" onclick="togglePharmFilter('NULL_VALUE')" style="${isNullActive ? 'background:#475569; border-color:#475569; color:white;' : 'border:1px dashed #cbd5e1; color:#64748b;'}"><span>[ไม่มีข้อมูลกลุ่มยา]</span><span class="filter-count" style="${isNullActive?'background:rgba(255,255,255,0.3); color:white;':''}">${nullCount}</span></div>`;
+
+        if (allPharmClasses.length > 0) {
+            html += allPharmClasses.map(c => { 
+                const isActive = selectedPharmFilters.includes(c.class_name) ? 'active' : ''; 
+                const count = baseDrugs.filter(d => {
+                    let hasPharm = false;
+                    (d.drug_contents || []).forEach(cont => { 
+                        (cont.generics?.generic_pharm_mapping || []).forEach(pm => { if(pm.class_name === c.class_name) hasPharm = true; }); 
+                    }); 
+                    return hasPharm;
+                }).length;
+                
+                const lowerPc = c.class_name.toLowerCase();
+                let textStyle = ''; let bgStyle = '';
+                if (!isActive) {
+                    if (lowerPc.includes('high alert')) { textStyle = 'color:#b91c1c; font-weight:bold;'; bgStyle = 'background:#fef2f2; border-color:#fca5a5;'; }
+                    else if (lowerPc.includes('hazadous') || lowerPc.includes('hazardous')) { textStyle = 'color:#c2410c; font-weight:bold;'; bgStyle = 'background:#fff7ed; border-color:#fdba74;'; }
+                    else if (lowerPc.includes('หยุดก่อนผ่าตัด')) { textStyle = 'color:#1d4ed8; font-weight:bold;'; bgStyle = 'background:#eff6ff; border-color:#bfdbfe;'; }
+                }
+                const activeStyle = isActive ? 'background:var(--primary); border-color:var(--primary); color:white;' : bgStyle;
+                
+                return `<div class="filter-pill ${isActive}" onclick="togglePharmFilter('${c.class_name}')" style="${activeStyle}">
+                    <span style="${textStyle}">${c.class_name}</span>
+                    <span class="filter-count" style="${isActive ? '' : (textStyle ? 'background:rgba(255,255,255,0.7); color:inherit;' : '')}">${count}</span>
+                </div>`; 
+            }).join(''); 
+        }
+        sidebar.innerHTML = html;
         filterSidebarPharms(); 
     }
     
@@ -880,26 +922,32 @@
             (d.drug_nlem_mapping||[]).some(n => (n.nlem_code||'').toLowerCase().includes(q) || (n.condition_note||'').toLowerCase().includes(q)) ||
             (d.drug_contents||[]).some(c => (c.generics?.generic_name||'').toLowerCase().includes(q) || (c.generics?.special_note||'').toLowerCase().includes(q));
             
+            // ✨ รองรับฟิลเตอร์ กลุ่มยาที่ว่างเปล่า ✨
             let matchPharm = true; 
             if (selectedPharmFilters.length > 0) { 
                 const drugPharmClasses = new Set(); 
                 (d.drug_contents || []).forEach(c => { (c.generics?.generic_pharm_mapping || []).forEach(pm => drugPharmClasses.add(pm.class_name)); }); 
-                matchPharm = selectedPharmFilters.some(filter => drugPharmClasses.has(filter)); 
+                matchPharm = selectedPharmFilters.some(filter => filter === 'NULL_VALUE' ? drugPharmClasses.size === 0 : drugPharmClasses.has(filter)); 
             }
             
+            // ✨ รองรับฟิลเตอร์ ชนิดยาที่ว่างเปล่า ✨
             let matchForm = true;
-            if (selectedFormFilters.length > 0) { matchForm = selectedFormFilters.includes(d.dosage_form); }
+            if (selectedFormFilters.length > 0) { 
+                matchForm = selectedFormFilters.some(filter => filter === 'NULL_VALUE' ? (!d.dosage_form || d.dosage_form.trim() === '') : d.dosage_form === filter); 
+            }
 
+            // ✨ รองรับฟิลเตอร์ บัญชียาที่ว่างเปล่า ✨
             let matchNlem = true;
             if (selectedNlemFilters.length > 0) {
                 const drugNlemCodes = (d.drug_nlem_mapping || []).map(n => n.nlem_code);
-                matchNlem = selectedNlemFilters.some(filter => drugNlemCodes.includes(filter));
+                matchNlem = selectedNlemFilters.some(filter => filter === 'NULL_VALUE' ? drugNlemCodes.length === 0 : drugNlemCodes.includes(filter));
             }
 
+            // ✨ รองรับฟิลเตอร์ วิธีใช้ยาที่ว่างเปล่า ✨
             let matchRoute = true;
             if (selectedRouteFilters.length > 0) {
                 const drugRoutes = (d.drug_administrations || []).map(a => a.routes?.route_code).filter(Boolean);
-                matchRoute = selectedRouteFilters.some(filter => drugRoutes.includes(filter));
+                matchRoute = selectedRouteFilters.some(filter => filter === 'NULL_VALUE' ? drugRoutes.length === 0 : drugRoutes.includes(filter));
             }
 
             return matchText && matchPharm && matchForm && matchNlem && matchRoute;
