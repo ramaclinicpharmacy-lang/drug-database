@@ -1644,7 +1644,16 @@
         if (targetDrugs.length === 0) { 
             targetListEl.innerHTML = '<div style="color:gray; text-align:center; padding: 20px;">ไม่พบยาอื่นที่มี Generic ตรงกันเลยครับ</div>'; 
         } else { 
-            targetListEl.innerHTML = targetDrugs.map(d => `<label style="display:flex; align-items:center; gap:10px; padding:10px; border-bottom:1px solid #e2e8f0; cursor:pointer; text-align:left; background:#fafafa; border-radius:6px; margin-bottom:5px;"><input type="checkbox" name="bulk-target-drugs" style="transform: scale(1.2);" value="${d.drug_code}" checked><div style="flex:1;"><b style="color:var(--dark);">${d.drug_name}</b> <small style="color:gray;">(${d.dosage_form || '-'})</small></div></label>`).join(''); 
+            // ✨ อัปเดตบรรทัดนี้: เพิ่ม d.drug_code ให้แสดงผลคู่กับชื่อยา ✨
+            targetListEl.innerHTML = targetDrugs.map(d => `
+                <label style="display:flex; align-items:center; gap:10px; padding:10px; border-bottom:1px solid #e2e8f0; cursor:pointer; text-align:left; background:#fafafa; border-radius:6px; margin-bottom:5px;">
+                    <input type="checkbox" name="bulk-target-drugs" style="transform: scale(1.2);" value="${d.drug_code}" checked>
+                    <div style="flex:1;">
+                        <span class="badge" style="background:#e2e8f0; color:#475569; font-size:0.7rem;">${d.drug_code}</span> 
+                        <b style="color:var(--dark);">${d.drug_name}</b> 
+                        <small style="color:gray;">(${d.dosage_form || '-'})</small>
+                    </div>
+                </label>`).join(''); 
         } 
         openModal('bulk-copy-modal'); 
     }
