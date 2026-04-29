@@ -442,8 +442,17 @@
 <div id="form-master-modal" class="modal"><div class="modal-content"><div class="section-box"><input type="text" id="master-form-name" placeholder="ชื่อชนิดยา"><button class="btn btn-success" style="width:100%" onclick="saveMasterForm()">บันทึก</button></div><div id="master-form-list"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('form-master-modal')">ปิด</button></div></div>
 
 <div id="drug-modal" class="modal"><div class="modal-content"><h3 id="drug-modal-title">ข้อมูลยาหลัก</h3><input type="text" id="form-drug-code" placeholder="รหัสยา">
-<input type="text" id="form-drug-name" placeholder="ชื่อยาอ้างอิงหลัก (Drug Name)">
-<input type="text" id="form-drug-tradename" placeholder="ชื่อการค้า / ยี่ห้อ (Trade Name)"><label style="font-size:0.9rem; font-weight:bold; margin-top:10px; display:block;">ชนิดยา</label><select id="form-drug-type"></select><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">ลักษณะยา (สี / Imprint / รูปแบบ)</label><input type="text" id="form-drug-remarks" placeholder="เช่น เม็ดกลมสีขาว มีรอยบาก, Tylenol 500"><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">รหัสสถานะ (Status Code - เฉพาะ Admin)</label><input type="text" id="form-drug-statuscode" placeholder="เช่น Active, Inactive, เลิกผลิต (เว้นว่างได้)"><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">สถานะเตือน (Tags)</label><div id="drug-tags-checkbox-group" class="chip-container"></div><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">Note</label><textarea id="form-drug-note" placeholder="บันทึกข้อความพิเศษ..."></textarea><button class="btn btn-success" style="width:100%; margin-top:20px; height:45px;" onclick="saveDrug()">บันทึกข้อมูลยา</button><button class="btn btn-outline" style="width:100%; margin-top:10px; height:42px;" onclick="closeModal('drug-modal')">ยกเลิก</button></div></div>
+    <input type="text" id="form-drug-name" placeholder="ชื่อยาอ้างอิงหลัก (Drug Name)">
+    <input type="text" id="form-drug-tradename" placeholder="ชื่อการค้า / ยี่ห้อ (Trade Name)"><label style="font-size:0.9rem; font-weight:bold; margin-top:10px; display:block;">หมวดหมู่รายการ (Drug Type)</label>
+    <select id="form-drug-classification">
+        <option value="drug">ยา (Drug)</option>
+        <option value="vaccine">วัคซีน (Vaccine)</option>
+        <option value="enteral nutrition">อาหารทางการแพทย์ (Enteral Nutrition)</option>
+        <option value="supplement">อาหารเสริม (Supplement)</option>
+        <option value="fluid">สารน้ำ (Fluid)</option>
+        <option value="supply">เวชภัณฑ์ (Supply)</option>
+    </select>
+    <label style="font-size:0.9rem; font-weight:bold; margin-top:10px; display:block;">ชนิดยา</label><select id="form-drug-type"></select><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">ลักษณะยา (สี / Imprint / รูปแบบ)</label><input type="text" id="form-drug-remarks" placeholder="เช่น เม็ดกลมสีขาว มีรอยบาก, Tylenol 500"><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">รหัสสถานะ (Status Code - เฉพาะ Admin)</label><input type="text" id="form-drug-statuscode" placeholder="เช่น Active, Inactive, เลิกผลิต (เว้นว่างได้)"><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">สถานะเตือน (Tags)</label><div id="drug-tags-checkbox-group" class="chip-container"></div><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">Note</label><textarea id="form-drug-note" placeholder="บันทึกข้อความพิเศษ..."></textarea><button class="btn btn-success" style="width:100%; margin-top:20px; height:45px;" onclick="saveDrug()">บันทึกข้อมูลยา</button><button class="btn btn-outline" style="width:100%; margin-top:10px; height:42px;" onclick="closeModal('drug-modal')">ยกเลิก</button></div></div>
 
 <div id="admin-manager-modal" class="modal"><div class="modal-content"><h3>วิธีใช้ยา: <span id="target-admin-drug-name"></span></h3><input type="hidden" id="target-admin-drug-code"><div class="section-box"><select id="select-route" style="margin-bottom:10px;"></select><textarea id="input-instruction" placeholder="คำแนะนำวิธีใช้..." style="margin-bottom:10px;"></textarea><label style="font-size:0.85rem; font-weight:bold; display:block; margin-bottom:5px;">ความเข้มข้น (Concentration)</label><div style="display:flex; gap:10px; margin-bottom:10px;"><input type="number" id="input-min-conc" placeholder="Min" style="flex:1;"><input type="number" id="input-max-conc" placeholder="Max" style="flex:1;"><input type="text" id="input-conc-unit" placeholder="หน่วย" style="flex:1;"></div><label style="margin-top:10px; display:block; font-size:0.85rem; font-weight:bold;">สารน้ำที่ใช้ได้:</label><div id="fluid-checkbox-group" class="chip-container"></div><div style="display:flex; gap:10px; margin-top:20px;"><button class="btn btn-primary" id="btn-save-admin" style="flex:1; height:45px;" onclick="addAdministration()">+ บันทึก</button><button class="btn btn-outline hidden" id="btn-cancel-edit" style="flex:1; height:45px;" onclick="resetAdminForm()">ยกเลิก</button></div></div><div id="current-admin-list" style="max-height:300px; overflow-y:auto;"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('admin-manager-modal')">ปิด</button></div></div>
 <div id="ingredient-modal" class="modal"><div class="modal-content"><h3>ส่วนประกอบ: <span id="target-drug-name"></span></h3><input type="hidden" id="target-drug-code"><div class="section-box"><input type="text" id="search-generic-input" placeholder="🔍 ค้นหาชื่อยาสามัญ..." onkeyup="filterGenericOptions()" style="margin-bottom:10px;"><select id="select-generic" style="margin-bottom:10px;"></select><div style="display:flex; gap:5px;"><input type="number" id="input-amount" placeholder="ปริมาณ" style="flex:1;"><input type="text" id="input-unit" placeholder="หน่วย" style="flex:1;"></div><div style="display:flex; gap:10px; margin-top:10px;"><button class="btn btn-primary" id="btn-save-ingredient" style="flex:1; height:42px;" onclick="addIngredient()">+ เพิ่ม</button><button class="btn btn-outline hidden" id="btn-cancel-edit-ingredient" style="flex:1; height:42px;" onclick="resetIngredientForm()">ยกเลิก</button></div></div><div id="current-ingredients-list" style="max-height:200px; overflow-y:auto;"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('ingredient-modal')">ปิด</button></div></div>
@@ -985,6 +994,7 @@
     function formatConc(min, max, unit) { if (!min && !max) return ''; const u = unit || 'mg/mL'; let t = '<br><small style="color:var(--danger)"><b>ความเข้มข้น:</b> '; if (min && max) t += `${min} - ${max} ${u}`; else if (max) t += `ไม่เกิน ${max} ${u}`; else t += `ไม่น้อยกว่า ${min} ${u}`; return t + '</small>'; }
 
     // ✨ ฟังก์ชันอัจฉริยะสำหรับสร้างชื่อยามาตรฐาน ✨
+    // ✨ ฟังก์ชันอัจฉริยะสำหรับสร้างชื่อยามาตรฐาน ✨
     function generateStandardDrugName(drug) {
         let genParts = [];
         let strengthParts = [];
@@ -993,35 +1003,52 @@
         (drug.drug_contents || []).forEach(c => {
             if (c.generics?.generic_name) {
                 genParts.push(c.generics.generic_name);
-                // ดึงความแรงมาต่อกัน เช่น 500mg, 10mg
                 if (c.amount && c.unit) strengthParts.push(`${c.amount}${c.unit}`);
             }
         });
 
-        // 2. จัดการกฎ Generic
+        // 2. จัดการกฎการแสดงชื่อตามประเภทรายการ (Drug Type)
+        const dType = (drug.drug_type || 'drug').toLowerCase();
         let genText = "";
-        if (genParts.length === 0) {
-            genText = "ไม่ระบุตัวยา";
-        } else if (genParts.length >= 3) { 
-            // ถ้ายาผสมตั้งแต่ 3 ตัวขึ้นไป ให้ย่อชื่อ
-            genText = `ยาสูตรผสม ${genParts.length} ชนิด`;
+        let hideStrength = false; // ตัวแปรสำหรับซ่อนความแรง/ส่วนผสม
+
+        if (dType === 'enteral nutrition') {
+            genText = "อาหารทางการแพทย์";
+            hideStrength = true; // อาหารทางการแพทย์ ไม่ต้องโชว์ส่วนประกอบและความแรง
+            
+        } else if (dType === 'vaccine') {
+            if (genParts.length === 0) {
+                genText = "วัคซีน";
+            } else if (genParts.length >= 2) {
+                genText = `วัคซีนรวม ${genParts.length} ชนิด`; // วัคซีนรวมหลายชนิด
+            } else {
+                genText = genParts; // วัคซีนชนิดเดียว ให้โชว์ชื่อไปเลย
+            }
+            
         } else {
-            genText = genParts.join(' + ');
+            // กรณีเป็น ยาปกติ (drug) หรืออื่นๆ
+            if (genParts.length === 0) {
+                genText = "ไม่ระบุตัวยา";
+            } else if (genParts.length >= 3) { 
+                genText = `ยาสูตรผสม ${genParts.length} ชนิด`;
+            } else {
+                genText = genParts.join(' + ');
+            }
         }
 
-        // 3. Trade Name (สมมติให้ช่อง drug_name เดิม ทำหน้าที่เก็บเฉพาะชื่อการค้า)
+        // 3. Trade Name 
         let tradeName = drug.trade_name ? `[${drug.trade_name}]` : '';
 
         // 4. Form 
         let form = drug.dosage_form || '';
 
-        // 5. ความแรง / ขนาดบรรจุ (เอา Strength มาต่อกันด้วยเครื่องหมาย /)
-        let strength = strengthParts.length > 0 ? strengthParts.join('/') : '';
+        // 5. ความแรง / ขนาดบรรจุ (ซ่อนถ้าโดนสั่งให้ hideStrength)
+        let strength = (strengthParts.length > 0 && !hideStrength) ? strengthParts.join('/') : '';
 
-        // นำทุกอย่างมาต่อกันตามสูตรที่คุณต้องการ: Generic [Trade] Form Strength
+        // นำทุกอย่างมาต่อกัน
         let finalName = `${genText} ${tradeName} ${form} ${strength}`;
         
-        // ลบช่องว่างส่วนเกินเผื่อบางค่าเป็นค่าว่าง
+        // ลบช่องว่างส่วนเกิน
         return encodeHTML(finalName.replace(/\s+/g, ' ').trim());
     }
     
@@ -1126,18 +1153,20 @@
         updateToggleAllButton();
     }
 
-    function openAddDrug() { document.getElementById('form-drug-code').disabled=false; document.getElementById('form-drug-code').value=''; document.getElementById('form-drug-name').value=''; document.getElementById('form-drug-note').value=''; document.getElementById('form-drug-statuscode').value=''; document.getElementById('form-drug-remarks').value=''; if(document.getElementById('form-drug-type').options.length > 0) document.getElementById('form-drug-type').selectedIndex = 0; document.querySelectorAll('input[name="drug-tags"]').forEach(cb => cb.checked = false); openModal('drug-modal'); document.getElementById('form-drug-tradename').value='';}
-    function openEditDrug(code) { const drug = allDrugsRaw.find(d => d.drug_code === code); if (!drug) return; document.getElementById('form-drug-code').value = drug.drug_code; document.getElementById('form-drug-code').disabled = true; document.getElementById('form-drug-name').value = drug.drug_name; document.getElementById('form-drug-type').value = drug.dosage_form || ''; document.getElementById('form-drug-note').value = drug.special_note || ''; document.getElementById('form-drug-statuscode').value = drug.statuscode || ''; document.getElementById('form-drug-remarks').value = drug.remarks || ''; const currentTags = (drug.drug_tag_mapping || []).map(t => t.tag_name); document.querySelectorAll('input[name="drug-tags"]').forEach(cb => { cb.checked = currentTags.includes(cb.value); }); openModal('drug-modal'); document.getElementById('form-drug-tradename').value = drug.trade_name || '';}
+    function openAddDrug() { document.getElementById('form-drug-code').disabled=false; document.getElementById('form-drug-code').value=''; document.getElementById('form-drug-name').value=''; document.getElementById('form-drug-note').value=''; document.getElementById('form-drug-statuscode').value=''; document.getElementById('form-drug-remarks').value=''; if(document.getElementById('form-drug-type').options.length > 0) document.getElementById('form-drug-type').selectedIndex = 0; document.querySelectorAll('input[name="drug-tags"]').forEach(cb => cb.checked = false); openModal('drug-modal'); document.getElementById('form-drug-tradename').value=''; document.getElementById('form-drug-classification').value = 'drug';}
+    function openEditDrug(code) { const drug = allDrugsRaw.find(d => d.drug_code === code); if (!drug) return; document.getElementById('form-drug-code').value = drug.drug_code; document.getElementById('form-drug-code').disabled = true; document.getElementById('form-drug-name').value = drug.drug_name; document.getElementById('form-drug-type').value = drug.dosage_form || ''; document.getElementById('form-drug-note').value = drug.special_note || ''; document.getElementById('form-drug-statuscode').value = drug.statuscode || ''; document.getElementById('form-drug-remarks').value = drug.remarks || ''; const currentTags = (drug.drug_tag_mapping || []).map(t => t.tag_name); document.querySelectorAll('input[name="drug-tags"]').forEach(cb => { cb.checked = currentTags.includes(cb.value); }); openModal('drug-modal'); document.getElementById('form-drug-tradename').value = drug.trade_name || ''; document.getElementById('form-drug-classification').value = drug.drug_type || 'drug';}
     async function saveDrug() { 
         const drug_code = document.getElementById('form-drug-code').value; 
         const statuscode = document.getElementById('form-drug-statuscode').value.trim() || null; 
         const remarks = document.getElementById('form-drug-remarks').value.trim() || null; 
-        const trade_name = document.getElementById('form-drug-tradename').value.trim() || null; // ✨ ดึงค่า
+        const trade_name = document.getElementById('form-drug-tradename').value.trim() || null; 
+        const drug_type = document.getElementById('form-drug-classification').value; // ✨ ดึงค่า
 
         await supabaseClient.from('drugs').upsert({ 
             drug_code, 
+            drug_type: drug_type, // ✨ ส่งค่าไปบันทึก
             drug_name: document.getElementById('form-drug-name').value, 
-            trade_name: trade_name, // ✨ ส่งค่าไปบันทึก
+            trade_name: trade_name, 
             dosage_form: document.getElementById('form-drug-type').value, 
             special_note: document.getElementById('form-drug-note').value, 
             statuscode: statuscode, 
