@@ -1227,24 +1227,34 @@
         const statuscode = document.getElementById('form-drug-statuscode').value.trim() || null; 
         const remarks = document.getElementById('form-drug-remarks').value.trim() || null; 
         const trade_name = document.getElementById('form-drug-tradename').value.trim() || null; 
-        const drug_type = document.getElementById('form-drug-classification').value; // ✨ ดึงค่า
+        const drug_type = document.getElementById('form-drug-classification').value; 
 
-        await supabaseClient.from('drugs').upsert({ 
+        // ✨ เพิ่ม { onConflict: 'drug_code' } บังคับให้ค้นหาและอัปเดตทับรหัสยาเดิม ✨
+        const { error } = await supabaseClient.from('drugs').upsert({ 
             drug_code, 
-            drug_type: drug_type, // ✨ ส่งค่าไปบันทึก
+            drug_type: drug_type, 
             drug_name: document.getElementById('form-drug-name').value, 
             trade_name: trade_name, 
             dosage_form: document.getElementById('form-drug-type').value, 
             special_note: document.getElementById('form-drug-note').value, 
             statuscode: statuscode, 
             remarks: remarks 
-        }); 
+        }, { onConflict: 'drug_code' }); 
 
+        // ✨ ดัก Error: ถ้าไม่เข้า Database ให้แจ้งเตือนเลย จะได้รู้ปัญหา ✨
+        if (error) {
+            alert("❌ เกิดข้อผิดพลาดในการบันทึกยา: " + error.message);
+            return;
+        }
+
+        // ส่วนอัปเดต Tags ทำงานต่อเมื่อผ่านด้านบนมาแล้ว
         await supabaseClient.from('drug_tag_mapping').delete().eq('drug_code', drug_code); 
         const selectedTags = Array.from(document.querySelectorAll('input[name="drug-tags"]:checked')).map(cb => ({ drug_code, tag_name: cb.value })); 
         if (selectedTags.length > 0) await supabaseClient.from('drug_tag_mapping').insert(selectedTags); 
+        
         closeModal('drug-modal'); 
         fetchDrugs(); 
+        alert('✅ บันทึกข้อมูลยาหลักสำเร็จ!');
     }
     async function deleteDrug(code) { if(confirm("ลบข้อมูลยานี้ออกจากระบบ?")) { await supabaseClient.from('drugs').delete().eq('drug_code', code); fetchDrugs(); } }
 
@@ -1320,21 +1330,23 @@
 
     async function saveMasterGeneric() { 
         const generic_code = document.getElementById('master-gen-code').value; 
-        const gen_type = document.getElementById('master-gen-type').value.trim() || 'drug'; // ✨ ดึงค่า type
+        const gen_type = document.getElementById('master-gen-type').value.trim() || null; 
 
+        // ✨ เพิ่ม { onConflict: 'generic_code' } บังคับอัปเดตทับ ✨
         const { error } = await supabaseClient.from('generics').upsert({ 
             generic_code, 
             generic_name: document.getElementById('master-gen-name').value, 
             special_note: document.getElementById('master-gen-note').value,
-            generic_type: gen_type // ✨ บันทึกลงฐานข้อมูล
-        }); 
-        if (error) return alert("เกิดข้อผิดพลาด: " + error.message); 
+            generic_type: gen_type 
+        }, { onConflict: 'generic_code' }); 
+        
+        if (error) return alert("❌ เกิดข้อผิดพลาด: " + error.message); 
         
         await supabaseClient.from('generic_pharm_mapping').delete().eq('generic_code', generic_code); 
         const selectedPharm = activePharmTags.map(className => ({ generic_code, class_name: className })); 
         if (selectedPharm.length > 0) await supabaseClient.from('generic_pharm_mapping').insert(selectedPharm); 
         
-        alert('✅ บันทึกสำเร็จ!'); 
+        alert('✅ บันทึกยาสามัญสำเร็จ!'); 
         resetGenericForm();
         fetchGenerics(); 
         fetchDrugs(); 
