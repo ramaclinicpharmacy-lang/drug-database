@@ -35,7 +35,9 @@
             display: none; animation: fadeInDown 0.3s ease; border: 1px solid #e2e8f0;
         }
         .filter-panel.active { display: block; }
-        .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
+        .filter-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+        @media (max-width: 992px) { .filter-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 600px) { .filter-grid { grid-template-columns: 1fr; } }
 
         @keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
