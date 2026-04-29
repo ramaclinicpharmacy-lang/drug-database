@@ -982,6 +982,47 @@
 
     function formatConc(min, max, unit) { if (!min && !max) return ''; const u = unit || 'mg/mL'; let t = '<br><small style="color:var(--danger)"><b>ความเข้มข้น:</b> '; if (min && max) t += `${min} - ${max} ${u}`; else if (max) t += `ไม่เกิน ${max} ${u}`; else t += `ไม่น้อยกว่า ${min} ${u}`; return t + '</small>'; }
 
+    // ✨ ฟังก์ชันอัจฉริยะสำหรับสร้างชื่อยามาตรฐาน ✨
+    function generateStandardDrugName(drug) {
+        let genParts = [];
+        let strengthParts = [];
+
+        // 1. ดึง Generic และ Strength ออกมา
+        (drug.drug_contents || []).forEach(c => {
+            if (c.generics?.generic_name) {
+                genParts.push(c.generics.generic_name);
+                // ดึงความแรงมาต่อกัน เช่น 500mg, 10mg
+                if (c.amount && c.unit) strengthParts.push(`${c.amount}${c.unit}`);
+            }
+        });
+
+        // 2. จัดการกฎ Generic
+        let genText = "";
+        if (genParts.length === 0) {
+            genText = "ไม่ระบุตัวยา";
+        } else if (genParts.length >= 3) { 
+            // ถ้ายาผสมตั้งแต่ 3 ตัวขึ้นไป ให้ย่อชื่อ
+            genText = `ยาสูตรผสม ${genParts.length} ชนิด`;
+        } else {
+            genText = genParts.join(' + ');
+        }
+
+        // 3. Trade Name (สมมติให้ช่อง drug_name เดิม ทำหน้าที่เก็บเฉพาะชื่อการค้า)
+        let tradeName = drug.drug_name ? `[${drug.drug_name}]` : '';
+
+        // 4. Form 
+        let form = drug.dosage_form || '';
+
+        // 5. ความแรง / ขนาดบรรจุ (เอา Strength มาต่อกันด้วยเครื่องหมาย /)
+        let strength = strengthParts.length > 0 ? strengthParts.join('/') : '';
+
+        // นำทุกอย่างมาต่อกันตามสูตรที่คุณต้องการ: Generic [Trade] Form Strength
+        let finalName = `${genText} ${tradeName} ${form} ${strength}`;
+        
+        // ลบช่องว่างส่วนเกินเผื่อบางค่าเป็นค่าว่าง
+        return encodeHTML(finalName.replace(/\s+/g, ' ').trim());
+    }
+    
     function renderDrugs(drugs) {
         const container = document.getElementById('drug-list-container');
         if (drugs.length === 0) return container.innerHTML = '<div style="text-align:center; padding:50px; color:gray;">❌ ไม่พบข้อมูลที่ตรงกับเงื่อนไข</div>';
@@ -1036,8 +1077,8 @@
                     <div class="clickable-header" onclick="toggleCard('${safeCode}')">
                         <h2>
                             <span class="toggle-icon" id="icon-${safeCode}" style="transform: ${isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}">▶</span>
-                            <span style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
-                                ${drug.drug_name} <small style="color:gray;">[${drug.dosage_form || '-'}]</small>
+                            <span style="display:flex; align-items:center; flex-wrap:wrap; gap:8px; line-height: 1.4;">
+                                ${generateStandardDrugName(drug)} 
                                 ${calcBtn}
                             </span>
                         </h2>
