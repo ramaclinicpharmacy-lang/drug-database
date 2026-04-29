@@ -1091,6 +1091,11 @@
             } else {
                 genText = genParts; // ดึงข้อความตัวแรกออกมาโชว์
             }
+
+        } else if (dType === 'fluid') {
+            genText = "สารน้ำ";
+            hideStrength = true;
+            }
             
         } else {
             // กรณีเป็น ยาปกติ (drug) หรืออื่นๆ
