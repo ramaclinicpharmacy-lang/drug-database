@@ -1284,22 +1284,22 @@
         currentPage = 1; updatePaginationUI();
     }
 
-    async function fetchDrugs() { 
-        let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; 
-        while (hasMore) { 
-            const { data, error } = await supabaseClient.from('drugs')
-                .select(`*, drug_tag_mapping(tag_name), drug_label_mapping(label_code, labels(label_name)), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, generic_type, special_note, needs_renal_adj, needs_hepatic_adj, generic_pharm_mapping(class_name), generic_links(id, link_title, url))), drug_administrations(id, instructions, min_conc, max_conc, conc_unit, routes(route_name, route_code), administration_fluids(fluid_short_name)), nutrition_configs(*), drug_links(id, link_title, url)`)
-                .eq('is_active', true) 
-                .order('drug_name')
-                .range(from, from + step - 1); 
-                
-            if (error) { document.getElementById('drug-list-container').innerHTML = `<div style="text-align:center; padding:50px; color:var(--danger);"><h3 style="margin-top:0;">❌ ข้อมูลไม่สามารถโหลดได้</h3><p>${error.message}</p></div>`; return; } 
-            fetchedData = fetchedData.concat(data); 
-            if (data.length < step) hasMore = false; else from += step; 
-        } 
-        allDrugsRaw = fetchedData; 
-        updateBaseVisibilityAndFilter();
-    }
+    async function fetchDrugs() { 
+        let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; 
+        while (hasMore) { 
+            const { data, error } = await supabaseClient.from('drugs')
+                .select(`*, drug_tag_mapping(tag_name), drug_label_mapping(label_code, labels(label_name)), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, generic_type, special_note, needs_renal_adj, needs_hepatic_adj, generic_pharm_mapping(class_name), generic_links(id, link_title, url))), drug_administrations(id, instructions, min_conc, max_conc, conc_unit, routes(route_name, route_code), administration_fluids(fluid_short_name)), nutrition_configs(*), drug_links(id, link_title, url)`)
+                .eq('is_active', true) 
+                .order('drug_name')
+                .range(from, from + step - 1); 
+                
+            if (error) { document.getElementById('drug-list-container').innerHTML = `<div style="text-align:center; padding:50px; color:var(--danger);"><h3 style="margin-top:0;">❌ ข้อมูลไม่สามารถโหลดได้</h3><p>${error.message}</p></div>`; return; } 
+            fetchedData = fetchedData.concat(data); 
+            if (data.length < step) hasMore = false; else from += step; 
+        } 
+        allDrugsRaw = fetchedData; 
+        updateBaseVisibilityAndFilter();
+    }
 
     function formatConc(min, max, unit) { if (!min && !max) return ''; const u = unit || 'mg/mL'; let t = '<br><small style="color:var(--danger)"><b>ความเข้มข้น:</b> '; if (min && max) t += `${min} - ${max} ${u}`; else if (max) t += `ไม่เกิน ${max} ${u}`; else t += `ไม่น้อยกว่า ${min} ${u}`; return t + '</small>'; }
 
@@ -1644,20 +1644,20 @@
                     </div>`; 
         }).join(''); 
     }   
-    async function fetchGenerics() { 
-        let fetchedData = []; let from = 0; const step = 1000; let hasProfile = true; 
-        while (hasProfile) { 
-            const { data, error } = await supabaseClient.from('generics').select('*, generic_pharm_mapping(class_name), needs_renal_adj, needs_hepatic_adj').order('generic_name').range(from, from + step - 1); 
-            if (error) break; 
-            fetchedData = fetchedData.concat(data); 
-            if (data.length < step) hasProfile = false; else from += step; 
-        } 
-        allGenerics = fetchedData; 
-        filterGenericOptions(); 
-        filterMasterGenericList(); 
-    }
+    async function fetchGenerics() { 
+        let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; 
+        while (hasMore) { 
+            const { data, error } = await supabaseClient.from('generics').select('*, generic_pharm_mapping(class_name), needs_renal_adj, needs_hepatic_adj').order('generic_name').range(from, from + step - 1); 
+            if (error) break; 
+            fetchedData = fetchedData.concat(data); 
+            if (data.length < step) hasMore = false; else from += step; 
+        } 
+        allGenerics = fetchedData; 
+        filterGenericOptions(); 
+        filterMasterGenericList(); 
+    }
 
-    let bulkPharmSelectedGenerics = new Set();
+    let bulkPharmSelectedGenerics = new Set();
 
     function openBulkPharmModal() { 
         document.getElementById('bulk-pharm-select').innerHTML = allPharmClasses.map(p => `<option value="${p.class_name}">${p.class_name}</option>`).join(''); 
