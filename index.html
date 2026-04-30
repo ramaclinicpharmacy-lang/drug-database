@@ -558,17 +558,19 @@
     }
 
     async function fetchGenerics() { 
-        let fetchedData = []; let from = 0; const step = 1000; let hasProfile = true; 
-        while (hasProfile) { 
+        let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; 
+        while (hasMore) { 
             const { data, error } = await supabaseClient.from('generics').select('*, generic_pharm_mapping(class_name), needs_renal_adj, needs_hepatic_adj').order('generic_name').range(from, from + step - 1); 
             if (error) break; 
             fetchedData = fetchedData.concat(data); 
-            if (data.length < step) hasProfile = false; else from += step; 
+            if (data.length < step) hasMore = false; else from += step; 
         } 
         allGenerics = fetchedData; 
         filterGenericOptions(); 
         filterMasterGenericList(); 
     }
+
+    let bulkPharmSelectedGenerics = new Set();
 
     function encodeHTML(str) { return !str ? '' : String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
     function openModal(id) { document.getElementById(id).style.display = 'block'; }
