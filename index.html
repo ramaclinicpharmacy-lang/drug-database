@@ -2226,10 +2226,50 @@
         document.getElementById('links-drug-name').innerText = generateStandardDrugName(drug);
         const container = document.getElementById('links-content-container');
         let html = ''; const dLinks = drug.drug_links || [];
-        if(dLinks.length > 0) { html += `<h4 style="margin:10px 0 5px 0;">เฉพาะยานี้</h4>`; html += dLinks.map(l => `<div class="link-list-item"><span>${l.link_title}</span> <a href="${l.url}" target="_blank">เปิดดู ↗</a></div>`).join(''); }
-        const gLinksMap = {}; (drug.drug_contents || []).forEach(c => { if(c.generics?.generic_links && c.generics.generic_links.length > 0) gLinksMap[c.generics.generic_name] = c.generics.generic_links; });
-        for(const [gName, links] of Object.entries(gLinksMap)) { html += `<h4 style="margin:15px 0 5px 0; color:var(--info);">ยาสามัญ: ${gName}</h4>`; html += links.map(l => `<div class="link-list-item"><span>${l.link_title}</span> <a href="${l.url}" target="_blank">เปิดดู ↗</a></div>`).join(''); }
-        container.innerHTML = html || '<div style="color:gray; text-align:center;">ไม่พบลิงก์</div>'; openModal('links-modal');
+        
+        if(dLinks.length > 0) { 
+            html += `<h4 style="margin:10px 0 5px 0;">เฉพาะยานี้</h4>`; 
+            html += dLinks.map(l => `<div class="link-list-item"><span>${l.link_title}</span> <a href="${l.url}" target="_blank">เปิดดู ↗</a></div>`).join(''); 
+        }
+
+        const gLinksMap = {}; 
+        (drug.drug_contents || []).forEach(c => { 
+            if(c.generics) {
+                // เก็บรหัส generic โค้ดไว้ด้วยเผื่อ admin อยากแก้ไข
+                gLinksMap[c.generics.generic_name] = {
+                    code: c.generics.generic_code,
+                    links: c.generics.generic_links || []
+                };
+            }
+        });
+        
+        for(const [gName, data] of Object.entries(gLinksMap)) { 
+            if (data.links.length > 0 || isAdmin) {
+                html += `<div style="display:flex; justify-content:space-between; align-items:center; margin:15px 0 5px 0;">
+                            <h4 style="margin:0; color:var(--info);">ยาสามัญ: ${gName}</h4>
+                            ${isAdmin ? `<button class="btn btn-sm btn-outline" style="font-size:0.7rem;" onclick="event.stopPropagation(); openLinksManagerGeneric('${data.code}', '${gName}')">⚙️ จัดการลิงก์</button>` : ''}
+                         </div>`; 
+                if (data.links.length > 0) {
+                    html += data.links.map(l => `<div class="link-list-item"><span>${l.link_title}</span> <a href="${l.url}" target="_blank">เปิดดู ↗</a></div>`).join(''); 
+                } else {
+                    html += `<div style="font-size:0.8rem; color:gray; text-align:center; margin-bottom:10px;">ยังไม่มีลิงก์อ้างอิง</div>`;
+                }
+            }
+        }
+        container.innerHTML = html || '<div style="color:gray; text-align:center;">ไม่พบลิงก์</div>'; 
+        openModal('links-modal');
+    }
+
+    // เพิ่มฟังก์ชันตัวช่วยให้ Admin เปิดจัดการลิงก์ระดับ Generic ได้ทันที
+    async function openLinksManagerGeneric(gCode, gName) {
+        closeModal('links-modal'); // ปิดหน้าต่างผู้ใช้ทั่วไปก่อน
+        document.getElementById('target-link-code').value = gCode; 
+        document.getElementById('target-link-level').value = 'generic'; 
+        document.getElementById('target-link-context').innerText = `อ้างอิงของยาสามัญ: ${gName}`; 
+        document.getElementById('link-input-title').value=''; 
+        document.getElementById('link-input-url').value=''; 
+        await fetchLinks(gCode, 'generic'); 
+        openModal('links-manager-modal');
     }
 
     async function openChangelog() {
