@@ -619,7 +619,20 @@
         }
     });
 
+    function encodeHTML(str) { return !str ? '' : String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+    function openModal(id) { document.getElementById(id).style.display = 'block'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    async function handleLogin() { 
+        const {error} = await supabaseClient.auth.signInWithPassword({ email: document.getElementById('auth-email').value, password: document.getElementById('auth-pw').value }); 
+        if(error) alert(error.message); else location.reload(); 
+    }
+    async function handleLogout() { await supabaseClient.auth.signOut(); location.reload(); }
 
+    function openLineCompat() {
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 850;
+        if (isMobile) { window.open('https://line.me/R/ti/p/@979wdeif', '_blank'); } 
+        else { openModal('line-qr-modal'); }
+    }
 
     function openLineCompat() {
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 850;
@@ -851,12 +864,6 @@
         alert('✅ บันทึกการตั้งค่าการแสดงผลสำเร็จ มีผลกับผู้ใช้ทุกคนทันที!');
     }
 
-    function encodeHTML(str) { return !str ? '' : str.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
-    async function handleLogin() { const {error} = await supabaseClient.auth.signInWithPassword({ email: document.getElementById('auth-email').value, password: document.getElementById('auth-pw').value }); if(error) alert(error.message); else location.reload(); }
-    async function handleLogout() { await supabaseClient.auth.signOut(); location.reload(); }
-    function openModal(id) { document.getElementById(id).style.display = 'block'; }
-    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-    
     function toggleFilterPanel() { const panel = document.getElementById('filter-panel-dropdown'); panel.classList.toggle('active'); }
     function toggleCard(code) { const body = document.getElementById('body-' + code); const icon = document.getElementById('icon-' + code); if (expandedCards.has(code)) { expandedCards.delete(code); body.classList.remove('expanded'); icon.style.transform = "rotate(0deg)"; } else { expandedCards.add(code); body.classList.add('expanded'); icon.style.transform = "rotate(90deg)"; } updateToggleAllButton(); }
     function toggleAllCards() { const totalCards = document.querySelectorAll('.drug-card').length; const expandedCount = document.querySelectorAll('.card-body.expanded').length; const isExpanding = expandedCount < totalCards; document.querySelectorAll('.drug-card').forEach(card => { const code = card.dataset.code; const body = card.querySelector('.card-body'); const icon = card.querySelector('.toggle-icon'); if (isExpanding) { expandedCards.add(code); body.classList.add('expanded'); icon.style.transform = "rotate(90deg)"; } else { expandedCards.delete(code); body.classList.remove('expanded'); icon.style.transform = "rotate(0deg)"; } }); updateToggleAllButton(); }
