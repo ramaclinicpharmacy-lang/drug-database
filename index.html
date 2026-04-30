@@ -1644,8 +1644,18 @@
                     </div>`; 
         }).join(''); 
     }   
-    async function fetchGenerics() { let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; while (hasProfile) { 
-            const { data, error } = await supabaseClient.from('generics').select('*, generic_pharm_mapping(class_name), needs_renal_adj, needs_hepatic_adj').order('generic_name').range(from, from + step - 1);
+    async function fetchGenerics() { 
+        let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; 
+        while (hasMore) { 
+            const { data, error } = await supabaseClient.from('generics').select('*, generic_pharm_mapping(class_name), needs_renal_adj, needs_hepatic_adj').order('generic_name').range(from, from + step - 1); 
+            if (error) break; 
+            fetchedData = fetchedData.concat(data); 
+            if (data.length < step) hasMore = false; else from += step; 
+        } 
+        allGenerics = fetchedData; 
+        filterGenericOptions(); 
+        filterMasterGenericList(); 
+    }
 
     let bulkPharmSelectedGenerics = new Set();
 
