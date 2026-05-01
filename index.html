@@ -516,7 +516,10 @@
             
             <label style="font-size:0.85rem; font-weight:bold;">หมายเหตุ (Note)</label>
             <input type="text" id="adj-master-note" placeholder="ข้อความเพิ่มเติม (ถ้ามี)" style="margin:0;">
-            
+            <div style="display:flex; gap:10px; margin-top:15px;">
+                <button class="btn btn-danger" id="btn-save-adj-rule" style="flex:1; height:42px;" onclick="saveAdjRule()">+ เพิ่มกฎปรับโดส</button>
+                <button class="btn btn-outline hidden" id="btn-cancel-adj-edit" style="flex:1; height:42px;" onclick="resetAdjForm()">ยกเลิกแก้</button>
+            </div>
             <button class="btn btn-danger" style="width:100%; margin-top:15px; height:42px;" onclick="saveAdjRule()">+ เพิ่มกฎปรับโดส</button>
         </div>
         
@@ -1739,7 +1742,8 @@
                     </div>`; 
         }).join(''); 
     }   
-
+    let currentAdjRulesList = [];
+    let editingAdjRuleId = null;
     function updateAdjCriterionOptions() {
         const type = document.getElementById('adj-master-type').value;
         const criterionSelect = document.getElementById('adj-master-criterion');
@@ -1747,19 +1751,22 @@
             criterionSelect.innerHTML = `
                 <option value="CrCl">CrCl (mL/min)</option>
                 <option value="eGFR">eGFR</option>
+                <option value="ESRD">ESRD</option>
+                <option value="HD">HD (Hemodialysis)</option>
+                <option value="CAPD">CAPD</option>
+                <option value="SLED">SLED</option>
+                <option value="CRRT">CRRT</option>
+                <option value="Other">เกณฑ์อื่นๆ (ระบุใน Note)</option>
             `;
         } else {
             criterionSelect.innerHTML = `
                 <option value="Child-Pugh">Child-Pugh Score</option>
-                <option value="Other">เกณฑ์อื่นๆ (ระบุในหมายเหตุ)</option>
+                <option value="Other">เกณฑ์อื่นๆ (ระบุใน Note)</option>
             `;
         }
     }
-    async function openAdjManager(genericCode, genericName) {
-        document.getElementById('adj-master-gen-code').value = genericCode;
-        document.getElementById('adj-master-gen-name').innerText = "🧪 " + genericName;
-        
-        // เคลียร์ฟอร์ม
+    function resetAdjForm() {
+        editingAdjRuleId = null;
         document.getElementById('adj-master-type').value = 'renal';
         updateAdjCriterionOptions();
         document.getElementById('adj-master-min').value = '';
@@ -1767,6 +1774,13 @@
         document.getElementById('adj-master-rec').value = '';
         document.getElementById('adj-master-note').value = '';
         
+        document.getElementById('btn-save-adj-rule').innerText = "+ เพิ่มกฎปรับโดส";
+        document.getElementById('btn-cancel-adj-edit').classList.add('hidden');
+    }
+    async function openAdjManager(genericCode, genericName) {
+        document.getElementById('adj-master-gen-code').value = genericCode;
+        document.getElementById('adj-master-gen-name').innerText = "🧪 " + genericName;
+        resetAdjForm();
         await fetchAdjRules(genericCode);
         openModal('adj-master-modal');
     }
@@ -1774,37 +1788,61 @@
         const listEl = document.getElementById('adj-master-list');
         listEl.innerHTML = '<div style="text-align:center; padding:10px; color:gray;">กำลังโหลด...</div>';
         
-        const { data, error } = await supabaseClient.from('generic_adjustments').select('*').eq('generic_code', genericCode);
+        const { data, error } = await supabaseClient.from('generic_adjustments').select('*').eq('generic_code', genericCode).order('criterion_type');
         
-        if (error || !data || data.length === 0) {
+        currentAdjRulesList = data || []; // เก็บ Data ไว้สำหรับโหมด Edit
+    
+        if (error || currentAdjRulesList.length === 0) {
             listEl.innerHTML = '<div style="color:gray; text-align:center; padding:10px;">ยังไม่มีกฎการปรับโดสสำหรับยานี้</div>';
             return;
         }
     
-        listEl.innerHTML = data.map(rule => {
+        listEl.innerHTML = currentAdjRulesList.map(rule => {
             const typeBadge = rule.adj_type === 'renal' 
                 ? '<span class="badge" style="background:#fee2e2; color:#b91c1c;">ไต (Renal)</span>' 
                 : '<span class="badge" style="background:#fef08a; color:#a16207;">ตับ (Hepatic)</span>';
                 
-            let rangeText = 'All';
-            if (rule.min_value !== null && rule.max_value !== null) rangeText = `${rule.min_value} - ${rule.max_value}`;
-            else if (rule.max_value !== null) rangeText = `≤ ${rule.max_value}`;
-            else if (rule.min_value !== null) rangeText = `≥ ${rule.min_value}`;
+            let rangeText = '';
+            if (['CrCl', 'eGFR', 'Child-Pugh'].includes(rule.criterion_type)) {
+                if (rule.min_value !== null && rule.max_value !== null) rangeText = ` [${rule.min_value} - ${rule.max_value}]`;
+                else if (rule.max_value !== null) rangeText = ` [≤ ${rule.max_value}]`;
+                else if (rule.min_value !== null) rangeText = ` [≥ ${rule.min_value}]`;
+                else rangeText = ' [All]';
+            }
     
             return `
             <div class="list-item" style="border-left: 3px solid ${rule.adj_type === 'renal' ? '#b91c1c' : '#a16207'}; align-items:flex-start;">
                 <div style="flex:1;">
-                    ${typeBadge} <b style="color:var(--dark);">${rule.criterion_type}: ${rangeText}</b>
+                    ${typeBadge} <b style="color:var(--dark);">${rule.criterion_type}${rangeText}</b>
                     <div style="margin-top:4px; font-size:0.85rem; color:#475569;">
                         <b>แนะนำ:</b> ${rule.recommendation}
                         ${rule.note ? `<br><small style="color:gray;">* ${rule.note}</small>` : ''}
                     </div>
                 </div>
-                <button class="btn btn-outline btn-sm" style="color:red;" onclick="deleteAdjRule(${rule.id}, '${genericCode}')">ลบ</button>
+                <div style="display:flex; gap:5px;">
+                    <button class="btn btn-outline btn-sm" style="color:var(--primary);" onclick="prepareEditAdjRule(${rule.id})">✏️</button>
+                    <button class="btn btn-outline btn-sm" style="color:red;" onclick="deleteAdjRule(${rule.id}, '${genericCode}')">🗑️</button>
+                </div>
             </div>`;
         }).join('');
     }
-    
+    function prepareEditAdjRule(id) {
+        const rule = currentAdjRulesList.find(r => r.id === id);
+        if (!rule) return;
+        
+        editingAdjRuleId = id;
+        document.getElementById('adj-master-type').value = rule.adj_type || 'renal';
+        updateAdjCriterionOptions(); // โหลด Options ไตหรือตับ
+        document.getElementById('adj-master-criterion').value = rule.criterion_type;
+        
+        document.getElementById('adj-master-min').value = rule.min_value !== null ? rule.min_value : '';
+        document.getElementById('adj-master-max').value = rule.max_value !== null ? rule.max_value : '';
+        document.getElementById('adj-master-rec').value = rule.recommendation || '';
+        document.getElementById('adj-master-note').value = rule.note || '';
+        
+        document.getElementById('btn-save-adj-rule').innerText = "💾 ยืนยันแก้ไข";
+        document.getElementById('btn-cancel-adj-edit').classList.remove('hidden');
+    }
     async function saveAdjRule() {
         const generic_code = document.getElementById('adj-master-gen-code').value;
         const adj_type = document.getElementById('adj-master-type').value;
@@ -1827,16 +1865,20 @@
             note: note === '' ? null : note
         };
     
-        const { error } = await supabaseClient.from('generic_adjustments').insert(payload);
+        let error;
+        if (editingAdjRuleId) {
+            // อัปเดตข้อมูลเดิม
+            const res = await supabaseClient.from('generic_adjustments').update(payload).eq('id', editingAdjRuleId);
+            error = res.error;
+        } else {
+            // เพิ่มข้อมูลใหม่
+            const res = await supabaseClient.from('generic_adjustments').insert(payload);
+            error = res.error;
+        }
         
-        if (error) return alert("เกิดข้อผิดพลาด: " + error.message);
+        if (error) return alert("เกิดข้อผิดพลาด (โปรดเช็ก Constraint ใน Database): \n" + error.message);
         
-        // เคลียร์ค่าที่กรอกหลังบันทึกเสร็จ (เว้นประเภทและเกณฑ์ไว้เพื่อคีย์ต่อเนื่องง่ายๆ)
-        document.getElementById('adj-master-min').value = '';
-        document.getElementById('adj-master-max').value = '';
-        document.getElementById('adj-master-rec').value = '';
-        document.getElementById('adj-master-note').value = '';
-        
+        resetAdjForm();
         fetchAdjRules(generic_code);
     }
     
@@ -2408,29 +2450,33 @@
             const genCode = c.generics.generic_code;
             const genAdjs = adjData.filter(d => d.generic_code === genCode);
             
-            if (genAdjs.length === 0) return; // ยาสามัญตัวนี้ไม่มีปรับโดส ให้ข้ามไป
+            if (genAdjs.length === 0) return;
     
             html += `
             <div class="section-box" style="margin-bottom:15px; border-left:4px solid var(--danger); background: white;">
                 <h4 style="margin-top:0; color:var(--dark); margin-bottom:10px;">🧪 ตัวยา: <span style="color:var(--primary);">${c.generics.generic_name}</span></h4>
             `;
     
-            // แบ่งเป็น 3 ประเภท
             const crclData = genAdjs.filter(d => d.criterion_type === 'CrCl').sort((a,b) => (b.max_value || 999) - (a.max_value || 999));
             const egfrData = genAdjs.filter(d => d.criterion_type === 'eGFR').sort((a,b) => (b.max_value || 999) - (a.max_value || 999));
+            // ดึงพวก HD, CAPD, ESRD ฯลฯ ออกมา
+            const rrtData = genAdjs.filter(d => d.adj_type === 'renal' && !['CrCl', 'eGFR'].includes(d.criterion_type));
             const hepaticData = genAdjs.filter(d => d.adj_type === 'hepatic');
     
-            // ฟังก์ชันช่วยเรนเดอร์ตาราง (Reusable)
-            const buildTable = (title, items, isCrCl) => {
+            // ฟังก์ชันช่วยสร้างตาราง รองรับโหมดที่ไม่มีตัวเลข (ใช้อ้างอิงชื่อ Criterion แทน)
+            const buildTable = (title, items, isCrCl, isRRT = false) => {
                 if (items.length === 0) return '';
                 let rows = items.map(item => {
                     let rangeText = '';
-                    if (item.min_value !== null && item.max_value !== null) rangeText = `${item.min_value} - ${item.max_value}`;
-                    else if (item.max_value !== null) rangeText = `≤ ${item.max_value}`;
-                    else if (item.min_value !== null) rangeText = `≥ ${item.min_value}`;
-                    else rangeText = 'All';
+                    if (isRRT) {
+                        rangeText = item.criterion_type; // ถ้าเป็น RRT ให้แสดงชื่อ เช่น "HD", "CAPD" ในช่องตารางเลย
+                    } else {
+                        if (item.min_value !== null && item.max_value !== null) rangeText = `${item.min_value} - ${item.max_value}`;
+                        else if (item.max_value !== null) rangeText = `≤ ${item.max_value}`;
+                        else if (item.min_value !== null) rangeText = `≥ ${item.min_value}`;
+                        else rangeText = 'All';
+                    }
     
-                    // เก็บ Data Attribute ไว้ให้ Smart Calculator หาเจอเฉพาะ CrCl
                     const rowClass = isCrCl ? 'crcl-row' : '';
                     const dataAttrs = isCrCl ? `data-min="${item.min_value !== null ? item.min_value : ''}" data-max="${item.max_value !== null ? item.max_value : ''}"` : '';
     
@@ -2450,16 +2496,15 @@
                 </div>`;
             };
     
-            html += buildTable('🛑 Renal Impairment (CrCl mL/min)', crclData, true);
-            html += buildTable('🛑 Renal Impairment (eGFR mL/min/1.73m²)', egfrData, false); // eGFR ไม่ส่ง class ให้ Calculator ไฮไลต์
-            html += buildTable('🟡 Hepatic Impairment / Child-Pugh', hepaticData, false);
+            html += buildTable('🛑 Renal Impairment (CrCl mL/min)', crclData, true, false);
+            html += buildTable('🛑 Renal Impairment (eGFR mL/min/1.73m²)', egfrData, false, false);
+            html += buildTable('🛑 Renal Replacement Therapy (RRT)', rrtData, false, true); // สร้างตารางสำหรับ RRT แยก
+            html += buildTable('🟡 Hepatic Impairment / Child-Pugh', hepaticData, false, false);
     
             html += `</div>`;
         });
     
         document.getElementById('adj-content-container').innerHTML = html;
-        
-        // ทริกเกอร์การคำนวณเผื่อว่า user มีพิมพ์ค้างไว้ก่อนหน้า
         calculateCrCl();
     }
     
