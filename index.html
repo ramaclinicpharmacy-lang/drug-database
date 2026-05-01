@@ -1712,6 +1712,10 @@
             const sCode = encodeHTML(g.generic_code); 
             const sName = encodeHTML(g.generic_name);
             const pharmCount = (g.generic_pharm_mapping || []).length;
+            
+            // 🌟 นับจำนวนยาหลักที่ใช้ยาสามัญตัวนี้เป็นส่วนประกอบ
+            const drugCount = (g.drug_contents || []).length; 
+    
             const gType = (g.generic_type || 'drug').toLowerCase();
             const isDrug = gType === 'drug';
             const hasStarPharm = (g.generic_pharm_mapping || []).some(pm => pm.class_name && pm.class_name.startsWith('*'));
@@ -1722,7 +1726,6 @@
             
             const typeBadge = !isDrug ? `<span class="badge" style="background:#fef3c7; color:#d97706; border:1px solid #fde68a;">${encodeHTML(gType)}</span>` : '';
     
-            // Badge ไต/ตับ เพื่อให้ Admin เห็นภาพรวมง่ายขึ้น
             let adjBadge = '';
             if (g.needs_renal_adj) adjBadge += '<span style="font-size:0.75rem; background:#fee2e2; color:#b91c1c; padding:2px 6px; border-radius:4px; margin-left:5px;">ไต</span>';
             if (g.needs_hepatic_adj) adjBadge += '<span style="font-size:0.75rem; background:#fef08a; color:#a16207; padding:2px 6px; border-radius:4px; margin-left:5px;">ตับ</span>';
@@ -1731,7 +1734,11 @@
                         <div style="flex:1;">
                             <span style="color:${typeColor}; font-weight:bold;">${g.generic_name}</span> 
                             ${typeBadge} ${adjBadge}
-                            <br><small style="color:gray;">Code: ${sCode} | (${pharmCount} กลุ่ม)</small>
+                            <br>
+                            <small style="color:gray;">
+                                Code: ${sCode} | 
+                                <span style="color:var(--primary); font-weight:bold;">(${pharmCount} กลุ่ม | ผูกไว้ ${drugCount} ยา)</span>
+                            </small>
                         </div> 
                         <div style="display:flex; gap:5px; flex-wrap:wrap;">
                             <button class="btn btn-outline" style="color:var(--danger); border-color:var(--danger); padding:2px 6px;" onclick="openAdjManager('${sCode}', '${sName}')">⚖️ กฎปรับโดส</button>
@@ -1887,8 +1894,23 @@
             fetchAdjRules(genericCode);
         }
     }
-    async function fetchGenerics() { let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; while (hasMore) { const { data, error } = await supabaseClient.from('generics').select('*, generic_pharm_mapping(class_name)').order('generic_name').range(from, from + step - 1); if (error) break; fetchedData = fetchedData.concat(data); if (data.length < step) hasMore = false; else from += step; } allGenerics = fetchedData; filterGenericOptions(); filterMasterGenericList(); }
-
+    async function fetchGenerics() { 
+        let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; 
+        while (hasMore) { 
+            // 🌟 อัปเดตบรรทัด .select เพิ่มการดึง drug_contents มาด้วย
+            const { data, error } = await supabaseClient.from('generics')
+                .select('*, generic_pharm_mapping(class_name), drug_contents(drug_code)') 
+                .order('generic_name')
+                .range(from, from + step - 1); 
+                
+            if (error) break; 
+            fetchedData = fetchedData.concat(data); 
+            if (data.length < step) hasMore = false; else from += step; 
+        } 
+        allGenerics = fetchedData; 
+        filterGenericOptions(); 
+        filterMasterGenericList(); 
+    }
     let bulkPharmSelectedGenerics = new Set();
 
     function openBulkPharmModal() { 
