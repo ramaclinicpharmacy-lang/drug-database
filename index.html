@@ -271,7 +271,6 @@
             </div>
             
         </div>
-    </div>
         <div id="admin-toolbar" class="hidden admin-box">
             <h3>🛠️ เครื่องมือจัดการ (Admin)</h3>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px;">
@@ -293,7 +292,8 @@
                 <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px;" onclick="openModal('label-master-modal')">🏷️ ฉลากยา</button>
             </div>
         </div>
-
+    </div>
+    
     <div class="pagination-container" id="pagination-wrapper" style="display:none;">
         <div style="display: flex; align-items: center; white-space: nowrap;">
             <label style="font-size: 0.9rem; font-weight: bold; color: var(--dark); margin: 0;">แสดง:</label>
@@ -2361,7 +2361,7 @@
             } else if (log.action === 'DELETE') {
                 changes = JSON.stringify(log.old_data);
             }
-            const safeChanges = changes ? String(changes).replace(/"/g, '""') : "";
+            const safeChanges = changes ? String(changes).replace(/"/g, '""').replace(/\n/g, ' ').replace(/\r/g, '') : "";
             csv += `"${date}","${user}","${log.action}","${log.table_name || ''}","${log.record_id || ''}","${safeChanges}"\n`;
         });
         const blob = new Blob(["\uFEFF"+csv], { type: 'text/csv;charset=utf-8;' }); 
