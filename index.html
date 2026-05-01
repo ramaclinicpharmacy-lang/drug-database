@@ -320,7 +320,51 @@
     </footer>
 
 </div>
+<div id="adjustment-modal" class="modal">
+    <div class="modal-content" style="max-width: 850px; width: 95%;">
+        <h3 style="color:var(--danger); margin-top:0;">⚠️ การปรับขนาดยาตามการทำงานของไตและตับ</h3>
+        <h4 id="adj-drug-name" style="margin-bottom: 15px; color:var(--dark);"></h4>
 
+        <!-- Smart Calculator Section -->
+        <div class="section-box" style="background:#f8fafc; border-color:#cbd5e1; margin-bottom: 20px;">
+            <div style="font-weight:bold; color:var(--primary); margin-bottom:10px; display:flex; gap:8px; align-items:center;">
+                🧮 เครื่องคิดเลขประเมินการทำงานของไต (Cockcroft-Gault)
+                <button class="btn btn-outline btn-sm" onclick="clearCrClCalc()" style="margin-left:auto; font-size:0.75rem;">ล้างค่า</button>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px;">
+                <div>
+                    <label style="font-size:0.8rem; color:gray; font-weight:bold;">เพศ</label>
+                    <select id="calc-gender" onchange="calculateCrCl()" style="margin:0; height:38px;">
+                        <option value="M">ชาย</option>
+                        <option value="F">หญิง</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:0.8rem; color:gray; font-weight:bold;">อายุ (ปี)</label>
+                    <input type="number" id="calc-age" placeholder="ปี" oninput="calculateCrCl()" style="margin:0; height:38px;">
+                </div>
+                <div>
+                    <label style="font-size:0.8rem; color:gray; font-weight:bold;">น้ำหนัก (kg)</label>
+                    <input type="number" id="calc-weight" placeholder="กก." oninput="calculateCrCl()" style="margin:0; height:38px;">
+                </div>
+                <div>
+                    <label style="font-size:0.8rem; color:gray; font-weight:bold;">SCr (mg/dL)</label>
+                    <input type="number" id="calc-scr" placeholder="มก./ดล." oninput="calculateCrCl()" style="margin:0; height:38px;">
+                </div>
+            </div>
+            <div style="margin-top: 15px; background: white; padding: 10px; border-radius: 8px; border: 1px dashed #cbd5e1;">
+                👉 Estimated CrCl: <b id="result-crcl" style="color:var(--danger); font-size:1.5rem;">-</b> <span style="color:gray; font-weight:bold;">mL/min</span>
+            </div>
+        </div>
+
+        <!-- พื้นที่แสดงผลตารางปรับยาแยกตาม Generic -->
+        <div id="adj-content-container">
+            <div style="text-align:center; padding:20px; color:gray;">กำลังโหลดข้อมูล...</div>
+        </div>
+
+        <button class="btn btn-outline" style="width:100%; margin-top:15px; height: 42px;" onclick="closeModal('adjustment-modal')">ปิดหน้าต่าง</button>
+    </div>
+</div>
 <div id="calc-modal" class="modal">
     <div class="modal-content" style="max-width: 400px;">
         <h3 style="color:var(--warning); margin-top:0;">🧮 คำนวณปริมาณสารน้ำ</h3>
@@ -1253,7 +1297,7 @@
         let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; 
         while (hasMore) { 
             const { data, error } = await supabaseClient.from('drugs')
-                .select(`*, drug_tag_mapping(tag_name), drug_label_mapping(label_code, labels(label_name)), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, generic_type, special_note, generic_pharm_mapping(class_name))), drug_administrations(id, instructions, min_conc, max_conc, conc_unit, routes(route_name, route_code), administration_fluids(fluid_short_name))`)
+                .select(`*, drug_tag_mapping(tag_name), drug_label_mapping(label_code, labels(label_name)), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, generic_type, special_note, needs_renal_adj, needs_hepatic_adj, generic_pharm_mapping(class_name))), drug_administrations(id, instructions, min_conc, max_conc, conc_unit, routes(route_name, route_code), administration_fluids(fluid_short_name))`)
                 .eq('is_active', true) 
                 .order('drug_name')
                 .range(from, from + step - 1); 
@@ -1360,6 +1404,10 @@
             
             const calcBtn = (drug.drug_administrations || []).some(a => a.min_conc || a.max_conc) 
                 ? `<button class="btn btn-sm" style="background:#fef3c7; color:#d97706; border:1px solid #fde68a; padding:2px 8px; font-size:0.75rem; border-radius:20px; font-weight:bold;" onclick="event.stopPropagation(); openCalculator('${safeCode}')">🧮 คำนวณน้ำ</button>` 
+                : '';
+            const needsAdj = (drug.drug_contents || []).some(c => c.generics?.needs_renal_adj || c.generics?.needs_hepatic_adj);
+            const adjBtn = needsAdj 
+                ? `<button class="btn btn-sm" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; padding:2px 8px; font-size:0.75rem; border-radius:20px; font-weight:bold; margin-left:5px;" onclick="event.stopPropagation(); openAdjustmentModal('${safeCode}')">⚠️ ปรับโดส</button>` 
                 : '';
 
             const labelsHtml = (drug.drug_label_mapping || [])
@@ -2120,6 +2168,165 @@
     }
 
     init(); 
+
+    // ล้างค่าในเครื่องคิดเลข
+    function clearCrClCalc() {
+        document.getElementById('calc-gender').value = 'M';
+        document.getElementById('calc-age').value = '';
+        document.getElementById('calc-weight').value = '';
+        document.getElementById('calc-scr').value = '';
+        calculateCrCl();
+    }
+    
+    // ฟังก์ชัน Lazy Load ดึงข้อมูลปรับยา
+    async function openAdjustmentModal(drugCode) {
+        const drug = allDrugsRaw.find(d => d.drug_code === drugCode);
+        if (!drug) return;
+    
+        // เคลียร์ค่าเครื่องคิดเลข และเปิดหน้าต่าง
+        clearCrClCalc();
+        document.getElementById('adj-drug-name').innerText = generateStandardDrugName(drug);
+        const container = document.getElementById('adj-content-container');
+        container.innerHTML = '<div style="text-align:center; padding:20px; color:gray;">กำลังดึงข้อมูล Clinical Guideline...</div>';
+        
+        openModal('adjustment-modal');
+    
+        // ดึง Generic Code ทั้งหมดที่เป็นส่วนประกอบของยานี้
+        const genericCodes = (drug.drug_contents || []).map(c => c.generics?.generic_code).filter(Boolean);
+        
+        if (genericCodes.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding:20px; color:red;">ไม่พบรหัสยาสามัญสำหรับอ้างอิง</div>';
+            return;
+        }
+    
+        // 🌟 ดึงข้อมูลจากฐานข้อมูลแบบ Lazy
+        const { data, error } = await supabaseClient
+            .from('generic_adjustments')
+            .select('*')
+            .in('generic_code', genericCodes);
+    
+        if (error) {
+            container.innerHTML = `<div style="color:red; padding:20px;">Error: ${error.message}</div>`;
+            return;
+        }
+    
+        if (!data || data.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding:30px; background:#f8fafc; border-radius:8px;">✅ <b>ยังไม่มีข้อมูลระบุว่าต้องปรับขนาดยา</b><br><small style="color:gray;">(หรือยังไม่ได้นำเข้าข้อมูลในระบบ)</small></div>';
+            return;
+        }
+    
+        renderAdjustments(data, drug.drug_contents);
+    }
+    
+    // ฟังก์ชันแยก Section อาศัยตาราง HTML
+    function renderAdjustments(adjData, drugContents) {
+        let html = '';
+    
+        drugContents.forEach(c => {
+            if (!c.generics) return;
+            const genCode = c.generics.generic_code;
+            const genAdjs = adjData.filter(d => d.generic_code === genCode);
+            
+            if (genAdjs.length === 0) return; // ยาสามัญตัวนี้ไม่มีปรับโดส ให้ข้ามไป
+    
+            html += `
+            <div class="section-box" style="margin-bottom:15px; border-left:4px solid var(--danger); background: white;">
+                <h4 style="margin-top:0; color:var(--dark); margin-bottom:10px;">🧪 ตัวยา: <span style="color:var(--primary);">${c.generics.generic_name}</span></h4>
+            `;
+    
+            // แบ่งเป็น 3 ประเภท
+            const crclData = genAdjs.filter(d => d.criterion_type === 'CrCl').sort((a,b) => (b.max_value || 999) - (a.max_value || 999));
+            const egfrData = genAdjs.filter(d => d.criterion_type === 'eGFR').sort((a,b) => (b.max_value || 999) - (a.max_value || 999));
+            const hepaticData = genAdjs.filter(d => d.adj_type === 'hepatic');
+    
+            // ฟังก์ชันช่วยเรนเดอร์ตาราง (Reusable)
+            const buildTable = (title, items, isCrCl) => {
+                if (items.length === 0) return '';
+                let rows = items.map(item => {
+                    let rangeText = '';
+                    if (item.min_value !== null && item.max_value !== null) rangeText = `${item.min_value} - ${item.max_value}`;
+                    else if (item.max_value !== null) rangeText = `≤ ${item.max_value}`;
+                    else if (item.min_value !== null) rangeText = `≥ ${item.min_value}`;
+                    else rangeText = 'All';
+    
+                    // เก็บ Data Attribute ไว้ให้ Smart Calculator หาเจอเฉพาะ CrCl
+                    const rowClass = isCrCl ? 'crcl-row' : '';
+                    const dataAttrs = isCrCl ? `data-min="${item.min_value !== null ? item.min_value : ''}" data-max="${item.max_value !== null ? item.max_value : ''}"` : '';
+    
+                    return `
+                    <tr class="${rowClass}" ${dataAttrs} style="transition: 0.3s;">
+                        <td style="font-weight:bold; white-space:nowrap; padding:8px; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; text-align:center;">${rangeText}</td>
+                        <td style="padding:8px; border-bottom:1px solid #e2e8f0;">${item.recommendation} ${item.note ? `<br><small style="color:gray;"><i>* ${item.note}</i></small>` : ''}</td>
+                    </tr>`;
+                }).join('');
+    
+                return `
+                <div style="margin-bottom: 15px;">
+                    <div style="font-size:0.85rem; font-weight:bold; background:#f1f5f9; padding:4px 10px; border-radius:6px 6px 0 0; border:1px solid #e2e8f0; border-bottom:none;">${title}</div>
+                    <table style="width:100%; border-collapse:collapse; font-size:0.85rem; border:1px solid #e2e8f0;">
+                        ${rows}
+                    </table>
+                </div>`;
+            };
+    
+            html += buildTable('🛑 Renal Impairment (CrCl mL/min)', crclData, true);
+            html += buildTable('🛑 Renal Impairment (eGFR mL/min/1.73m²)', egfrData, false); // eGFR ไม่ส่ง class ให้ Calculator ไฮไลต์
+            html += buildTable('🟡 Hepatic Impairment / Child-Pugh', hepaticData, false);
+    
+            html += `</div>`;
+        });
+    
+        document.getElementById('adj-content-container').innerHTML = html;
+        
+        // ทริกเกอร์การคำนวณเผื่อว่า user มีพิมพ์ค้างไว้ก่อนหน้า
+        calculateCrCl();
+    }
+    
+    // 🧮 Smart Calculator Logic
+    function calculateCrCl() {
+        const gender = document.getElementById('calc-gender').value;
+        const age = parseFloat(document.getElementById('calc-age').value);
+        const weight = parseFloat(document.getElementById('calc-weight').value);
+        const scr = parseFloat(document.getElementById('calc-scr').value);
+        const resultEl = document.getElementById('result-crcl');
+    
+        let crcl = null;
+        
+        // สูตร Cockcroft-Gault
+        if (age > 0 && weight > 0 && scr > 0) {
+            crcl = ((140 - age) * weight) / (72 * scr);
+            if (gender === 'F') crcl *= 0.85;
+            resultEl.innerText = crcl.toFixed(1);
+        } else {
+            resultEl.innerText = '-';
+        }
+    
+        // Auto-Highlight แถวของ CrCl (eGFR จะไม่เข้าเงื่อนไขนี้เพราะไม่มี class .crcl-row)
+        const rows = document.querySelectorAll('.crcl-row');
+        rows.forEach(row => {
+            // เคลียร์สีเก่าก่อนเสมอ
+            row.style.backgroundColor = '';
+            
+            if (crcl !== null) {
+                const minAttr = row.dataset.min;
+                const maxAttr = row.dataset.max;
+                
+                const min = minAttr !== '' ? parseFloat(minAttr) : null;
+                const max = maxAttr !== '' ? parseFloat(maxAttr) : null;
+    
+                let isMatch = true;
+                
+                // เช็กทีละเงื่อนไข
+                if (min !== null && crcl < min) isMatch = false;
+                if (max !== null && crcl > max) isMatch = false;
+    
+                // ถ้าตกช่วงไหน ไฮไลต์สีเหลือง
+                if (isMatch) {
+                    row.style.backgroundColor = '#fef08a'; // สีเหลืองเตือน
+                }
+            }
+        });
+    }
 </script>
 </body>
 </html>
