@@ -293,7 +293,6 @@
                 <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px;" onclick="openModal('label-master-modal')">🏷️ ฉลากยา</button>
             </div>
         </div>
-    </div>
 
     <div class="pagination-container" id="pagination-wrapper" style="display:none;">
         <div style="display: flex; align-items: center; white-space: nowrap;">
@@ -2346,12 +2345,32 @@
         if(currentLogData.length === 0) return alert("ไม่มีข้อมูลให้ Export");
         let csv = "Date,User,Action,Table,RecordID,Changes\n";
         currentLogData.forEach(log => {
-            const date = new Date(log.changed_at).toLocaleString('th-TH'); const user = log.changed_by || 'System'; let changes = "";
-            if(log.action === 'UPDATE' && log.old_data && log.new_data) { for(let key in log.new_data) { if(log.old_data[key] !== log.new_data[key]) changes += `[${key}: ${log.old_data[key]}->${log.new_data[key]}] `; } } else { changes = "See JSON for details"; }
-            csv += `"${date}","${user}","${log.action}","${log.table_name}","${log.record_id}","${changes.replace(/"/g, '""')}"\n`;
+            const date = log.changed_at ? new Date(log.changed_at).toLocaleString('th-TH') : ''; 
+            const user = log.changed_by || 'System'; 
+            let changes = "";
+            if(log.action === 'UPDATE' && log.old_data && log.new_data) { 
+                for(let key in log.new_data) { 
+                    if(JSON.stringify(log.old_data[key]) !== JSON.stringify(log.new_data[key])) { 
+                        let oldV = typeof log.old_data[key] === 'object' ? JSON.stringify(log.old_data[key]) : log.old_data[key];
+                        let newV = typeof log.new_data[key] === 'object' ? JSON.stringify(log.new_data[key]) : log.new_data[key];
+                        changes += `[${key}: ${oldV} -> ${newV}] `; 
+                    } 
+                } 
+            } else if (log.action === 'INSERT') {
+                changes = JSON.stringify(log.new_data);
+            } else if (log.action === 'DELETE') {
+                changes = JSON.stringify(log.old_data);
+            }
+            const safeChanges = changes ? String(changes).replace(/"/g, '""') : "";
+            csv += `"${date}","${user}","${log.action}","${log.table_name || ''}","${log.record_id || ''}","${safeChanges}"\n`;
         });
-        const blob = new Blob(["\uFEFF"+csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(blob)); link.setAttribute("download", `audit_logs_${document.getElementById('log-start-date').value}_to_${document.getElementById('log-end-date').value}.csv`);
-        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        const blob = new Blob(["\uFEFF"+csv], { type: 'text/csv;charset=utf-8;' }); 
+        const link = document.createElement("a"); 
+        link.setAttribute("href", URL.createObjectURL(blob)); 
+        link.setAttribute("download", `audit_logs.csv`);
+        document.body.appendChild(link); 
+        link.click(); 
+        document.body.removeChild(link);
     }
     function closeLogViewer() { document.getElementById('log-table-container').innerHTML = ''; currentLogData = []; closeModal('log-viewer-modal'); }
 
