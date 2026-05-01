@@ -1566,7 +1566,9 @@
                 ? `<button class="btn btn-sm" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; padding:2px 8px; font-size:0.75rem; border-radius:20px; font-weight:bold; margin-left:5px;" onclick="event.stopPropagation(); toggleInlineAdj('${safeCode}')">⚠️ ข้อมูลปรับโดส</button>` 
                 : '';
 
-            const nutriConfig = drug.nutrition_configs;
+            const configData = drug.nutrition_configs;
+            const nutriConfig = Array.isArray(configData) ? configData[0] : configData;
+            
             const nutriBtn = nutriConfig 
                 ? `<button class="btn btn-sm" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0; padding:2px 8px; font-size:0.75rem; border-radius:20px; font-weight:bold; margin-left:5px;" onclick="event.stopPropagation(); openNutriCalc('${safeCode}')">🍼 คำนวณชงอาหาร</button>` 
                 : '';
@@ -1594,13 +1596,14 @@
                             <span class="toggle-icon" id="icon-${safeCode}" style="transform: ${isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}">▶</span>
                             <span style="display:flex; align-items:center; flex-wrap:wrap; gap:8px; line-height: 1.4;">
                                 ${generateStandardDrugName(drug)} 
-                                ${calcBtn} ${adjBtn}
+                                ${calcBtn} ${adjBtn} ${nutriBtn} <!-- 👈 นำ nutriBtn มาใส่ตรงนี้ -->
                             </span>
                         </h2>
                         <div style="margin-bottom:5px; padding-left: 28px;">${adminStatusBadge} ${nlemBadges} ${pharmHtml} ${tagsHtml}</div>
                         ${remarksHtml ? `<div style="padding-left: 28px;">${remarksHtml}</div>` : ''}
                     </div>
                     ${isAdmin ? `<div class="admin-actions">
+                        ${adminNutriBtn} <!-- 👈 นำ adminNutriBtn มาใส่ตรงนี้ -->
                         <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--info); border-color:var(--info);" onclick="event.stopPropagation(); openLabelManager('${safeCode}', '${safeName}')">🏷️ ฉลาก</button>
                         <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--pink); border-color:var(--pink);" onclick="event.stopPropagation(); openNlemManager('${safeCode}', '${safeName}')">📋 บัญชี</button>
                         <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openAdminManager('${safeCode}', '${safeName}')">💉 วิธีใช้</button>
@@ -2849,7 +2852,9 @@
         document.getElementById('nutri-admin-name').innerText = name;
         
         // โหลดค่าเดิมถ้ามี
-        const config = drug.nutrition_configs || {};
+        const configData = drug.nutrition_configs;
+        const config = Array.isArray(configData) ? (configData[0] || {}) : (configData || {});
+
         document.getElementById('nutri-admin-g-scoop').value = config.grams_per_scoop || '';
         document.getElementById('nutri-admin-kcal-g').value = config.kcal_per_gram || '';
         document.getElementById('nutri-admin-water').value = config.standard_water_ml || '';
@@ -2898,9 +2903,14 @@
     
     function openNutriCalc(code) {
         const drug = allDrugsRaw.find(d => d.drug_code === code);
-        if (!drug || !drug.nutrition_configs) return;
+        
+        // 🌟 ดักจับ Array 
+        const configData = drug ? drug.nutrition_configs : null;
+        const actualConfig = Array.isArray(configData) ? configData[0] : configData;
+
+        if (!drug || !actualConfig) return;
     
-        activeNutriConfig = drug.nutrition_configs;
+        activeNutriConfig = actualConfig;
         
         document.getElementById('nutri-calc-name').innerText = generateStandardDrugName(drug);
         
