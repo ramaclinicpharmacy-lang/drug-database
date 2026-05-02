@@ -1852,7 +1852,7 @@
                                 ${calcBtn} ${adjBtn} ${nutriBtn} ${meBtn} ${linkBtn}
                             </span>
                         </h2>
-                        <div style="margin-bottom:5px; padding-left: 28px;">${adminStatusBadge} ${nlemBadges} ${pharmHtml} ${tagsHtml}</div>
+                        <div style="margin-bottom:5px; padding-left: 28px;">${adminStatusBadge} ${nlemBadges} ${tagsHtml}</div>
                         ${remarksHtml ? `<div style="padding-left: 28px;">${remarksHtml}</div>` : ''}
                     </div>
                     ${isAdmin ? `<div class="admin-actions">
@@ -1867,6 +1867,10 @@
                 </div>
                 <div id="body-${safeCode}" class="card-body ${isExpanded ? 'expanded' : ''}">
                     <small>ID: ${drug.drug_code} | ${safeName}</small>
+                    <div style="margin-top:10px;">
+                        <strong>🧬 กลุ่มยา (Pharmacology):</strong><br>
+                        ${pharmHtml || '<span style="color:gray; font-size:0.85rem;">- ไม่ระบุ -</span>'}
+                    </div>
                     <div style="margin-top:10px;"><strong>🧪 ส่วนประกอบ:</strong><br>${(drug.drug_contents || []).map(c => {
                          const gType = (c.generics?.generic_type || 'drug').toLowerCase();
                          const isDrug = gType === 'drug';
