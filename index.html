@@ -319,6 +319,7 @@
                 <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px;" onclick="openModal('fluid-master-modal')">💧 สารน้ำ</button>
                 <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px;" onclick="openModal('form-master-modal')">📦 ชนิด</button>
                 <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px;" onclick="openModal('label-master-modal')">🏷️ ฉลากยา</button>
+                <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px; background:#f59e0b; color:white; border:none;" onclick="openChangelogAdmin()">📢 แจ้งอัปเดต</button>
             </div>
         </div>
     </div>
@@ -982,6 +983,40 @@
         </div>
 
         <button class="btn btn-primary" style="width:100%; margin-top:20px; height: 45px; font-size:1rem;" onclick="dismissChangelog()">รับทราบและเริ่มใช้งาน</button>
+    </div>
+</div>
+<!-- 📢 Modal: Admin จัดการประกาศอัปเดต (Changelog) -->
+<div id="changelog-admin-modal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <h3 style="color:#d97706; margin-top:0;">📢 จัดการประกาศอัปเดต (Changelog)</h3>
+        
+        <div class="section-box" style="background:#fffbeb; border-color:#fde68a;">
+            <input type="hidden" id="admin-changelog-id">
+            <div style="display:flex; gap:10px; margin-bottom:10px;">
+                <div style="flex:1;">
+                    <label style="font-size:0.85rem; font-weight:bold;">เลขเวอร์ชัน (เช่น v1.2.0)</label>
+                    <input type="text" id="admin-changelog-version" placeholder="v..." style="margin:0;">
+                </div>
+                <div style="flex:1;">
+                    <label style="font-size:0.85rem; font-weight:bold;">สถานะ</label>
+                    <select id="admin-changelog-status" style="margin:0; height:38px;">
+                        <option value="true">เปิดแสดงผล (Active)</option>
+                        <option value="false">ซ่อน (Inactive)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <label style="font-size:0.85rem; font-weight:bold;">รายละเอียดฟีเจอร์ใหม่ (รองรับ HTML tag เช่น &lt;br&gt;, &lt;b&gt;)</label>
+            <textarea id="admin-changelog-features" placeholder="✨ เพิ่มฟีเจอร์ A<br>✨ แก้ไขบั๊ก B..." style="margin:0 0 10px 0; height:80px;"></textarea>
+            
+            <div style="display:flex; gap:10px;">
+                <button class="btn btn-warning" id="btn-save-changelog" style="background:#f59e0b; color:white; flex:2; height:42px;" onclick="saveChangelog()">💾 ประกาศอัปเดตใหม่</button>
+                <button class="btn btn-outline hidden" id="btn-cancel-changelog" style="flex:1; height:42px;" onclick="resetChangelogForm()">ยกเลิก</button>
+            </div>
+        </div>
+
+        <div id="changelog-admin-list" style="max-height: 250px; overflow-y: auto; margin-top: 15px;"></div>
+        <button class="btn btn-outline" style="width:100%; margin-top:15px; height:42px;" onclick="closeModal('changelog-admin-modal')">ปิดหน้าต่าง</button>
     </div>
 </div>
     
@@ -3832,6 +3867,97 @@ async function fetchLogs() {
         } else {
             alert("ไม่พบข้อมูลการอัปเดต");
         }
+    }
+    // -------------------------------------------------------------
+    // 📢 ระบบจัดการ Changelog (Admin)
+    // -------------------------------------------------------------
+    function resetChangelogForm() {
+        document.getElementById('admin-changelog-id').value = '';
+        document.getElementById('admin-changelog-version').value = '';
+        document.getElementById('admin-changelog-features').value = '';
+        document.getElementById('admin-changelog-status').value = 'true';
+        document.getElementById('btn-save-changelog').innerText = "💾 ประกาศอัปเดตใหม่";
+        document.getElementById('btn-cancel-changelog').classList.add('hidden');
+    }
+    
+    async function openChangelogAdmin() {
+        resetChangelogForm();
+        await fetchChangelogAdminList();
+        openModal('changelog-admin-modal');
+    }
+    
+    async function fetchChangelogAdminList() {
+        const listEl = document.getElementById('changelog-admin-list');
+        listEl.innerHTML = '<div style="color:gray; text-align:center;">กำลังโหลด...</div>';
+    
+        const { data, error } = await supabaseClient.from('changelogs').select('*').order('release_date', { ascending: false }).order('id', { ascending: false });
+    
+        if (error || !data || data.length === 0) {
+            listEl.innerHTML = '<div style="color:gray; text-align:center; padding:10px;">ยังไม่มีประวัติการอัปเดต</div>';
+            return;
+        }
+    
+        listEl.innerHTML = data.map(c => `
+            <div class="list-item" style="border-left:3px solid ${c.is_active ? '#f59e0b' : '#cbd5e1'}; align-items:flex-start;">
+                <div style="flex:1;">
+                    <b style="color:${c.is_active ? '#d97706' : 'gray'};">${c.version}</b> 
+                    <span class="badge" style="background:#e2e8f0; color:#475569; font-size:0.7rem;">${new Date(c.release_date).toLocaleDateString('th-TH')}</span>
+                    ${!c.is_active ? '<span class="badge" style="background:#fee2e2; color:#b91c1c; font-size:0.7rem;">ซ่อน</span>' : ''}
+                    <div style="font-size:0.85rem; color:#475569; margin-top:5px;">${c.features.substring(0, 50)}...</div>
+                </div>
+                <div style="display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end; max-width:100px;">
+                    <button class="btn btn-outline btn-sm" style="color:var(--primary);" onclick="prepareEditChangelog(${c.id})">✏️</button>
+                    <button class="btn btn-outline btn-sm" style="color:red;" onclick="deleteChangelog(${c.id})">🗑️</button>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    function prepareEditChangelog(id) {
+        supabaseClient.from('changelogs').select('*').eq('id', id).single().then(({ data }) => {
+            if (!data) return;
+            document.getElementById('admin-changelog-id').value = data.id;
+            document.getElementById('admin-changelog-version').value = data.version;
+            document.getElementById('admin-changelog-features').value = data.features;
+            document.getElementById('admin-changelog-status').value = data.is_active.toString();
+            
+            document.getElementById('btn-save-changelog').innerText = "💾 ยืนยันแก้ไขอัปเดต";
+            document.getElementById('btn-cancel-changelog').classList.remove('hidden');
+        });
+    }
+    
+    async function saveChangelog() {
+        const id = document.getElementById('admin-changelog-id').value;
+        const version = document.getElementById('admin-changelog-version').value.trim();
+        const features = document.getElementById('admin-changelog-features').value.trim();
+        const isActive = document.getElementById('admin-changelog-status').value === 'true';
+    
+        if (!version || !features) return alert('กรุณาระบุเลขเวอร์ชันและรายละเอียดให้ครบถ้วน');
+    
+        const payload = { version, features, is_active: isActive };
+    
+        let error;
+        if (id) {
+            const res = await supabaseClient.from('changelogs').update(payload).eq('id', id);
+            error = res.error;
+        } else {
+            const res = await supabaseClient.from('changelogs').insert([payload]);
+            error = res.error;
+        }
+    
+        if (error) return alert("เกิดข้อผิดพลาด: " + error.message);
+    
+        resetChangelogForm();
+        fetchChangelogAdminList();
+        fetchChangelog(); // อัปเดตข้อมูลที่จะแสดงให้ User เห็นทันที
+        alert('✅ บันทึกประกาศอัปเดตสำเร็จ!');
+    }
+    
+    async function deleteChangelog(id) {
+        if (!confirm('ยืนยันลบประกาศอัปเดตนี้?')) return;
+        await supabaseClient.from('changelogs').delete().eq('id', id);
+        fetchChangelogAdminList();
+        fetchChangelog();
     }
 </script>
 </body>
