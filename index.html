@@ -310,7 +310,7 @@
             </div>
             <div style="font-size: 0.8rem; font-weight: bold; color: #64748b; margin-top: 15px; margin-bottom: 8px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 5px;">แก้ไข Master Data และระบบ</div>
             <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px; background:#475569; color:white; border:none;" onclick="openLogViewer()">📜 ประวัติ (Logs)</button>
+                <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px; background:#475569; color:white; border:none;" onclick="openLogViewerStepUp()">📜 ประวัติ (Logs)</button>
                 <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px; background:#1e293b; color:white; border:none;" onclick="openStatusSettingsModal()">⚙️ ตั้งค่า Status เว็บ</button>
                 <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px;" onclick="openModal('nlem-master-modal')">📋 บัญชี</button>
                 <button class="btn admin-menu-btn" style="flex:1; min-width: 100px; justify-content: center; padding: 6px;" onclick="filterMasterPharmList(); openModal('pharm-master-modal')">⚙️ กลุ่ม</button>
@@ -441,7 +441,7 @@
         <div id="log-table-container" style="max-height: 500px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
             <div style="text-align:center; padding:20px; color:gray;">กำลังโหลดข้อมูล...</div>
         </div>
-        <button class="btn btn-outline" style="width:100%; margin-top:15px; height: 42px;" onclick="closeModal('log-viewer-modal')">ปิดหน้าต่าง</button>
+        <button class="btn btn-outline" style="width:100%; margin-top:15px; height: 42px; font-weight:bold; color:var(--danger); border-color:var(--danger);" onclick="closeLogViewer()">🔒 ปิดหน้าต่างและล้างข้อมูลทันที (Clear Data)</button>
     </div>
 </div>
 
@@ -943,6 +943,22 @@
         <button class="btn btn-outline" style="width:100%; margin-top:20px; height: 45px; font-size:1rem;" onclick="closeModal('me-knowledge-modal')">รับทราบและปิดหน้าต่าง</button>
     </div>
 </div>
+<!-- 🔒 1. Modal: ยืนยันตัวตนอีกครั้ง (Step-up Auth) -->
+<div id="stepup-auth-modal" class="modal">
+    <div class="modal-content" style="max-width: 400px; border-top: 8px solid var(--danger);">
+        <h3 style="color:var(--danger); margin-top:0; display:flex; align-items:center; gap:8px;">
+            🔒 ยืนยันตัวตน (Step-up Auth)
+        </h3>
+        <p style="font-size:0.85rem; color:gray; line-height:1.5;">
+            เพื่อความปลอดภัยและป้องกันข้อมูลหลุดรอด กรุณากรอกรหัสผ่านของท่านอีกครั้งก่อนเข้าถึงระบบ <b>Protected Audit Logs</b>
+        </p>
+        <input type="password" id="stepup-pw" placeholder="รหัสผ่าน Admin..." onkeydown="if(event.key === 'Enter') verifyStepUpAuth()">
+        <div style="display:flex; gap:10px; margin-top:15px;">
+            <button class="btn btn-danger" id="btn-verify-stepup" style="flex:2; height:42px;" onclick="verifyStepUpAuth()">🔓 ปลดล็อกและดูข้อมูล</button>
+            <button class="btn btn-outline" style="flex:1; height:42px;" onclick="closeModal('stepup-auth-modal')">ยกเลิก</button>
+        </div>
+    </div>
+</div>
     
 <script>
     const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
@@ -1004,12 +1020,13 @@
             document.getElementById('stat-30d').innerText = (data.views_last_30_days || 0).toLocaleString();
         }
     }
-
+    let currentAdminEmail = '';
     async function init() {
         try {
             const { data: { session } } = await supabaseClient.auth.getSession();
             isAdmin = !!session;
             if (isAdmin) {
+                currentAdminEmail = session.user.email;
                 const userInfoEl = document.getElementById('user-info');
                 if(userInfoEl) userInfoEl.classList.remove('hidden');
                 const userEmailEl = document.getElementById('user-email');
@@ -1112,80 +1129,141 @@
         }
     }
 
-    async function openLogViewer() {
-        openModal('log-viewer-modal');
-        document.getElementById('log-table-container').innerHTML = '<div style="text-align:center; padding:20px; color:gray;">กำลังโหลด...</div>';
-        await fetchLogs();
+    // 1. เปิดหน้าต่าง Step-up Auth แทนที่จะเปิด Logs ตรงๆ
+    function openLogViewerStepUp() {
+        document.getElementById('stepup-pw').value = '';
+        openModal('stepup-auth-modal');
+        setTimeout(() => document.getElementById('stepup-pw').focus(), 100);
     }
-
-    async function fetchLogs() {
-        const { data, error } = await supabaseClient
-            .from('audit_logs')
-            .select('*')
-            .order('changed_at', { ascending: false })
-            .limit(50); 
+    // 2. ตรวจสอบรหัสผ่านซ้ำ (Step-up Authentication)
+    async function verifyStepUpAuth() {
+        const pw = document.getElementById('stepup-pw').value;
+        if (!pw) return alert('กรุณากรอกรหัสผ่าน');
         
-        if (error) {
-            document.getElementById('log-table-container').innerHTML = `<div style="color:red; padding:10px;">Error: ${error.message}</div>`;
-            return;
-        }
-
-        if (!data || data.length === 0) {
-            document.getElementById('log-table-container').innerHTML = `<div style="text-align:center; padding:20px; color:gray;">ไม่มีประวัติการแก้ไข</div>`;
-            return;
-        }
-
-        let html = `<table class="log-table">
-            <thead>
-                <tr>
-                    <th>วัน-เวลา</th>
-                    <th>ผู้แก้ไข</th>
-                    <th>Action</th>
-                    <th>ตาราง/ID</th>
-                    <th>รายละเอียด</th>
-                </tr>
-            </thead>
-            <tbody>`;
-        
-        data.forEach(log => {
-            const date = new Date(log.changed_at).toLocaleString('th-TH', { year: '2-digit', month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
-            const user = log.changed_by ? log.changed_by.split('@') : 'System';
-            
-            let actionBadge = '';
-            if(log.action === 'INSERT') actionBadge = '<span style="background:#dcfce7; color:#166534; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.75rem;">เพิ่ม</span>';
-            else if(log.action === 'UPDATE') actionBadge = '<span style="background:#fef08a; color:#9a3412; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.75rem;">แก้</span>';
-            else if(log.action === 'DELETE') actionBadge = '<span style="background:#fee2e2; color:#b91c1c; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.75rem;">ลบ</span>';
-
-            let details = '';
-            if(log.action === 'UPDATE' && log.old_data && log.new_data) {
-                let diffs = [];
-                for(let key in log.new_data) {
-                    if(log.old_data[key] !== log.new_data[key]) {
-                        diffs.push(`<b>${key}:</b> <del style="color:#ef4444;">${log.old_data[key] || '<i>ว่าง</i>'}</del> ➡️ <span style="color:#10b981;">${log.new_data[key] || '<i>ว่าง</i>'}</span>`);
-                    }
-                }
-                details = diffs.length > 0 ? diffs.join('<br>') : '<i style="color:gray;">ไม่มีข้อมูลเปลี่ยน</i>';
-            } else if (log.action === 'INSERT') {
-                 const str = JSON.stringify(log.new_data).replace(/[{""}]/g, ' ');
-                 details = `<div style="font-size:0.75rem; color:gray;">${str.substring(0, 100)}...</div>`;
-            } else if (log.action === 'DELETE') {
-                 const str = JSON.stringify(log.old_data).replace(/[{""}]/g, ' ');
-                 details = `<div style="font-size:0.75rem; color:gray;">${str.substring(0, 100)}...</div>`;
-            }
-
-            html += `
-                <tr>
-                    <td style="white-space:nowrap;">${date}</td>
-                    <td>${user}</td>
-                    <td>${actionBadge}</td>
-                    <td><b>${log.table_name}</b><br><small style="color:gray;">ID: ${log.record_id}</small></td>
-                    <td>${details}</td>
-                </tr>
-            `;
+        const btn = document.getElementById('btn-verify-stepup');
+        btn.innerText = '⏳ กำลังตรวจสอบ...';
+        btn.disabled = true;
+    
+        // ส่งไปเช็กกับ Supabase Auth อีกรอบ
+        const { error } = await supabaseClient.auth.signInWithPassword({
+            email: currentAdminEmail,
+            password: pw
         });
-        html += `</tbody></table>`;
-        document.getElementById('log-table-container').innerHTML = html;
+    
+        btn.innerText = '🔓 ปลดล็อกและดูข้อมูล';
+        btn.disabled = false;
+    
+        if (error) {
+            alert('❌ รหัสผ่านไม่ถูกต้อง การเข้าถึงถูกปฏิเสธ');
+            return;
+        }
+    
+        // Auth ผ่าน -> ปิดหน้าต่าง Auth เปิดหน้าต่าง Logs
+        closeModal('stepup-auth-modal');
+        openModal('log-viewer-modal');
+        document.getElementById('log-table-container').innerHTML = '<div style="text-align:center; padding:30px; color:var(--success);">🔓 ยืนยันตัวตนสำเร็จ กำลังดึงข้อมูลอย่างปลอดภัย...</div>';
+        
+        await fetchLogs(); // 👈 ดึงข้อมูลหลังจากยืนยันตัวตนเท่านั้น (Lazy Privacy)
     }
+    
+    // 3. ปิดและล้างข้อมูลทันที (Lazy Privacy - Clear Data)
+    function closeLogViewer() {
+        closeModal('log-viewer-modal');
+        // ล้าง HTML ทิ้งทั้งหมด ป้องกันการถูก Inspect ล้วงข้อมูลที่เคยโหลดมา
+        document.getElementById('log-table-container').innerHTML = '';
+    }
+
+    // 4. ฟังก์ชันดึงและจัดหน้าตา Logs (พร้อม Source & API Tracking)
+async function fetchLogs() {
+    const { data, error } = await supabaseClient
+        .from('audit_logs')
+        .select('*')
+        .order('changed_at', { ascending: false })
+        .limit(50); 
+        
+    if (error) {
+        document.getElementById('log-table-container').innerHTML = `<div style="color:red; padding:10px;">Error: ${error.message}</div>`;
+        return;
+    }
+
+    if (!data || data.length === 0) {
+        document.getElementById('log-table-container').innerHTML = `<div style="text-align:center; padding:20px; color:gray;">ไม่มีประวัติการแก้ไข</div>`;
+        return;
+    }
+
+    let html = `<table class="log-table">
+        <thead>
+            <tr>
+                <th>วัน-เวลา</th>
+                <th>ที่มา (Source) & ผู้แก้ไข</th>
+                <th>Action</th>
+                <th>ตาราง/ID</th>
+                <th>รายละเอียด</th>
+            </tr>
+        </thead>
+        <tbody>`;
+        
+    data.forEach(log => {
+        const date = new Date(log.changed_at).toLocaleString('th-TH', { year: '2-digit', month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
+        
+        // 🛡️ Source & API Tracking Logic
+        const rawUser = log.changed_by || 'System';
+        let sourceBadge = '';
+        let displayUser = rawUser;
+
+        if (rawUser.includes('@')) {
+            // กรณีเป็น User Email -> ทำผ่านหน้าเว็บ
+            sourceBadge = '<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;">🌐 หน้าเว็บ (Web)</span>';
+            displayUser = rawUser.split('@')[0]; // โชว์แค่ชื่อหน้า @ เพื่อความสะอาดตา
+        } else {
+            // กรณีไม่มี @ -> เกิดจาก Database Trigger / API Sync อัตโนมัติ
+            sourceBadge = '<span class="badge" style="background:#fef08a; color:#a16207; border:1px solid #fde68a;">🤖 สคริปต์/API (Auto)</span>';
+        }
+
+        let actionBadge = '';
+        if(log.action === 'INSERT') actionBadge = '<span style="background:#dcfce7; color:#166534; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.75rem;">เพิ่ม</span>';
+        else if(log.action === 'UPDATE') actionBadge = '<span style="background:#fef08a; color:#9a3412; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.75rem;">แก้</span>';
+        else if(log.action === 'DELETE') actionBadge = '<span style="background:#fee2e2; color:#b91c1c; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.75rem;">ลบ</span>';
+        else actionBadge = `<span style="background:#e2e8f0; color:#475569; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.75rem;">${log.action}</span>`;
+
+        let details = '';
+        if(log.action === 'UPDATE' && log.old_data && log.new_data) {
+            let diffs = [];
+            for(let key in log.new_data) {
+                if(JSON.stringify(log.old_data[key]) !== JSON.stringify(log.new_data[key])) {
+                    let oldVal = log.old_data[key] || '<i>ว่าง</i>';
+                    let newVal = log.new_data[key] || '<i>ว่าง</i>';
+                    // ย่อข้อมูลถ้ามันยาวเกินไป
+                    if(typeof oldVal === 'object') oldVal = '[Object]';
+                    if(typeof newVal === 'object') newVal = '[Object]';
+                    
+                    diffs.push(`<b>${key}:</b> <del style="color:#ef4444;">${oldVal}</del> ➡️ <span style="color:#10b981;">${newVal}</span>`);
+                }
+            }
+            details = diffs.length > 0 ? diffs.join('<br>') : '<i style="color:gray;">(บันทึกทับข้อมูลเดิมที่เหมือนกัน)</i>';
+        } else if (log.action === 'INSERT') {
+             const str = JSON.stringify(log.new_data || {}).replace(/[{""}]/g, ' ');
+             details = `<div style="font-size:0.75rem; color:gray;">${str.substring(0, 150)}...</div>`;
+        } else if (log.action === 'DELETE') {
+             const str = JSON.stringify(log.old_data || {}).replace(/[{""}]/g, ' ');
+             details = `<div style="font-size:0.75rem; color:gray;">${str.substring(0, 150)}...</div>`;
+        } else {
+             details = `<div style="font-size:0.75rem; color:gray;">${JSON.stringify(log.new_data || {})}</div>`;
+        }
+
+        html += `
+            <tr>
+                <td style="white-space:nowrap;">${date}</td>
+                <td>${sourceBadge}<br><b style="color:var(--dark);">${displayUser}</b></td>
+                <td>${actionBadge}</td>
+                <td><b>${log.table_name}</b><br><small style="color:gray;">ID: ${log.record_id}</small></td>
+                <td>${details}</td>
+            </tr>
+        `;
+    });
+    html += `</tbody></table>`;
+    document.getElementById('log-table-container').innerHTML = html;
+}
 
     function openStatusSettingsModal() {
         const uniqueStatuses = [...new Set(allDrugsRaw.map(d => d.statuscode || 'NO_STATUS'))].sort();
