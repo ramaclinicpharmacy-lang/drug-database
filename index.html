@@ -701,7 +701,6 @@
 <div id="ingredient-modal" class="modal"><div class="modal-content"><h3>ส่วนประกอบ: <span id="target-drug-name"></span></h3><input type="hidden" id="target-drug-code"><div class="section-box"><input type="text" id="search-generic-input" placeholder="🔍 ค้นหาชื่อยาสามัญ..." onkeyup="filterGenericOptions()" style="margin-bottom:10px;"><select id="select-generic" style="margin-bottom:10px;"></select><div style="display:flex; gap:5px;"><input type="number" id="input-amount" placeholder="ปริมาณ" style="flex:1;"><input type="text" id="input-unit" placeholder="หน่วย" style="flex:1;"></div><div style="display:flex; gap:10px; margin-top:10px;"><button class="btn btn-primary" id="btn-save-ingredient" style="flex:1; height:42px;" onclick="addIngredient()">+ เพิ่ม</button><button class="btn btn-outline hidden" id="btn-cancel-edit-ingredient" style="flex:1; height:42px;" onclick="resetIngredientForm()">ยกเลิก</button></div></div><div id="current-ingredients-list" style="max-height:200px; overflow-y:auto;"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('ingredient-modal')">ปิด</button></div></div>
 <div id="bulk-copy-modal" class="modal"><div class="modal-content"><h3 style="color:var(--purple); margin-top:0;">🔁 คัดลอกวิธีใช้ไปยาอื่น <br><small style="color:gray; font-size:0.9rem;">(เฉพาะยาที่มี Generic เดียวกัน)</small></h3><div class="section-box" style="background: #f8fafc; border-color: #cbd5e1; padding:10px;"><strong style="font-size:0.85rem;">ต้นฉบับ:</strong> <br><span id="bulk-copy-source-desc" style="font-size:0.9rem; color:var(--dark);"></span></div><input type="hidden" id="bulk-copy-admin-id"><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">เลือกยาปลายทาง:</label><div id="bulk-copy-target-list" style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 8px; margin-bottom: 15px; background: white;"></div><div style="display:flex; gap:10px;"><button class="btn" style="background:var(--purple); color:white; flex:1; height:45px;" onclick="executeBulkCopyAdmin()">✅ ยืนยันการคัดลอก</button><button class="btn btn-outline" style="flex:1; height:45px;" onclick="closeModal('bulk-copy-modal')">ยกเลิก</button></div></div></div>
 
-<!-- 🍼 1. Modal: Admin ตั้งค่าอาหารทางการแพทย์ -->
 <div id="nutri-admin-modal" class="modal">
     <div class="modal-content" style="max-width: 500px;">
         <h3 style="color:#166534; margin-top:0;">🍼 ตั้งค่าการชงอาหารทางการแพทย์</h3>
@@ -716,7 +715,23 @@
                 </div>
                 <div style="flex:1;">
                     <label style="font-size:0.85rem; font-weight:bold;">พลังงาน (kcal/g)</label>
-                    <input type="number" id="nutri-admin-kcal-g" placeholder="เช่น 4.5" step="0.01" style="margin:0;">
+                    <input type="number" id="nutri-admin-kcal-g" placeholder="เช่น 4.25" step="0.01" style="margin:0;">
+                </div>
+            </div>
+
+            <label style="font-size:0.85rem; font-weight:bold; display:block; margin-top:15px; border-top:1px dashed #86efac; padding-top:10px;">📊 สารอาหารหลักต่อ 100 kcal (กรัม/100 kcal)</label>
+            <div style="display:flex; gap:10px; margin-bottom:10px; background:white; padding:10px; border-radius:8px; border:1px solid #86efac;">
+                <div style="flex:1;">
+                    <label style="font-size:0.75rem; color:gray;">🥩 โปรตีน (g)</label>
+                    <input type="number" id="nutri-admin-protein" placeholder="เช่น 4.0" step="0.1" style="margin:0; padding:6px;">
+                </div>
+                <div style="flex:1;">
+                    <label style="font-size:0.75rem; color:gray;">🍚 คาร์บฯ (g)</label>
+                    <input type="number" id="nutri-admin-carb" placeholder="เช่น 13.8" step="0.1" style="margin:0; padding:6px;">
+                </div>
+                <div style="flex:1;">
+                    <label style="font-size:0.75rem; color:gray;">🧈 ไขมัน (g)</label>
+                    <input type="number" id="nutri-admin-fat" placeholder="เช่น 3.4" step="0.1" style="margin:0; padding:6px;">
                 </div>
             </div>
             
@@ -737,7 +752,6 @@
     </div>
 </div>
 
-<!-- 🍼 2. Modal: เครื่องคิดเลข (Nutrition Calculator) สำหรับผู้ใช้งาน -->
 <div id="nutri-calc-modal" class="modal">
     <div class="modal-content" style="max-width: 450px;">
         <h3 style="color:#166534; margin-top:0;">🧮 คำนวณสัดส่วนชงอาหาร</h3>
@@ -786,6 +800,21 @@
                 <span style="font-size:0.85rem; color:#15803d; font-weight:bold;">💧 เติมน้ำให้ได้ปริมาตรรวม</span><br>
                 <b id="nutri-res-vol" style="font-size:1.2rem; color:var(--dark);"> - </b> <small>ml</small>
             </div>
+
+            <div id="nutri-res-macros" style="display:flex; justify-content:space-between; margin-top:10px; background:white; padding:10px; border-radius:8px; border:1px solid #bbf7d0;">
+                <div style="text-align:center; flex:1; border-right:1px solid #e2e8f0;">
+                    <span style="font-size:0.75rem; color:gray;">🥩 โปรตีน</span><br>
+                    <b id="nutri-res-protein" style="font-size:1.1rem; color:#b91c1c;">-</b> <small>g</small>
+                </div>
+                <div style="text-align:center; flex:1; border-right:1px solid #e2e8f0;">
+                    <span style="font-size:0.75rem; color:gray;">🍚 คาร์บฯ</span><br>
+                    <b id="nutri-res-carb" style="font-size:1.1rem; color:#d97706;">-</b> <small>g</small>
+                </div>
+                <div style="text-align:center; flex:1;">
+                    <span style="font-size:0.75rem; color:gray;">🧈 ไขมัน</span><br>
+                    <b id="nutri-res-fat" style="font-size:1.1rem; color:#4338ca;">-</b> <small>g</small>
+                </div>
+            </div>
             
             <div id="nutri-res-note" style="margin-top:10px; font-size:0.8rem; color:#065f46;"></div>
         </div>
@@ -793,8 +822,6 @@
         <button class="btn btn-outline" style="width:100%; margin-top:15px; height:42px;" onclick="closeModal('nutri-calc-modal')">ปิดหน้าต่าง</button>
     </div>
 </div>
-
-
 
 <div id="me-admin-modal" class="modal">
     <div class="modal-content" style="max-width: 650px;">
@@ -1580,7 +1607,7 @@
         let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; 
         while (hasMore) { 
             const { data, error } = await supabaseClient.from('drugs')
-                .select(`*, drug_tag_mapping(tag_name), drug_label_mapping(label_code, labels(label_name)), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, generic_type, special_note, needs_renal_adj, needs_hepatic_adj, generic_pharm_mapping(class_name))), drug_administrations(id, instructions, min_conc, max_conc, conc_unit, routes(route_name, route_code), administration_fluids(fluid_short_name)), nutrition_configs(grams_per_scoop, kcal_per_gram, standard_water_ml, preparation_note), med_error_knowledge(*)`)
+                .select(`*, drug_tag_mapping(tag_name), drug_label_mapping(label_code, labels(label_name)), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, generic_type, special_note, needs_renal_adj, needs_hepatic_adj, generic_pharm_mapping(class_name))), drug_administrations(id, instructions, min_conc, max_conc, conc_unit, routes(route_name, route_code), administration_fluids(fluid_short_name)), nutrition_configs(grams_per_scoop, kcal_per_gram, standard_water_ml, preparation_note, protein_per_100kcal, carb_per_100kcal, fat_per_100kcal), med_error_knowledge(*)`)
                 .eq('is_active', true) 
                 .order('drug_name')
                 .range(from, from + step - 1); 
@@ -3005,7 +3032,9 @@
         document.getElementById('nutri-admin-kcal-g').value = config.kcal_per_gram || '';
         document.getElementById('nutri-admin-water').value = config.standard_water_ml || '';
         document.getElementById('nutri-admin-note').value = config.preparation_note || '';
-    
+        document.getElementById('nutri-admin-protein').value = config.protein_per_100kcal || '';
+        document.getElementById('nutri-admin-carb').value = config.carb_per_100kcal || '';
+        document.getElementById('nutri-admin-fat').value = config.fat_per_100kcal || '';
         openModal('nutri-admin-modal');
     }
     
@@ -3015,7 +3044,9 @@
         const kcal_g = parseFloat(document.getElementById('nutri-admin-kcal-g').value);
         const water = document.getElementById('nutri-admin-water').value;
         const note = document.getElementById('nutri-admin-note').value.trim();
-    
+        const protein = document.getElementById('nutri-admin-protein').value;
+        const carb = document.getElementById('nutri-admin-carb').value;
+        const fat = document.getElementById('nutri-admin-fat').value;
         if (isNaN(g_scoop) || isNaN(kcal_g)) return alert('กรุณาระบุน้ำหนักผงต่อช้อน และ พลังงานต่อกรัม ให้ครบถ้วน');
     
         const payload = {
@@ -3024,6 +3055,9 @@
             kcal_per_gram: kcal_g,
             standard_water_ml: water === '' ? null : parseFloat(water),
             preparation_note: note === '' ? null : note,
+            protein_per_100kcal: protein === '' ? null : parseFloat(protein),
+            carb_per_100kcal: carb === '' ? null : parseFloat(carb),
+            fat_per_100kcal: fat === '' ? null : parseFloat(fat),
             updated_at: new Date().toISOString()
         };
     
@@ -3077,6 +3111,9 @@
         document.getElementById('nutri-res-scoop').innerText = '-';
         document.getElementById('nutri-res-gram').innerText = '-';
         document.getElementById('nutri-res-vol').innerText = '-';
+        document.getElementById('nutri-res-protein').innerText = '-';
+        document.getElementById('nutri-res-carb').innerText = '-';
+        document.getElementById('nutri-res-fat').innerText = '-';
         
         // แสดง Note ถ้ามี
         const noteEl = document.getElementById('nutri-res-note');
@@ -3111,11 +3148,13 @@
         const elScoop = document.getElementById('nutri-res-scoop');
         const elGram = document.getElementById('nutri-res-gram');
         const elVol = document.getElementById('nutri-res-vol');
+        const elPro = document.getElementById('nutri-res-protein');
+        const elCarb = document.getElementById('nutri-res-carb');
+        const elFat = document.getElementById('nutri-res-fat');
     
         if (isNaN(volume) || volume <= 0 || isNaN(targetKcalPerMl) || targetKcalPerMl <= 0) {
-            elScoop.innerText = '-';
-            elGram.innerText = '-';
-            elVol.innerText = '-';
+            elScoop.innerText = '-'; elGram.innerText = '-'; elVol.innerText = '-';
+            elPro.innerText = '-'; elCarb.innerText = '-'; elFat.innerText = '-'; // เคลียร์
             return;
         }
     
@@ -3132,151 +3171,166 @@
         elScoop.innerText = totalScoops.toFixed(1); // ปัด 1 ตำแหน่งให้ตวงช้อนง่าย
         elGram.innerText = totalGrams.toFixed(1);
         elVol.innerText = volume;
+
+        // 🌟 4. คำนวณ Macronutrients โดยอิงจาก totalKcal
+        const multiplier = totalKcal / 100;
+        
+        if (activeNutriConfig.protein_per_100kcal) {
+            elPro.innerText = (activeNutriConfig.protein_per_100kcal * multiplier).toFixed(1);
+        } else { elPro.innerText = '-'; }
+        
+        if (activeNutriConfig.carb_per_100kcal) {
+            elCarb.innerText = (activeNutriConfig.carb_per_100kcal * multiplier).toFixed(1);
+        } else { elCarb.innerText = '-'; }
+        
+        if (activeNutriConfig.fat_per_100kcal) {
+            elFat.innerText = (activeNutriConfig.fat_per_100kcal * multiplier).toFixed(1);
+        } else { elFat.innerText = '-'; }
     }
     // -------------------------------------------------------------
-// 🚨 ฝั่ง User: ดู Knowledge Base ป้องกัน ME
-// -------------------------------------------------------------
-function openMeKnowledge(code) {
-    const drug = allDrugsRaw.find(d => d.drug_code === code);
-    if (!drug) return;
-
-    document.getElementById('me-user-drug-name').innerText = generateStandardDrugName(drug);
-    const listEl = document.getElementById('me-user-content-list');
+    // 🚨 ฝั่ง User: ดู Knowledge Base ป้องกัน ME
+    // -------------------------------------------------------------
+    function openMeKnowledge(code) {
+        const drug = allDrugsRaw.find(d => d.drug_code === code);
+        if (!drug) return;
     
-    const meData = drug.med_error_knowledge || [];
+        document.getElementById('me-user-drug-name').innerText = generateStandardDrugName(drug);
+        const listEl = document.getElementById('me-user-content-list');
+        
+        const meData = drug.med_error_knowledge || [];
+        
+        if (meData.length === 0) {
+            listEl.innerHTML = '<div style="color:gray; font-size:0.9rem;">(ยังไม่มีการระบุรายละเอียดข้อผิดพลาดสำหรับยานี้ในระบบ)</div>';
+        } else {
+            listEl.innerHTML = meData.map((me, idx) => `
+                <div style="background:#fffcfc; border:1px solid #fecdd3; border-radius:8px; padding:15px; margin-bottom:15px; position:relative;">
+                    <div style="position:absolute; top:-12px; left:15px; background:var(--danger); color:white; padding:2px 10px; border-radius:15px; font-size:0.8rem; font-weight:bold;">
+                        ${me.error_type || 'ข้อควรระวังทั่วไป'}
+                    </div>
+                    
+                    ${me.image_url ? `<img src="${encodeHTML(me.image_url)}" alt="ME Warning" style="max-width:100%; height:auto; border-radius:6px; margin-top:10px; margin-bottom:10px; border:1px solid #e2e8f0;">` : ''}
+                    
+                    <div style="margin-top:15px; font-size:0.95rem; line-height:1.5;">
+                        <b style="color:var(--dark);">⚠️ ปัญหา/เหตุการณ์:</b><br>
+                        <span style="color:#475569;">${me.error_description ? me.error_description.replace(/\n/g, '<br>') : '-'}</span>
+                    </div>
+                    
+                    <div style="margin-top:15px; font-size:0.95rem; line-height:1.5; background:#f0fdf4; border-left:4px solid var(--success); padding:10px; border-radius:6px;">
+                        <b style="color:#166534;">🛡️ วิธีป้องกัน:</b><br>
+                        <span style="color:#15803d;">${me.prevention_tip ? me.prevention_tip.replace(/\n/g, '<br>') : 'ปฏิบัติตามมาตรฐานการให้ยาอย่างเคร่งครัด'}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
     
-    if (meData.length === 0) {
-        listEl.innerHTML = '<div style="color:gray; font-size:0.9rem;">(ยังไม่มีการระบุรายละเอียดข้อผิดพลาดสำหรับยานี้ในระบบ)</div>';
-    } else {
-        listEl.innerHTML = meData.map((me, idx) => `
-            <div style="background:#fffcfc; border:1px solid #fecdd3; border-radius:8px; padding:15px; margin-bottom:15px; position:relative;">
-                <div style="position:absolute; top:-12px; left:15px; background:var(--danger); color:white; padding:2px 10px; border-radius:15px; font-size:0.8rem; font-weight:bold;">
-                    ${me.error_type || 'ข้อควรระวังทั่วไป'}
+        openModal('me-knowledge-modal');
+    }
+    
+    // -------------------------------------------------------------
+    // 🚨 ฝั่ง Admin: จัดการ Medication Error Database
+    // -------------------------------------------------------------
+    let editingMeId = null;
+    let currentMeList = [];
+    
+    function resetMeAdminForm() {
+        editingMeId = null;
+        document.getElementById('me-admin-type').value = '';
+        document.getElementById('me-admin-desc').value = '';
+        document.getElementById('me-admin-prevent').value = '';
+        document.getElementById('me-admin-image').value = '';
+        document.getElementById('btn-save-me-rule').innerText = "💾 บันทึกความเสี่ยง";
+        document.getElementById('btn-cancel-me-edit').classList.add('hidden');
+    }
+    
+    async function openMeAdmin(code, name) {
+        document.getElementById('me-admin-drug-code').value = code;
+        document.getElementById('me-admin-drug-name').innerText = name;
+        resetMeAdminForm();
+        await fetchCurrentMeRules(code);
+        openModal('me-admin-modal');
+    }
+    
+    async function fetchCurrentMeRules(code) {
+        const listEl = document.getElementById('me-admin-list');
+        listEl.innerHTML = '<div style="color:gray; text-align:center;">กำลังโหลด...</div>';
+        
+        const { data, error } = await supabaseClient.from('med_error_knowledge').select('*').eq('drug_code', code).order('created_at', { ascending: false });
+        
+        currentMeList = data || [];
+        
+        if (error || currentMeList.length === 0) {
+            listEl.innerHTML = '<div style="color:gray; text-align:center; padding:10px; border:1px dashed #cbd5e1; border-radius:8px;">ยังไม่มีข้อมูลความเสี่ยง</div>';
+            return;
+        }
+    
+        listEl.innerHTML = currentMeList.map(me => `
+            <div class="list-item" style="border-left:3px solid var(--danger); flex-direction:column; align-items:flex-start;">
+                <div style="width:100%; display:flex; justify-content:space-between; align-items:flex-start;">
+                    <b style="color:var(--danger);">${me.error_type || 'Unknown Type'}</b>
+                    <div style="display:flex; gap:5px;">
+                        <button class="btn btn-outline btn-sm" style="color:var(--primary);" onclick="prepareEditMe(${me.id})">✏️</button>
+                        <button class="btn btn-outline btn-sm" style="color:red;" onclick="deleteMeRule(${me.id}, '${code}')">🗑️</button>
+                    </div>
                 </div>
-                
-                ${me.image_url ? `<img src="${encodeHTML(me.image_url)}" alt="ME Warning" style="max-width:100%; height:auto; border-radius:6px; margin-top:10px; margin-bottom:10px; border:1px solid #e2e8f0;">` : ''}
-                
-                <div style="margin-top:15px; font-size:0.95rem; line-height:1.5;">
-                    <b style="color:var(--dark);">⚠️ ปัญหา/เหตุการณ์:</b><br>
-                    <span style="color:#475569;">${me.error_description ? me.error_description.replace(/\n/g, '<br>') : '-'}</span>
-                </div>
-                
-                <div style="margin-top:15px; font-size:0.95rem; line-height:1.5; background:#f0fdf4; border-left:4px solid var(--success); padding:10px; border-radius:6px;">
-                    <b style="color:#166534;">🛡️ วิธีป้องกัน:</b><br>
-                    <span style="color:#15803d;">${me.prevention_tip ? me.prevention_tip.replace(/\n/g, '<br>') : 'ปฏิบัติตามมาตรฐานการให้ยาอย่างเคร่งครัด'}</span>
-                </div>
+                <div style="font-size:0.85rem; color:#475569; margin-top:5px;">${me.error_description?.substring(0,60) || ''}...</div>
             </div>
         `).join('');
     }
-
-    openModal('me-knowledge-modal');
-}
-
-// -------------------------------------------------------------
-// 🚨 ฝั่ง Admin: จัดการ Medication Error Database
-// -------------------------------------------------------------
-let editingMeId = null;
-let currentMeList = [];
-
-function resetMeAdminForm() {
-    editingMeId = null;
-    document.getElementById('me-admin-type').value = '';
-    document.getElementById('me-admin-desc').value = '';
-    document.getElementById('me-admin-prevent').value = '';
-    document.getElementById('me-admin-image').value = '';
-    document.getElementById('btn-save-me-rule').innerText = "💾 บันทึกความเสี่ยง";
-    document.getElementById('btn-cancel-me-edit').classList.add('hidden');
-}
-
-async function openMeAdmin(code, name) {
-    document.getElementById('me-admin-drug-code').value = code;
-    document.getElementById('me-admin-drug-name').innerText = name;
-    resetMeAdminForm();
-    await fetchCurrentMeRules(code);
-    openModal('me-admin-modal');
-}
-
-async function fetchCurrentMeRules(code) {
-    const listEl = document.getElementById('me-admin-list');
-    listEl.innerHTML = '<div style="color:gray; text-align:center;">กำลังโหลด...</div>';
     
-    const { data, error } = await supabaseClient.from('med_error_knowledge').select('*').eq('drug_code', code).order('created_at', { ascending: false });
-    
-    currentMeList = data || [];
-    
-    if (error || currentMeList.length === 0) {
-        listEl.innerHTML = '<div style="color:gray; text-align:center; padding:10px; border:1px dashed #cbd5e1; border-radius:8px;">ยังไม่มีข้อมูลความเสี่ยง</div>';
-        return;
+    function prepareEditMe(id) {
+        const me = currentMeList.find(m => m.id === id);
+        if (!me) return;
+        
+        editingMeId = id;
+        document.getElementById('me-admin-type').value = me.error_type || '';
+        document.getElementById('me-admin-desc').value = me.error_description || '';
+        document.getElementById('me-admin-prevent').value = me.prevention_tip || '';
+        document.getElementById('me-admin-image').value = me.image_url || '';
+        
+        document.getElementById('btn-save-me-rule').innerText = "💾 ยืนยันแก้ไข";
+        document.getElementById('btn-cancel-me-edit').classList.remove('hidden');
     }
-
-    listEl.innerHTML = currentMeList.map(me => `
-        <div class="list-item" style="border-left:3px solid var(--danger); flex-direction:column; align-items:flex-start;">
-            <div style="width:100%; display:flex; justify-content:space-between; align-items:flex-start;">
-                <b style="color:var(--danger);">${me.error_type || 'Unknown Type'}</b>
-                <div style="display:flex; gap:5px;">
-                    <button class="btn btn-outline btn-sm" style="color:var(--primary);" onclick="prepareEditMe(${me.id})">✏️</button>
-                    <button class="btn btn-outline btn-sm" style="color:red;" onclick="deleteMeRule(${me.id}, '${code}')">🗑️</button>
-                </div>
-            </div>
-            <div style="font-size:0.85rem; color:#475569; margin-top:5px;">${me.error_description?.substring(0,60) || ''}...</div>
-        </div>
-    `).join('');
-}
-
-function prepareEditMe(id) {
-    const me = currentMeList.find(m => m.id === id);
-    if (!me) return;
     
-    editingMeId = id;
-    document.getElementById('me-admin-type').value = me.error_type || '';
-    document.getElementById('me-admin-desc').value = me.error_description || '';
-    document.getElementById('me-admin-prevent').value = me.prevention_tip || '';
-    document.getElementById('me-admin-image').value = me.image_url || '';
+    async function saveMeKnowledge() {
+        const drug_code = document.getElementById('me-admin-drug-code').value;
+        const error_type = document.getElementById('me-admin-type').value.trim();
+        const error_description = document.getElementById('me-admin-desc').value.trim();
+        const prevention_tip = document.getElementById('me-admin-prevent').value.trim();
+        const image_url = document.getElementById('me-admin-image').value.trim();
     
-    document.getElementById('btn-save-me-rule').innerText = "💾 ยืนยันแก้ไข";
-    document.getElementById('btn-cancel-me-edit').classList.remove('hidden');
-}
-
-async function saveMeKnowledge() {
-    const drug_code = document.getElementById('me-admin-drug-code').value;
-    const error_type = document.getElementById('me-admin-type').value.trim();
-    const error_description = document.getElementById('me-admin-desc').value.trim();
-    const prevention_tip = document.getElementById('me-admin-prevent').value.trim();
-    const image_url = document.getElementById('me-admin-image').value.trim();
-
-    if (!error_type || !error_description) return alert('กรุณาระบุประเภทและรายละเอียดให้ครบถ้วน');
-
-    const payload = {
-        drug_code,
-        error_type,
-        error_description,
-        prevention_tip: prevention_tip || null,
-        image_url: image_url || null
-    };
-
-    let error;
-    if (editingMeId) {
-        const res = await supabaseClient.from('med_error_knowledge').update(payload).eq('id', editingMeId);
-        error = res.error;
-    } else {
-        const res = await supabaseClient.from('med_error_knowledge').insert(payload);
-        error = res.error;
+        if (!error_type || !error_description) return alert('กรุณาระบุประเภทและรายละเอียดให้ครบถ้วน');
+    
+        const payload = {
+            drug_code,
+            error_type,
+            error_description,
+            prevention_tip: prevention_tip || null,
+            image_url: image_url || null
+        };
+    
+        let error;
+        if (editingMeId) {
+            const res = await supabaseClient.from('med_error_knowledge').update(payload).eq('id', editingMeId);
+            error = res.error;
+        } else {
+            const res = await supabaseClient.from('med_error_knowledge').insert(payload);
+            error = res.error;
+        }
+    
+        if (error) return alert("เกิดข้อผิดพลาด: " + error.message);
+    
+        resetMeAdminForm();
+        fetchCurrentMeRules(drug_code);
+        fetchDrugs(); // อัปเดต Array เผื่อให้ปุ่มไฟกะพริบทำงานที่หน้าการ์ดยา
     }
-
-    if (error) return alert("เกิดข้อผิดพลาด: " + error.message);
-
-    resetMeAdminForm();
-    fetchCurrentMeRules(drug_code);
-    fetchDrugs(); // อัปเดต Array เผื่อให้ปุ่มไฟกะพริบทำงานที่หน้าการ์ดยา
-}
-
-async function deleteMeRule(id, code) {
-    if (confirm("ยืนยันลบข้อมูลความเสี่ยงนี้?")) {
-        await supabaseClient.from('med_error_knowledge').delete().eq('id', id);
-        fetchCurrentMeRules(code);
-        fetchDrugs();
+    
+    async function deleteMeRule(id, code) {
+        if (confirm("ยืนยันลบข้อมูลความเสี่ยงนี้?")) {
+            await supabaseClient.from('med_error_knowledge').delete().eq('id', id);
+            fetchCurrentMeRules(code);
+            fetchDrugs();
+        }
     }
-}
 </script>
 </body>
 </html>
