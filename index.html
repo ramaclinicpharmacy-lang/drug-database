@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>(T5)Rama Clinic Pharmacy DB</title>
+    <title>(T6)Rama Clinic Pharmacy DB</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -925,8 +925,8 @@
                 if(loginBtnEl) loginBtnEl.classList.add('hidden');
                 const adminToolbarEl = document.getElementById('admin-toolbar');
                 if(adminToolbarEl) adminToolbarEl.classList.remove('hidden');
-                const bypassLabel = document.getElementById('admin-view-all-label');
-                if(bypassLabel) bypassLabel.classList.remove('hidden');
+                const adminQuickFilters = document.getElementById('admin-quick-filters');
+                if(adminQuickFilters) adminQuickFilters.classList.remove('hidden');
                 setupSessionTimeout();
             }
             trackVisitor();
@@ -1141,6 +1141,20 @@
         }
     }
 
+    let filterOnlyNewActivated = false;
+
+    function toggleFilterNew() {
+        filterOnlyNewActivated = !filterOnlyNewActivated;
+        const btn = document.getElementById('btn-filter-new');
+        if (filterOnlyNewActivated) {
+            btn.style.background = '#2563eb';
+            btn.style.color = 'white';
+        } else {
+            btn.style.background = '#eff6ff';
+            btn.style.color = '#2563eb';
+        }
+        filterDrugs();
+    }
     function clearAllFilters() {
         document.getElementById('main-search').value = '';
         selectedNlemFilters = []; selectedFormFilters = []; selectedRouteFilters = []; selectedPharmFilters = []; 
@@ -1148,6 +1162,14 @@
         selectedLabelFilters = []; 
         if(document.getElementById('search-label-filter')) document.getElementById('search-label-filter').value = '';
         if(document.getElementById('search-drugtype-filter')) document.getElementById('search-drugtype-filter').value = ''; 
+        
+        // 🌟 ส่วนที่เพิ่มเข้าไป
+        filterOnlyNewActivated = false;
+        if(document.getElementById('btn-filter-new')) {
+            document.getElementById('btn-filter-new').style.background = '#eff6ff';
+            document.getElementById('btn-filter-new').style.color = '#2563eb';
+        }
+        
         updateBaseVisibilityAndFilter();
     }
 
@@ -1537,7 +1559,10 @@
                 const drugRoutes = (d.drug_administrations || []).map(a => a.routes?.route_code).filter(Boolean);
                 matchRoute = selectedRouteFilters.some(filter => filter === 'NULL_VALUE' ? drugRoutes.length === 0 : drugRoutes.includes(filter));
             }
-
+            if (filterOnlyNewActivated) {
+                const hasNewTag = (d.drug_tag_mapping || []).some(t => t.tag_name === '🆕 เพิ่งเปิดใช้งาน');
+                if (!hasNewTag) return false;
+            }
             return matchText && matchPharm && matchForm && matchNlem && matchRoute && matchDrugType && matchLabel; 
         });
         
