@@ -1691,14 +1691,14 @@
                             <span class="toggle-icon" id="icon-${safeCode}" style="transform: ${isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}">▶</span>
                             <span style="display:flex; align-items:center; flex-wrap:wrap; gap:8px; line-height: 1.4;">
                                 ${generateStandardDrugName(drug)} 
-                                ${calcBtn} ${adjBtn} ${nutriBtn} <!-- 👈 นำ nutriBtn มาใส่ตรงนี้ -->
+                                ${calcBtn} ${adjBtn} ${nutriBtn} ${meBtn}
                             </span>
                         </h2>
                         <div style="margin-bottom:5px; padding-left: 28px;">${adminStatusBadge} ${nlemBadges} ${pharmHtml} ${tagsHtml}</div>
                         ${remarksHtml ? `<div style="padding-left: 28px;">${remarksHtml}</div>` : ''}
                     </div>
                     ${isAdmin ? `<div class="admin-actions">
-                        ${adminNutriBtn} <!-- 👈 นำ adminNutriBtn มาใส่ตรงนี้ -->
+                        ${adminNutriBtn} ${adminMeBtn}
                         <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--info); border-color:var(--info);" onclick="event.stopPropagation(); openLabelManager('${safeCode}', '${safeName}')">🏷️ ฉลาก</button>
                         <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--pink); border-color:var(--pink);" onclick="event.stopPropagation(); openNlemManager('${safeCode}', '${safeName}')">📋 บัญชี</button>
                         <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openAdminManager('${safeCode}', '${safeName}')">💉 วิธีใช้</button>
