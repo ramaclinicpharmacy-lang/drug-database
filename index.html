@@ -223,12 +223,14 @@
                 <button class="btn btn-outline btn-sm" id="btn-toggle-all" onclick="toggleAllCards()" style="background:#f8fafc; border-color:#cbd5e1; color:#475569; white-space: nowrap; flex-shrink: 0;">🔽 ขยาย</button>
             </div>
             
+            <!-- 🌟 เปลี่ยนกล่องตรงนี้ เพื่อรวม 2 ปุ่มของ Admin ไว้ด้วยกัน -->
             <div id="admin-quick-filters" class="hidden" style="display:flex; gap:8px; align-items:center; margin-left:auto;">
                 <button id="btn-filter-new" class="btn btn-sm" style="background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; font-weight:bold;" onclick="toggleFilterNew()">🆕 เฉพาะยาเปิดใหม่</button>
                 
                 <label style="font-size:0.85rem; color:var(--danger); font-weight:bold; cursor:pointer; background:#fee2e2; padding:4px 10px; border-radius:8px; display:inline-flex; align-items:center;">
-                <input type="checkbox" id="admin-view-all-cb" class="admin-bypass-cb" onchange="updateBaseVisibilityAndFilter()"> 👁️ โชว์ยาทุก Status
-            </label>
+                    <input type="checkbox" id="admin-view-all-cb" class="admin-bypass-cb" onchange="updateBaseVisibilityAndFilter()"> 👁️ โชว์ยาทุก Status
+                </label>
+            </div>
         </div>
         
         <div id="search-stats" style="font-size: 0.85rem; color: #64748b; margin-top: 10px;"></div>
