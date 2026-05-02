@@ -3797,7 +3797,7 @@ async function fetchLogs() {
             .eq('is_active', true)
             .order('release_date', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
     
         if (!error && data) {
             latestVersionData = data;
