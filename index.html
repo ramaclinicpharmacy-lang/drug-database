@@ -1454,18 +1454,6 @@ async function fetchLogs() {
         sidebar.innerHTML = html;
         filterSidebarNlem(); 
     }
-    
-    async function fetchNlemMaster() {
-        allNlem = await fetchMasterDataWithCache('nlem_categories', 'rank');
-        
-        const selectBulk = document.getElementById('bulk-nlem-select');
-        const selectNlem = document.getElementById('select-nlem');
-        const options = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join('');
-        
-        if (selectBulk) selectBulk.innerHTML = options;
-        if (selectNlem) selectNlem.innerHTML = options;
-    }
-    
     function filterSidebarForms() { const input = document.getElementById('search-form-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-form-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
     function toggleFormFilter(formName) { if (selectedFormFilters.includes(formName)) selectedFormFilters = selectedFormFilters.filter(f => f !== formName); else selectedFormFilters.push(formName); renderFormSidebar(); filterDrugs(); }
     function renderFormSidebar() { 
@@ -1488,13 +1476,7 @@ async function fetchLogs() {
         filterSidebarForms(); 
     }
     
-    async function fetchDosageForms() {
-        allDosageForms = await fetchMasterDataWithCache('dosage_forms', 'form_name');
-        const selectEl = document.getElementById('form-drug-type');
-        if (selectEl) {
-            selectEl.innerHTML = '<option value="">-- ไม่ระบุ --</option>' + allDosageForms.map(f => `<option value="${f.form_name}">${f.form_name}</option>`).join('');
-        }
-    }
+
     function filterSidebarRoutes() { const input = document.getElementById('search-route-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-route-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
     function toggleRouteFilter(code) { if (selectedRouteFilters.includes(code)) selectedRouteFilters = selectedRouteFilters.filter(r => r !== code); else selectedRouteFilters.push(code); renderRouteSidebar(); filterDrugs(); }
     function renderRouteSidebar() { 
@@ -1517,14 +1499,6 @@ async function fetchLogs() {
         filterSidebarRoutes(); 
     }
     
-    async function fetchRoutes() {
-        allRoutes = await fetchMasterDataWithCache('routes', 'rank');
-        const selectEl = document.getElementById('select-route');
-        if (selectEl) {
-            selectEl.innerHTML = allRoutes.map(r => `<option value="${r.route_code}">${r.route_code} - ${r.route_name}</option>`).join('');
-        }
-    }
-
     function filterSidebarPharms() { const input = document.getElementById('search-pharm-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-pharm-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
     function togglePharmFilter(className) { if (selectedPharmFilters.includes(className)) selectedPharmFilters = selectedPharmFilters.filter(c => c !== className); else selectedPharmFilters.push(className); renderPharmSidebar(); filterDrugs(); }
     function renderPharmSidebar() { 
@@ -1617,8 +1591,80 @@ async function fetchLogs() {
         return data;
     }
     
+    // -------------------------------------------------------------
+    // ฟังก์ชันดึง Master Data + อัปเดตหน้าตา UI (Dropdown/Checkbox/Admin List)
+    // -------------------------------------------------------------
     async function fetchPharmClasses() {
         allPharmClasses = await fetchMasterDataWithCache('pharm_classes', 'class_name');
+        if (typeof filterMasterPharmList === 'function') filterMasterPharmList();
+    }
+
+    async function fetchGenerics() {
+        allGenerics = await fetchMasterDataWithCache('generics', 'generic_name');
+        if (typeof filterMasterGenericList === 'function') filterMasterGenericList();
+    }
+
+    async function fetchRoutes() {
+        allRoutes = await fetchMasterDataWithCache('routes', 'rank');
+        // อัปเดต Dropdown เลือกช่องทาง
+        const selectEl = document.getElementById('select-route');
+        if (selectEl) selectEl.innerHTML = allRoutes.map(r => `<option value="${r.route_code}">${r.route_code} - ${r.route_name}</option>`).join('');
+        
+        // อัปเดตหน้าต่างจัดการ (Admin List)
+        const listEl = document.getElementById('master-route-list');
+        if (listEl) listEl.innerHTML = allRoutes.map(r => `<div class="list-item"><span><b>${r.route_code}</b>: ${r.route_name} <small>(Rank: ${r.rank})</small></span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('routes','route_code','${encodeHTML(r.route_code)}')">🗑️</button></div>`).join('');
+    }
+
+    async function fetchFluids() {
+        allFluids = await fetchMasterDataWithCache('fluids', 'short_name');
+        // อัปเดต Checkbox
+        const container = document.getElementById('fluid-checkbox-group');
+        if (container) container.innerHTML = allFluids.map((f, idx) => `<input type="checkbox" id="fluid-cb-${idx}" name="comp-fluids" value="${f.short_name}" style="transform: scale(1.2); margin-right:4px;"><label for="fluid-cb-${idx}">${f.short_name}</label>`).join('');
+        
+        // อัปเดตหน้าต่างจัดการ (Admin List)
+        const listEl = document.getElementById('master-fluid-list');
+        if (listEl) listEl.innerHTML = allFluids.map(f => `<div class="list-item"><span><b>${f.short_name}</b>: ${f.full_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('fluids','short_name','${encodeHTML(f.short_name)}')">🗑️</button></div>`).join('');
+    }
+
+    async function fetchDosageForms() {
+        allDosageForms = await fetchMasterDataWithCache('dosage_forms', 'form_name');
+        // อัปเดต Dropdown
+        const selectEl = document.getElementById('form-drug-type');
+        if (selectEl) selectEl.innerHTML = '<option value="">-- ไม่ระบุ --</option>' + allDosageForms.map(f => `<option value="${f.form_name}">${f.form_name}</option>`).join('');
+        
+        // อัปเดตหน้าต่างจัดการ (Admin List)
+        const listEl = document.getElementById('master-form-list');
+        if (listEl) listEl.innerHTML = allDosageForms.map(f => `<div class="list-item"><span>${f.form_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('dosage_forms','form_name','${encodeHTML(f.form_name)}')">🗑️</button></div>`).join('');
+    }
+
+    async function fetchTags() {
+        allTags = await fetchMasterDataWithCache('drug_tags', 'tag_name');
+        // อัปเดต Checkbox
+        const container = document.getElementById('drug-tags-checkbox-group');
+        if (container) container.innerHTML = allTags.map((t, idx) => `<input type="checkbox" id="tag-cb-${idx}" name="drug-tags" value="${t.tag_name}" style="transform: scale(1.2); margin-right:4px;"><label for="tag-cb-${idx}">${t.tag_name}</label>`).join('');
+        
+        // อัปเดตหน้าต่างจัดการ (Admin List)
+        const listEl = document.getElementById('master-tag-list');
+        if (listEl) listEl.innerHTML = allTags.map(t => `<div class="list-item"><span>${t.tag_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('drug_tags','tag_name','${encodeHTML(t.tag_name)}')">🗑️</button></div>`).join('');
+    }
+
+    async function fetchNlemMaster() {
+        allNlem = await fetchMasterDataWithCache('nlem_categories', 'rank');
+        // อัปเดต Dropdowns
+        const selectBulk = document.getElementById('bulk-nlem-select');
+        const selectNlem = document.getElementById('select-nlem');
+        const options = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join('');
+        if (selectBulk) selectBulk.innerHTML = options;
+        if (selectNlem) selectNlem.innerHTML = options;
+        
+        // อัปเดตหน้าต่างจัดการ (Admin List)
+        const listEl = document.getElementById('master-nlem-list');
+        if (listEl) listEl.innerHTML = allNlem.map(n => `<div class="list-item"><span><b>${n.category_code}</b>: ${n.description || '-'} <small>(Rank: ${n.rank || 99})</small></span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('nlem_categories','category_code','${encodeHTML(n.category_code)}')">🗑️</button></div>`).join('');
+    }
+
+    async function fetchLabelsMaster() {
+        allLabels = await fetchMasterDataWithCache('labels', 'label_code');
+        if (typeof filterMasterLabelList === 'function') filterMasterLabelList();
     }
 
     function filterSidebarDrugTypes() { 
@@ -1660,10 +1706,6 @@ async function fetchLogs() {
         
         sidebar.innerHTML = html;
         filterSidebarDrugTypes(); 
-    }
-
-    async function fetchLabelsMaster() {
-        allLabels = await fetchMasterDataWithCache('labels', 'label_code');
     }
 
     // เพิ่มปุ่มล้าง Cache สำหรับแอดมินหรือกรณีฉุกเฉิน
@@ -1802,20 +1844,8 @@ async function fetchLogs() {
         filterSidebarLabels(); 
     }
 
-    async function fetchFluids() {
-        allFluids = await fetchMasterDataWithCache('fluids', 'short_name');
-        const container = document.getElementById('fluid-checkbox-group');
-        if (container) {
-            container.innerHTML = allFluids.map((f, idx) => `<input type="checkbox" id="fluid-cb-${idx}" name="comp-fluids" value="${f.short_name}" style="transform: scale(1.2); margin-right:4px;"><label for="fluid-cb-${idx}">${f.short_name}</label>`).join('');
-        }
-    }
-    async function fetchTags() {
-        allTags = await fetchMasterDataWithCache('drug_tags', 'tag_name');
-        const container = document.getElementById('drug-tags-checkbox-group');
-        if (container) {
-            container.innerHTML = allTags.map((t, idx) => `<input type="checkbox" id="tag-cb-${idx}" name="drug-tags" value="${t.tag_name}" style="transform: scale(1.2); margin-right:4px;"><label for="tag-cb-${idx}">${t.tag_name}</label>`).join('');
-        }
-    }
+
+
     function changeItemsPerPage() { itemsPerPage = parseInt(document.getElementById('items-per-page-select').value); currentPage = 1; updatePaginationUI(); }
     function changePage(delta) { const totalPages = Math.ceil(filteredDrugsList.length / itemsPerPage) || 1; currentPage += delta; if (currentPage < 1) currentPage = 1; if (currentPage > totalPages) currentPage = totalPages; updatePaginationUI(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
     function updatePaginationUI() { if (filteredDrugsList.length === 0) { document.getElementById('pagination-wrapper').style.display = 'none'; renderDrugs([]); return; } document.getElementById('pagination-wrapper').style.display = 'flex'; const totalPages = Math.ceil(filteredDrugsList.length / itemsPerPage) || 1; if (currentPage > totalPages) currentPage = totalPages; const startIndex = (currentPage - 1) * itemsPerPage; const endIndex = startIndex + itemsPerPage; const slicedDrugs = filteredDrugsList.slice(startIndex, endIndex); renderDrugs(slicedDrugs); document.getElementById('page-info').innerText = `${currentPage} / ${totalPages}`; document.getElementById('btn-prev-page').disabled = currentPage === 1; document.getElementById('btn-next-page').disabled = currentPage === totalPages; }
@@ -2478,9 +2508,7 @@ async function fetchLogs() {
             fetchAdjRules(genericCode);
         }
     }
-    async function fetchGenerics() {
-        allGenerics = await fetchMasterDataWithCache('generics', 'generic_name');
-    }
+
     let bulkPharmSelectedGenerics = new Set();
 
     function openBulkPharmModal() { 
