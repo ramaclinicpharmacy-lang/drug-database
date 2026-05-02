@@ -1553,34 +1553,31 @@ async function fetchLogs() {
     const CACHE_TTL = 4 * 60 * 60 * 1000; // อายุ Cache: 4 ชั่วโมง (หน่วยเป็นมิลลิวินาที)
     
     // ฟังก์ชันหลักสำหรับดึงข้อมูลพร้อมทำ Caching อัตโนมัติ
-    async function fetchMasterDataWithCache(tableName, orderCol) {
+    async function fetchMasterDataWithCache(tableName, orderCol, selectQuery = '*') {
         const cacheKey = `rama_cache_${tableName}`;
         
-        // 1. ถ้าไม่ใช่ Admin ให้ตรวจสอบ Cache ในเครื่องก่อน
         if (!isAdmin) {
             const cachedStr = localStorage.getItem(cacheKey);
             if (cachedStr) {
                 try {
                     const parsed = JSON.parse(cachedStr);
-                    // เช็กว่า Cache หมดอายุหรือยัง
                     if (Date.now() - parsed.time < CACHE_TTL) {
-                        return parsed.data; // ⚡ คืนค่าจาก Memory เครื่องทันที (เร็วมาก)
+                        return parsed.data; 
                     }
                 } catch (e) {
                     console.warn("Cache parse error", e);
                 }
             }
         }
-    
-        // 2. ถ้าเป็น Admin หรือ Cache หมดอายุ ให้ดึงใหม่จาก Server
-        const { data, error } = await supabaseClient.from(tableName).select('*').order(orderCol);
+
+        // 🌟 ใช้ selectQuery แทน '*' ธรรมดา
+        const { data, error } = await supabaseClient.from(tableName).select(selectQuery).order(orderCol);
         
         if (error) {
             console.error(`Error fetching ${tableName}:`, error.message);
             return [];
         }
-    
-        // 3. บันทึกข้อมูลที่เพิ่งดึงมาลง Cache (เฉพาะฝั่ง User)
+
         if (!isAdmin && data) {
             localStorage.setItem(cacheKey, JSON.stringify({
                 time: Date.now(),
@@ -1600,7 +1597,11 @@ async function fetchLogs() {
     }
 
     async function fetchGenerics() {
-        allGenerics = await fetchMasterDataWithCache('generics', 'generic_name');
+        allGenerics = await fetchMasterDataWithCache(
+            'generics', 
+            'generic_name', 
+            '*, generic_pharm_mapping(class_name), drug_contents(drug_code)' // 👈 Join ตาราง mapping มาด้วย
+        );
         if (typeof filterMasterGenericList === 'function') filterMasterGenericList();
     }
 
