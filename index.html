@@ -2667,7 +2667,24 @@ async function fetchLogs() {
     }
 
     function openBulkNlemModal() { document.getElementById('bulk-nlem-note').value = ''; document.getElementById('search-bulk-nlem-drug').value = ''; renderBulkNlemDrugs(allDrugsRaw); openModal('bulk-nlem-modal'); }
-    function renderBulkNlemDrugs(drugsToRender) { const listEl = document.getElementById('bulk-nlem-drug-list'); if (drugsToRender.length === 0) { listEl.innerHTML = '<div style="color:gray; padding:10px; grid-column: 1 / -1;">ไม่พบยาที่ค้นหา</div>'; return; } listEl.innerHTML = drugsToRender.map(d => `<label style="display:flex; align-items:flex-start; gap:10px; padding:10px; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; background:#f8fafc; font-size:0.9rem; text-align:left; transition:0.2s;"><input type="checkbox" class="bulk-nlem-drug-cb" style="margin-top: 4px; transform: scale(1.2);" value="${encodeHTML(d.drug_code)}"><div style="flex:1;"><b style="color:var(--dark);">${encodeHTML(d.drug_name)}</b><br><small style="color:gray;">${d.dosage_form || '-'}</small></div></label>`).join(''); }
+    function renderBulkNlemDrugs(drugsToRender) { 
+        const listEl = document.getElementById('bulk-nlem-drug-list'); 
+        if (drugsToRender.length === 0) { 
+            listEl.innerHTML = '<div style="color:gray; padding:10px; grid-column: 1 / -1;">ไม่พบยาที่ค้นหา</div>'; 
+            return; 
+        } 
+        
+        listEl.innerHTML = drugsToRender.map(d => `
+            <label style="display:flex; align-items:flex-start; gap:10px; padding:10px; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; background:#f8fafc; font-size:0.9rem; text-align:left; transition:0.2s;">
+                <input type="checkbox" class="bulk-nlem-drug-cb" style="margin-top: 4px; transform: scale(1.2);" value="${encodeHTML(d.drug_code)}">
+                <div style="flex:1;">
+                    <span class="badge" style="background:#e2e8f0; color:#475569; font-size:0.7rem; padding:2px 6px;">${encodeHTML(d.drug_code)}</span> 
+                    <b style="color:var(--dark);">${encodeHTML(d.drug_name)}</b><br>
+                    <small style="color:gray;">${d.dosage_form || '-'}</small>
+                </div>
+            </label>
+        `).join(''); 
+    }
     function filterBulkNlemDrugs() { const q = document.getElementById('search-bulk-nlem-drug').value.toLowerCase(); const filtered = allDrugsRaw.filter(d => (d.drug_name||'').toLowerCase().includes(q) || (d.drug_code||'').toLowerCase().includes(q)); renderBulkNlemDrugs(filtered); }
     function toggleBulkNlemCheckboxes(check) { document.querySelectorAll('.bulk-nlem-drug-cb').forEach(cb => cb.checked = check); }
     async function executeBulkNlemAdd() { const nlem_code = document.getElementById('bulk-nlem-select').value; const condition_note = document.getElementById('bulk-nlem-note').value; const selectedCheckboxes = document.querySelectorAll('.bulk-nlem-drug-cb:checked'); const targetDrugCodes = Array.from(selectedCheckboxes).map(cb => cb.value); if (targetDrugCodes.length === 0) return alert("กรุณาเลือกยาอย่างน้อย 1 รายการ"); const payload = targetDrugCodes.map(code => ({ drug_code: code, nlem_code: nlem_code, condition_note: condition_note })); const { error } = await supabaseClient.from('drug_nlem_mapping').upsert(payload); if (error) return alert("เกิดข้อผิดพลาด: " + error.message); alert(`✅ เพิ่มยา ${targetDrugCodes.length} รายการเข้าบัญชี ${nlem_code} สำเร็จ!`); closeModal('bulk-nlem-modal'); fetchDrugs(); }
