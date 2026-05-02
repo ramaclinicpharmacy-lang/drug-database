@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>(T6)Rama Clinic Pharmacy DB</title>
+    <title>(T7)Rama Clinic Pharmacy DB</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -1679,6 +1679,7 @@
                 else if (t.tag_name.includes('ตู้เย็น')) bg = 'var(--info)'; 
                 else if (t.tag_name.includes('หยุดก่อนผ่าตัด')) bg = 'var(--purple)'; 
                 else if (t.tag_name.includes('ได้')) bg = 'var(--success)'; 
+                else if (t.tag_name.includes('เพิ่งเปิดใช้งาน')) bg = 'var(--info)'; 
                 return `<span class="badge" style="background:${bg}; color:white;">${t.tag_name}</span>`; 
             }).join('');
 
