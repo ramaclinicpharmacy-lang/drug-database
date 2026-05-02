@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>(T8)Rama Clinic Pharmacy DB</title>
+    <title>(T9)Rama Clinic Pharmacy DB</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -700,7 +700,44 @@
 
 <div id="ingredient-modal" class="modal"><div class="modal-content"><h3>ส่วนประกอบ: <span id="target-drug-name"></span></h3><input type="hidden" id="target-drug-code"><div class="section-box"><input type="text" id="search-generic-input" placeholder="🔍 ค้นหาชื่อยาสามัญ..." onkeyup="filterGenericOptions()" style="margin-bottom:10px;"><select id="select-generic" style="margin-bottom:10px;"></select><div style="display:flex; gap:5px;"><input type="number" id="input-amount" placeholder="ปริมาณ" style="flex:1;"><input type="text" id="input-unit" placeholder="หน่วย" style="flex:1;"></div><div style="display:flex; gap:10px; margin-top:10px;"><button class="btn btn-primary" id="btn-save-ingredient" style="flex:1; height:42px;" onclick="addIngredient()">+ เพิ่ม</button><button class="btn btn-outline hidden" id="btn-cancel-edit-ingredient" style="flex:1; height:42px;" onclick="resetIngredientForm()">ยกเลิก</button></div></div><div id="current-ingredients-list" style="max-height:200px; overflow-y:auto;"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('ingredient-modal')">ปิด</button></div></div>
 <div id="bulk-copy-modal" class="modal"><div class="modal-content"><h3 style="color:var(--purple); margin-top:0;">🔁 คัดลอกวิธีใช้ไปยาอื่น <br><small style="color:gray; font-size:0.9rem;">(เฉพาะยาที่มี Generic เดียวกัน)</small></h3><div class="section-box" style="background: #f8fafc; border-color: #cbd5e1; padding:10px;"><strong style="font-size:0.85rem;">ต้นฉบับ:</strong> <br><span id="bulk-copy-source-desc" style="font-size:0.9rem; color:var(--dark);"></span></div><input type="hidden" id="bulk-copy-admin-id"><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">เลือกยาปลายทาง:</label><div id="bulk-copy-target-list" style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 8px; margin-bottom: 15px; background: white;"></div><div style="display:flex; gap:10px;"><button class="btn" style="background:var(--purple); color:white; flex:1; height:45px;" onclick="executeBulkCopyAdmin()">✅ ยืนยันการคัดลอก</button><button class="btn btn-outline" style="flex:1; height:45px;" onclick="closeModal('bulk-copy-modal')">ยกเลิก</button></div></div></div>
+<!-- 🔗 1. Modal: User ดูลิงก์ (Link Viewer) -->
+<div id="link-viewer-modal" class="modal">
+    <div class="modal-content" style="max-width: 550px;">
+        <h3 style="color:var(--indigo); margin-top:0;">🔗 แหล่งข้อมูลอ้างอิง</h3>
+        <h4 id="link-viewer-name" style="margin-bottom: 15px; color:var(--dark);"></h4>
+        <div id="link-viewer-content">
+            <!-- ข้อมูลลิงก์จะแสดงผลที่นี่ -->
+        </div>
+        <button class="btn btn-outline" style="width:100%; margin-top:15px; height:42px;" onclick="closeModal('link-viewer-modal')">ปิดหน้าต่าง</button>
+    </div>
+</div>
 
+<!-- 🔗 2. Modal: Admin จัดการลิงก์ (ใช้ร่วมกันทั้ง ยาหลัก/ยาสามัญ) -->
+<div id="link-admin-modal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <h3 style="color:var(--indigo); margin-top:0;" id="link-admin-title">🔗 จัดการลิงก์</h3>
+        <h4 id="link-admin-name" style="margin-bottom: 15px; color:var(--dark);"></h4>
+        <input type="hidden" id="link-admin-code">
+        <input type="hidden" id="link-admin-mode"> <!-- 'drug' หรือ 'generic' -->
+
+        <div class="section-box" style="background:#eef2ff; border-color:#c7d2fe;">
+            <div style="display:flex; gap:10px; margin-bottom:10px;">
+                <div style="flex:1;">
+                    <label style="font-size:0.85rem; font-weight:bold;">ชื่อลิงก์ / หัวข้อ (Title)</label>
+                    <input type="text" id="link-admin-title-input" placeholder="เช่น แนวทางรักษา, วิดีโอสอนฉีดยา..." style="margin:0;">
+                </div>
+            </div>
+            <div style="margin-bottom:10px;">
+                <label style="font-size:0.85rem; font-weight:bold;">URL (ลิงก์ปลายทาง)</label>
+                <input type="url" id="link-admin-url-input" placeholder="https://..." style="margin:0;">
+            </div>
+            <button class="btn" style="background:var(--indigo); color:white; width:100%; height:42px; margin-top:10px;" onclick="saveLink()">+ เพิ่มลิงก์</button>
+        </div>
+
+        <div id="link-admin-list" style="max-height: 250px; overflow-y: auto; margin-top: 15px;"></div>
+        <button class="btn btn-outline" style="width:100%; margin-top:15px; height:42px;" onclick="closeModal('link-admin-modal')">ปิดหน้าต่าง</button>
+    </div>
+</div>
 <div id="nutri-admin-modal" class="modal">
     <div class="modal-content" style="max-width: 500px;">
         <h3 style="color:#166534; margin-top:0;">🍼 ตั้งค่าการชงอาหารทางการแพทย์</h3>
@@ -1636,7 +1673,7 @@
         let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; 
         while (hasMore) { 
             const { data, error } = await supabaseClient.from('drugs')
-                .select(`*, drug_tag_mapping(tag_name), drug_label_mapping(label_code, labels(label_name)), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, generic_type, special_note, needs_renal_adj, needs_hepatic_adj, generic_pharm_mapping(class_name))), drug_administrations(id, instructions, min_conc, max_conc, conc_unit, routes(route_name, route_code), administration_fluids(fluid_short_name)), nutrition_configs(grams_per_scoop, kcal_per_gram, standard_water_ml, preparation_note, protein_per_100kcal, carb_per_100kcal, fat_per_100kcal, product_type, bottle_volume_ml, bottle_kcal), med_error_knowledge(*)`)
+                .select(`*, drug_tag_mapping(tag_name), drug_label_mapping(label_code, labels(label_name)), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, generic_type, special_note, needs_renal_adj, needs_hepatic_adj, generic_pharm_mapping(class_name), generic_links(id, link_title, url))), drug_administrations(id, instructions, min_conc, max_conc, conc_unit, routes(route_name, route_code), administration_fluids(fluid_short_name)), nutrition_configs(grams_per_scoop, kcal_per_gram, standard_water_ml, preparation_note, protein_per_100kcal, carb_per_100kcal, fat_per_100kcal, product_type, bottle_volume_ml, bottle_kcal), med_error_knowledge(*), drug_links(id, link_title, url)`)
                 .eq('is_active', true) 
                 .order('drug_name')
                 .range(from, from + step - 1); 
@@ -1756,7 +1793,23 @@
             const nutriBtn = nutriConfig 
                 ? `<button class="btn btn-sm" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0; padding:2px 8px; font-size:0.75rem; border-radius:20px; font-weight:bold; margin-left:5px;" onclick="event.stopPropagation(); openNutriCalc('${safeCode}')">🍼 คำนวณชงอาหาร</button>` 
                 : '';
+            // 🌟 แทรกโค้ดเช็กว่ามียาหรือ generic ไหนมีลิงก์บ้าง (สำหรับปุ่มหน้า User)
+            const drugLinks = drug.drug_links || [];
+            let hasGenericLinks = false;
+            (drug.drug_contents || []).forEach(c => {
+                if (c.generics && c.generics.generic_links && c.generics.generic_links.length > 0) hasGenericLinks = true;
+            });
+            const hasLinks = drugLinks.length > 0 || hasGenericLinks;
 
+            // ปุ่มสำหรับ User
+            const linkBtn = hasLinks 
+                ? `<button class="btn btn-sm" style="background:#e0e7ff; color:#3730a3; border:1px solid #c7d2fe; padding:2px 8px; font-size:0.75rem; border-radius:20px; font-weight:bold; margin-left:5px;" onclick="event.stopPropagation(); openLinkViewer('${safeCode}')">🔗 ข้อมูลอ้างอิง</button>` 
+                : '';
+
+            // ปุ่มสำหรับ Admin (จัดลิงก์เฉพาะ Drug Level)
+            const adminLinkBtn = isAdmin 
+                ? `<button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:#4338ca; border-color:#4338ca;" onclick="event.stopPropagation(); openLinkAdmin('drug', '${safeCode}', '${safeName}')">🔗 ลิงก์ (ยาหลัก)</button>` 
+                : '';
             const isHighRisk = drug.is_high_error_risk;
             // สร้างปุ่มเตือน 
             const meBtn = isHighRisk || (drug.med_error_knowledge && drug.med_error_knowledge.length > 0)
@@ -1796,14 +1849,14 @@
                             <span class="toggle-icon" id="icon-${safeCode}" style="transform: ${isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}">▶</span>
                             <span style="display:flex; align-items:center; flex-wrap:wrap; gap:8px; line-height: 1.4;">
                                 ${generateStandardDrugName(drug)} 
-                                ${calcBtn} ${adjBtn} ${nutriBtn} ${meBtn}
+                                ${calcBtn} ${adjBtn} ${nutriBtn} ${meBtn} ${linkBtn}
                             </span>
                         </h2>
                         <div style="margin-bottom:5px; padding-left: 28px;">${adminStatusBadge} ${nlemBadges} ${pharmHtml} ${tagsHtml}</div>
                         ${remarksHtml ? `<div style="padding-left: 28px;">${remarksHtml}</div>` : ''}
                     </div>
                     ${isAdmin ? `<div class="admin-actions">
-                        ${adminNutriBtn} ${adminMeBtn}
+                        ${adminNutriBtn} ${adminMeBtn} ${adminLinkBtn}
                         <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--info); border-color:var(--info);" onclick="event.stopPropagation(); openLabelManager('${safeCode}', '${safeName}')">🏷️ ฉลาก</button>
                         <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--pink); border-color:var(--pink);" onclick="event.stopPropagation(); openNlemManager('${safeCode}', '${safeName}')">📋 บัญชี</button>
                         <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openAdminManager('${safeCode}', '${safeName}')">💉 วิธีใช้</button>
@@ -2055,6 +2108,7 @@
                             <button class="btn btn-outline" style="color:var(--danger); border-color:var(--danger); padding:2px 6px;" onclick="openAdjManager('${sCode}', '${sName}')">⚖️ กฎปรับโดส</button>
                             <button class="btn btn-outline" style="color:var(--primary); padding:2px 6px;" onclick="openEditGeneric('${sCode}')">✏️</button> 
                             <button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('generics','generic_code','${sCode}')">🗑️</button>
+                            <button class="btn btn-outline" style="color:#4338ca; border-color:#4338ca; padding:2px 6px;" onclick="openLinkAdmin('generic', '${sCode}', '${sName}')">🔗 เลือกลิงก์</button>
                         </div>
                     </div>`; 
         }).join(''); 
@@ -3422,6 +3476,141 @@
             fetchDrugs();
         }
     }
+    // -------------------------------------------------------------
+// 🔗 ระบบจัดการลิงก์ภายนอก (External Resources)
+// -------------------------------------------------------------
+
+// 👁️‍🗨️ ฝั่ง User: อ่านข้อมูลจาก DOM ทันที (Non-Lazy)
+function openLinkViewer(drugCode) {
+    const drug = allDrugsRaw.find(d => d.drug_code === drugCode);
+    if (!drug) return;
+
+    document.getElementById('link-viewer-name').innerText = generateStandardDrugName(drug);
+    const container = document.getElementById('link-viewer-content');
+    let html = '';
+
+    // 1. แสดงลิงก์ระดับยาหลัก (Drug Level)
+    const dLinks = drug.drug_links || [];
+    if (dLinks.length > 0) {
+        html += `<div style="font-size:0.85rem; font-weight:bold; color:var(--indigo); margin-bottom:5px;">📦 ข้อมูลเฉพาะผลิตภัณฑ์ (Drug Level)</div>`;
+        html += `<div style="display:flex; flex-direction:column; gap:8px; margin-bottom:15px;">`;
+        dLinks.forEach(l => {
+            html += `<a href="${encodeHTML(l.url)}" target="_blank" style="display:flex; align-items:center; gap:8px; padding:10px; background:white; border:1px solid #cbd5e1; border-radius:8px; text-decoration:none; color:var(--dark); transition:0.2s;" onmouseover="this.style.borderColor='var(--indigo)'" onmouseout="this.style.borderColor='#cbd5e1'">
+                        <span>🌐</span> <span style="flex:1;">${encodeHTML(l.link_title)}</span> <span>↗️</span>
+                     </a>`;
+        });
+        html += `</div>`;
+    }
+
+    // 2. แสดงลิงก์ระดับยาสามัญ (Generic Level)
+    const gLinksMap = {};
+    (drug.drug_contents || []).forEach(c => {
+        if (c.generics && c.generics.generic_links && c.generics.generic_links.length > 0) {
+            gLinksMap[c.generics.generic_name] = c.generics.generic_links;
+        }
+    });
+
+    const gNames = Object.keys(gLinksMap);
+    if (gNames.length > 0) {
+        html += `<div style="font-size:0.85rem; font-weight:bold; color:var(--success); margin-bottom:5px;">🧪 แนวทางระดับยาสามัญ (Generic Level)</div>`;
+        gNames.forEach(gName => {
+            html += `<div style="font-size:0.8rem; color:gray; margin-bottom:5px; margin-top:5px;">ส่วนประกอบ: ${encodeHTML(gName)}</div>`;
+            html += `<div style="display:flex; flex-direction:column; gap:8px; margin-bottom:15px;">`;
+            gLinksMap[gName].forEach(l => {
+                html += `<a href="${encodeHTML(l.url)}" target="_blank" style="display:flex; align-items:center; gap:8px; padding:10px; background:white; border:1px solid #bbf7d0; border-radius:8px; text-decoration:none; color:var(--dark); transition:0.2s;" onmouseover="this.style.borderColor='var(--success)'" onmouseout="this.style.borderColor='#bbf7d0'">
+                            <span>📄</span> <span style="flex:1;">${encodeHTML(l.link_title)}</span> <span>↗️</span>
+                         </a>`;
+            });
+            html += `</div>`;
+        });
+    }
+
+    container.innerHTML = html || '<div style="color:gray; text-align:center;">ไม่พบลิงก์อ้างอิง</div>';
+    openModal('link-viewer-modal');
+}
+
+// 🛠️ ฝั่ง Admin: เพิ่มและลบข้อมูลลิงก์
+async function openLinkAdmin(mode, code, name) {
+    // mode จะมีค่าเป็น 'drug' หรือ 'generic'
+    document.getElementById('link-admin-mode').value = mode;
+    document.getElementById('link-admin-code').value = code;
+    document.getElementById('link-admin-title').innerHTML = mode === 'drug' ? '🔗 จัดการลิงก์ (ยาหลัก)' : '🔗 จัดการลิงก์ (ยาสามัญ)';
+    document.getElementById('link-admin-name').innerText = name;
+    
+    document.getElementById('link-admin-title-input').value = '';
+    document.getElementById('link-admin-url-input').value = '';
+    
+    await fetchCurrentLinksAdmin(mode, code);
+    openModal('link-admin-modal');
+}
+
+async function fetchCurrentLinksAdmin(mode, code) {
+    const listEl = document.getElementById('link-admin-list');
+    listEl.innerHTML = '<div style="color:gray; text-align:center;">กำลังโหลด...</div>';
+    
+    const tableName = mode === 'drug' ? 'drug_links' : 'generic_links';
+    const colName = mode === 'drug' ? 'drug_code' : 'generic_code';
+    
+    const { data, error } = await supabaseClient.from(tableName).select('*').eq(colName, code).order('created_at', { ascending: false });
+    
+    if (error || !data || data.length === 0) {
+        listEl.innerHTML = '<div style="color:gray; text-align:center; padding:10px; border:1px dashed #cbd5e1; border-radius:8px;">ยังไม่มีลิงก์เชื่อมโยง</div>';
+        return;
+    }
+
+    listEl.innerHTML = data.map(l => `
+        <div class="list-item" style="border-left:3px solid var(--indigo); align-items:center;">
+            <div style="flex:1; overflow:hidden;">
+                <b style="color:var(--dark); display:block; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${encodeHTML(l.link_title)}</b>
+                <a href="${encodeHTML(l.url)}" target="_blank" style="font-size:0.75rem; color:var(--primary); text-decoration:none; display:block; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${encodeHTML(l.url)}</a>
+            </div>
+            <button class="btn btn-outline btn-sm" style="color:red; margin-left:10px;" onclick="deleteLink(${l.id}, '${mode}', '${code}')">🗑️ ลบ</button>
+        </div>
+    `).join('');
+}
+
+async function saveLink() {
+    const mode = document.getElementById('link-admin-mode').value;
+    const code = document.getElementById('link-admin-code').value;
+    const title = document.getElementById('link-admin-title-input').value.trim();
+    const url = document.getElementById('link-admin-url-input').value.trim();
+
+    if (!title || !url) return alert('กรุณาระบุชื่อลิงก์และ URL ให้ครบถ้วน');
+    if (!url.startsWith('http://') && !url.startsWith('https://')) return alert('URL ต้องขึ้นต้นด้วย http:// หรือ https://');
+
+    const tableName = mode === 'drug' ? 'drug_links' : 'generic_links';
+    const payload = mode === 'drug' ? { drug_code: code, link_title: title, url: url } : { generic_code: code, link_title: title, url: url };
+
+    const { error } = await supabaseClient.from(tableName).insert(payload);
+    if (error) return alert("เกิดข้อผิดพลาด: " + error.message);
+
+    document.getElementById('link-admin-title-input').value = '';
+    document.getElementById('link-admin-url-input').value = '';
+    
+    fetchCurrentLinksAdmin(mode, code);
+    
+    // อัปเดตข้อมูลบนหน้าเว็บใหม่เพื่อให้ปุ่มแสดง
+    if (mode === 'drug') {
+        fetchDrugs();
+    } else {
+        fetchGenerics();
+        fetchDrugs();
+    }
+}
+
+async function deleteLink(id, mode, code) {
+    if (!confirm('ยืนยันลบลิงก์นี้?')) return;
+    const tableName = mode === 'drug' ? 'drug_links' : 'generic_links';
+    await supabaseClient.from(tableName).delete().eq('id', id);
+    
+    fetchCurrentLinksAdmin(mode, code);
+    if (mode === 'drug') {
+        fetchDrugs();
+    } else {
+        fetchGenerics();
+        fetchDrugs();
+    }
+}
 </script>
 </body>
 </html>
