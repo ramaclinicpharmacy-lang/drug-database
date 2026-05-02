@@ -1456,7 +1456,14 @@ async function fetchLogs() {
     }
     
     async function fetchNlemMaster() {
-    allNlemCategories = await fetchMasterDataWithCache('nlem_categories', 'nlem_code');
+        allNlem = await fetchMasterDataWithCache('nlem_categories', 'rank');
+        
+        const selectBulk = document.getElementById('bulk-nlem-select');
+        const selectNlem = document.getElementById('select-nlem');
+        const options = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join('');
+        
+        if (selectBulk) selectBulk.innerHTML = options;
+        if (selectNlem) selectNlem.innerHTML = options;
     }
     
     function filterSidebarForms() { const input = document.getElementById('search-form-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-form-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
@@ -1482,7 +1489,11 @@ async function fetchLogs() {
     }
     
     async function fetchDosageForms() {
-    allDosageForms = await fetchMasterDataWithCache('dosage_forms', 'form_name');
+        allDosageForms = await fetchMasterDataWithCache('dosage_forms', 'form_name');
+        const selectEl = document.getElementById('form-drug-type');
+        if (selectEl) {
+            selectEl.innerHTML = '<option value="">-- ไม่ระบุ --</option>' + allDosageForms.map(f => `<option value="${f.form_name}">${f.form_name}</option>`).join('');
+        }
     }
     function filterSidebarRoutes() { const input = document.getElementById('search-route-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-route-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
     function toggleRouteFilter(code) { if (selectedRouteFilters.includes(code)) selectedRouteFilters = selectedRouteFilters.filter(r => r !== code); else selectedRouteFilters.push(code); renderRouteSidebar(); filterDrugs(); }
@@ -1507,7 +1518,11 @@ async function fetchLogs() {
     }
     
     async function fetchRoutes() {
-        allRoutes = await fetchMasterDataWithCache('routes', 'route_name');
+        allRoutes = await fetchMasterDataWithCache('routes', 'rank');
+        const selectEl = document.getElementById('select-route');
+        if (selectEl) {
+            selectEl.innerHTML = allRoutes.map(r => `<option value="${r.route_code}">${r.route_code} - ${r.route_name}</option>`).join('');
+        }
     }
 
     function filterSidebarPharms() { const input = document.getElementById('search-pharm-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-pharm-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
@@ -1648,7 +1663,7 @@ async function fetchLogs() {
     }
 
     async function fetchLabelsMaster() {
-        allLabelsMaster = await fetchMasterDataWithCache('labels', 'label_code');
+        allLabels = await fetchMasterDataWithCache('labels', 'label_code');
     }
 
     // เพิ่มปุ่มล้าง Cache สำหรับแอดมินหรือกรณีฉุกเฉิน
@@ -1788,10 +1803,18 @@ async function fetchLogs() {
     }
 
     async function fetchFluids() {
-    allFluids = await fetchMasterDataWithCache('administration_fluids', 'fluid_short_name');
+        allFluids = await fetchMasterDataWithCache('fluids', 'short_name');
+        const container = document.getElementById('fluid-checkbox-group');
+        if (container) {
+            container.innerHTML = allFluids.map((f, idx) => `<input type="checkbox" id="fluid-cb-${idx}" name="comp-fluids" value="${f.short_name}" style="transform: scale(1.2); margin-right:4px;"><label for="fluid-cb-${idx}">${f.short_name}</label>`).join('');
+        }
     }
     async function fetchTags() {
-    allTags = await fetchMasterDataWithCache('drug_tags', 'tag_name');
+        allTags = await fetchMasterDataWithCache('drug_tags', 'tag_name');
+        const container = document.getElementById('drug-tags-checkbox-group');
+        if (container) {
+            container.innerHTML = allTags.map((t, idx) => `<input type="checkbox" id="tag-cb-${idx}" name="drug-tags" value="${t.tag_name}" style="transform: scale(1.2); margin-right:4px;"><label for="tag-cb-${idx}">${t.tag_name}</label>`).join('');
+        }
     }
     function changeItemsPerPage() { itemsPerPage = parseInt(document.getElementById('items-per-page-select').value); currentPage = 1; updatePaginationUI(); }
     function changePage(delta) { const totalPages = Math.ceil(filteredDrugsList.length / itemsPerPage) || 1; currentPage += delta; if (currentPage < 1) currentPage = 1; if (currentPage > totalPages) currentPage = totalPages; updatePaginationUI(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
