@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rama Clinic Pharmacy DB(T2)</title>
+    <title>Rama Clinic Pharmacy DB(T3)</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -800,9 +800,14 @@
             <label style="font-size:0.85rem; font-weight:bold;">วิธีการป้องกัน (Prevention Tip)</label>
             <textarea id="me-admin-prevent" placeholder="ข้อแนะนำเพื่อป้องกันความผิดพลาด..." style="height:60px; margin-bottom:10px;"></textarea>
 
-            <label style="font-size:0.85rem; font-weight:bold;">URL รูปภาพประกอบ (ถ้ามี)</label>
-            <input type="text" id="me-admin-image" placeholder="แปะลิงก์รูปภาพ..." style="margin-bottom:10px;">
+            <div style="font-size:0.75rem; background:#f8fafc; border:1px solid #cbd5e1; padding:8px; border-radius:6px; margin-bottom:8px; color:#475569; line-height:1.4;">
+                💡 <b>คำแนะนำสำหรับรูปจาก Google Drive:</b><br>
+                1. อย่าลืมตั้งค่าแชร์รูปใน Drive ให้เป็น <b>"ทุกคนที่มีลิงก์ (Anyone with the link)"</b><br>
+                2. ก๊อปปี้ <b>ID ของรูป</b> (ตัวอักษรยาวๆ) จากลิงก์ปกติ (เช่น .../file/d/<b>[ID_ของรูป]</b>/view)<br>
+                3. นำ ID มาต่อท้ายลิงก์นี้: <code style="color:var(--primary); font-weight:bold;">https://lh3.googleusercontent.com/d/</code> แล้วนำมาวางในช่องด้านล่าง
+            </div>
 
+            <input type="text" id="me-admin-image" placeholder="เช่น https://lh3.googleusercontent.com/d/1nCYaou-RqYIqjl-SC-V3GdjqOkmowPay" style="margin-bottom:10px;">
             <div style="display:flex; gap:10px; margin-top:10px;">
                 <button class="btn btn-danger" id="btn-save-me-rule" style="flex:2; height:42px;" onclick="saveMeKnowledge()">💾 บันทึกความเสี่ยง</button>
                 <button class="btn btn-outline hidden" id="btn-cancel-me-edit" style="flex:1; height:42px;" onclick="resetMeAdminForm()">ยกเลิกแก้</button>
