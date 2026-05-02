@@ -1445,13 +1445,8 @@ async function fetchLogs() {
         filterSidebarNlem(); 
     }
     
-    async function fetchNlemMaster() { 
-        const { data } = await supabaseClient.from('nlem_categories').select('*').order('rank', { ascending: true, nullsFirst: false }); 
-        allNlem = data || []; 
-        renderNlemSidebar(); 
-        document.getElementById('select-nlem').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); 
-        document.getElementById('bulk-nlem-select').innerHTML = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join(''); 
-        document.getElementById('master-nlem-list').innerHTML = allNlem.map(n => `<div class="list-item"><span><b>${n.category_code}</b> ${n.description||''} <small style="color:gray;">(Rank: ${n.rank || '-'})</small></span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('nlem_categories','category_code','${n.category_code}')">🗑️</button></div>`).join(''); 
+    async function fetchNlemMaster() {
+    allNlemCategories = await fetchMasterDataWithCache('nlem_categories', 'nlem_code');
     }
     
     function filterSidebarForms() { const input = document.getElementById('search-form-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-form-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
@@ -1476,8 +1471,9 @@ async function fetchLogs() {
         filterSidebarForms(); 
     }
     
-    async function fetchDosageForms() { const { data } = await supabaseClient.from('dosage_forms').select('*').order('form_name'); allDosageForms = data || []; renderFormSidebar(); document.getElementById('form-drug-type').innerHTML = allDosageForms.map(f => `<option value="${f.form_name}">${f.form_name}</option>`).join(''); document.getElementById('master-form-list').innerHTML = allDosageForms.map(f => `<div class="list-item"><span>${f.form_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('dosage_forms','form_name','${f.form_name}')">🗑️</button></div>`).join(''); }
-
+    async function fetchDosageForms() {
+    allDosageForms = await fetchMasterDataWithCache('dosage_forms', 'form_name');
+    }
     function filterSidebarRoutes() { const input = document.getElementById('search-route-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-route-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
     function toggleRouteFilter(code) { if (selectedRouteFilters.includes(code)) selectedRouteFilters = selectedRouteFilters.filter(r => r !== code); else selectedRouteFilters.push(code); renderRouteSidebar(); filterDrugs(); }
     function renderRouteSidebar() { 
@@ -1500,12 +1496,8 @@ async function fetchLogs() {
         filterSidebarRoutes(); 
     }
     
-    async function fetchRoutes() { 
-        const { data } = await supabaseClient.from('routes').select('*').order('rank', { ascending: true, nullsFirst: false }); 
-        allRoutes = data || []; 
-        renderRouteSidebar(); 
-        document.getElementById('select-route').innerHTML = allRoutes.map(r => `<option value="${r.route_code}">${r.route_name}</option>`).join(''); 
-        document.getElementById('master-route-list').innerHTML = allRoutes.map(r => `<div class="list-item"><span><b>${r.route_code}:</b> ${r.route_name} <small style="color:gray;">(Rank: ${r.rank || '-'})</small></span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('routes','route_code','${r.route_code}')">🗑️</button></div>`).join(''); 
+    async function fetchRoutes() {
+        allRoutes = await fetchMasterDataWithCache('routes', 'route_name');
     }
 
     function filterSidebarPharms() { const input = document.getElementById('search-pharm-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-pharm-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
@@ -1556,13 +1548,52 @@ async function fetchLogs() {
         filterSidebarPharms(); 
     }
 
-    async function fetchPharmClasses() { 
-        const { data } = await supabaseClient.from('pharm_classes').select('*').order('class_name'); 
-        allPharmClasses = data || []; 
-        renderPharmSidebar(); 
-        const group = document.getElementById('gen-pharm-checkbox-group'); 
-        if (group) group.innerHTML = allPharmClasses.map(c => `<div><input type="checkbox" id="p-${c.class_name}" name="gen-pharm" value="${c.class_name}"><label for="p-${c.class_name}">${c.class_name}</label></div>`).join(''); 
-        filterMasterPharmList(); 
+    // -------------------------------------------------------------
+    // 🚀 5. กลยุทธ์เพิ่มประสิทธิภาพ: Aggressive Caching
+    // -------------------------------------------------------------
+    const CACHE_TTL = 4 * 60 * 60 * 1000; // อายุ Cache: 4 ชั่วโมง (หน่วยเป็นมิลลิวินาที)
+    
+    // ฟังก์ชันหลักสำหรับดึงข้อมูลพร้อมทำ Caching อัตโนมัติ
+    async function fetchMasterDataWithCache(tableName, orderCol) {
+        const cacheKey = `rama_cache_${tableName}`;
+        
+        // 1. ถ้าไม่ใช่ Admin ให้ตรวจสอบ Cache ในเครื่องก่อน
+        if (!isAdmin) {
+            const cachedStr = localStorage.getItem(cacheKey);
+            if (cachedStr) {
+                try {
+                    const parsed = JSON.parse(cachedStr);
+                    // เช็กว่า Cache หมดอายุหรือยัง
+                    if (Date.now() - parsed.time < CACHE_TTL) {
+                        return parsed.data; // ⚡ คืนค่าจาก Memory เครื่องทันที (เร็วมาก)
+                    }
+                } catch (e) {
+                    console.warn("Cache parse error", e);
+                }
+            }
+        }
+    
+        // 2. ถ้าเป็น Admin หรือ Cache หมดอายุ ให้ดึงใหม่จาก Server
+        const { data, error } = await supabaseClient.from(tableName).select('*').order(orderCol);
+        
+        if (error) {
+            console.error(`Error fetching ${tableName}:`, error.message);
+            return [];
+        }
+    
+        // 3. บันทึกข้อมูลที่เพิ่งดึงมาลง Cache (เฉพาะฝั่ง User)
+        if (!isAdmin && data) {
+            localStorage.setItem(cacheKey, JSON.stringify({
+                time: Date.now(),
+                data: data
+            }));
+        }
+        
+        return data;
+    }
+    
+    async function fetchPharmClasses() {
+        allPharmClasses = await fetchMasterDataWithCache('pharm_classes', 'class_name');
     }
 
     function filterSidebarDrugTypes() { 
@@ -1607,12 +1638,21 @@ async function fetchLogs() {
     }
 
     async function fetchLabelsMaster() {
-        const { data } = await supabaseClient.from('labels').select('*').order('label_code');
-        allLabels = data || [];
-        renderLabelSidebar();
-        filterMasterLabelList(); // โหลดเสร็จสั่งให้วาด list
+        allLabelsMaster = await fetchMasterDataWithCache('labels', 'label_code');
     }
 
+    // เพิ่มปุ่มล้าง Cache สำหรับแอดมินหรือกรณีฉุกเฉิน
+    function clearLocalCache() {
+        const keys = Object.keys(localStorage);
+        let count = 0;
+        keys.forEach(key => {
+            if (key.startsWith('rama_cache_')) {
+                localStorage.removeItem(key);
+                count++;
+            }
+        });
+        console.log(`🧹 เคลียร์ Cache Master Data ทิ้งทั้งหมด ${count} รายการ`);
+    }
     function filterMasterLabelList() {
         const q = (document.getElementById('search-master-label').value || '').toLowerCase();
         const filtered = allLabels.filter(l => (l.label_name||'').toLowerCase().includes(q) || (l.label_code||'').toLowerCase().includes(q));
@@ -1737,9 +1777,12 @@ async function fetchLogs() {
         filterSidebarLabels(); 
     }
 
-    async function fetchFluids() { const { data } = await supabaseClient.from('fluids').select('*').order('short_name'); allFluids = data || []; const group = document.getElementById('fluid-checkbox-group'); if (group) group.innerHTML = allFluids.map(f => `<div><input type="checkbox" id="fluid-${f.short_name}" name="comp-fluids" value="${f.short_name}"><label for="fluid-${f.short_name}">${f.short_name}</label></div>`).join(''); document.getElementById('master-fluid-list').innerHTML = allFluids.map(f => `<div class="list-item"><span><b>${f.short_name}:</b> ${f.full_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('fluids','short_name','${f.short_name}')">🗑️</button></div>`).join(''); }
-    async function fetchTags() { const { data } = await supabaseClient.from('drug_tags').select('*').order('tag_name'); allTags = data || []; const group = document.getElementById('drug-tags-checkbox-group'); if (group) group.innerHTML = allTags.map(t => `<div><input type="checkbox" id="tag-${t.tag_name}" name="drug-tags" value="${t.tag_name}"><label for="tag-${t.tag_name}">${t.tag_name}</label></div>`).join(''); document.getElementById('master-tag-list').innerHTML = allTags.map(t => `<div class="list-item"><span>${t.tag_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('drug_tags','tag_name','${t.tag_name}')">🗑️</button></div>`).join(''); }
-
+    async function fetchFluids() {
+    allFluids = await fetchMasterDataWithCache('administration_fluids', 'fluid_short_name');
+    }
+    async function fetchTags() {
+    allTags = await fetchMasterDataWithCache('drug_tags', 'tag_name');
+    }
     function changeItemsPerPage() { itemsPerPage = parseInt(document.getElementById('items-per-page-select').value); currentPage = 1; updatePaginationUI(); }
     function changePage(delta) { const totalPages = Math.ceil(filteredDrugsList.length / itemsPerPage) || 1; currentPage += delta; if (currentPage < 1) currentPage = 1; if (currentPage > totalPages) currentPage = totalPages; updatePaginationUI(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
     function updatePaginationUI() { if (filteredDrugsList.length === 0) { document.getElementById('pagination-wrapper').style.display = 'none'; renderDrugs([]); return; } document.getElementById('pagination-wrapper').style.display = 'flex'; const totalPages = Math.ceil(filteredDrugsList.length / itemsPerPage) || 1; if (currentPage > totalPages) currentPage = totalPages; const startIndex = (currentPage - 1) * itemsPerPage; const endIndex = startIndex + itemsPerPage; const slicedDrugs = filteredDrugsList.slice(startIndex, endIndex); renderDrugs(slicedDrugs); document.getElementById('page-info').innerText = `${currentPage} / ${totalPages}`; document.getElementById('btn-prev-page').disabled = currentPage === 1; document.getElementById('btn-next-page').disabled = currentPage === totalPages; }
@@ -2402,22 +2445,8 @@ async function fetchLogs() {
             fetchAdjRules(genericCode);
         }
     }
-    async function fetchGenerics() { 
-        let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; 
-        while (hasMore) { 
-            // 🌟 อัปเดตบรรทัด .select เพิ่มการดึง drug_contents มาด้วย
-            const { data, error } = await supabaseClient.from('generics')
-                .select('*, generic_pharm_mapping(class_name), drug_contents(drug_code)') 
-                .order('generic_name')
-                .range(from, from + step - 1); 
-                
-            if (error) break; 
-            fetchedData = fetchedData.concat(data); 
-            if (data.length < step) hasMore = false; else from += step; 
-        } 
-        allGenerics = fetchedData; 
-        filterGenericOptions(); 
-        filterMasterGenericList(); 
+    async function fetchGenerics() {
+        allGenerics = await fetchMasterDataWithCache('generics', 'generic_name');
     }
     let bulkPharmSelectedGenerics = new Set();
 
