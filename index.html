@@ -992,6 +992,16 @@
         
         <div class="section-box" style="background:#fffbeb; border-color:#fde68a;">
             <input type="hidden" id="admin-changelog-id">
+            <!-- 💡 กล่องคำแนะนำการตั้งเลขเวอร์ชัน -->
+            <div style="background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 8px; padding: 12px; margin-bottom: 15px; font-size: 0.8rem; color: #0369a1; line-height: 1.5;">
+                <b style="font-size: 0.85rem; display:flex; align-items:center; gap:5px;">💡 แนวทางการตั้งเลขเวอร์ชัน (Semantic Versioning)</b>
+                ระบบใช้รูปแบบ <b>v[MAJOR].[MINOR].[PATCH]</b> (เช่น v1.2.0) โดยมีหลักการเพิ่มเลขดังนี้:
+                <ul style="margin: 5px 0 0 0; padding-left: 20px;">
+                    <li><b>PATCH (ตัวท้าย):</b> เมื่อแก้ไขบั๊ก ปรับหน้าตาเล็กน้อย โดยไม่มีฟีเจอร์ใหม่ <i>(เช่น 1.2.0 ➡️ 1.2.1)</i></li>
+                    <li><b>MINOR (ตัวกลาง):</b> เมื่อเพิ่มฟีเจอร์ใหม่ๆ แต่ฟีเจอร์เดิมยังใช้งานได้ปกติ <i>(เช่น 1.2.1 ➡️ 1.3.0) *เลขตัวท้ายกลับไปเริ่ม 0</i></li>
+                    <li><b>MAJOR (ตัวหน้า):</b> เมื่อเปลี่ยนโครงสร้างใหญ่ รื้อระบบใหม่ หรือวิธีใช้งานเปลี่ยนไปจากเดิม <i>(เช่น 1.3.0 ➡️ 2.0.0)</i></li>
+                </ul>
+            </div>
             <div style="display:flex; gap:10px; margin-bottom:10px;">
                 <div style="flex:1;">
                     <label style="font-size:0.85rem; font-weight:bold;">เลขเวอร์ชัน (เช่น v1.2.0)</label>
