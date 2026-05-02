@@ -1597,11 +1597,8 @@ async function fetchLogs() {
     }
 
     async function fetchGenerics() {
-        allGenerics = await fetchMasterDataWithCache(
-            'generics', 
-            'generic_name', 
-            '*, generic_pharm_mapping(class_name), drug_contents(drug_code)' // 👈 Join ตาราง mapping มาด้วย
-        );
+        // ดึงแค่ข้อมูลกลุ่มยา ส่วนจำนวนยาเดี๋ยวเราไปนับสดๆ จากหน้าเว็บแทน
+        allGenerics = await fetchMasterDataWithCache('generics', 'generic_name', '*, generic_pharm_mapping(class_name)');
         if (typeof filterMasterGenericList === 'function') filterMasterGenericList();
     }
 
@@ -2327,8 +2324,10 @@ async function fetchLogs() {
             const sName = encodeHTML(g.generic_name);
             const pharmCount = (g.generic_pharm_mapping || []).length;
             
-            // 🌟 นับจำนวนยาหลักที่ใช้ยาสามัญตัวนี้เป็นส่วนประกอบ
-            const drugCount = (g.drug_contents || []).length; 
+            // 🌟 แก้ไข: ให้นับจำนวนยาจาก allDrugsRaw (นับเฉพาะยาที่ Active และโชว์บนเว็บจริงๆ)
+            const drugCount = allDrugsRaw.filter(d => 
+                (d.drug_contents || []).some(c => (c.generics?.generic_code === sCode) || (c.generic_code === sCode))
+            ).length;
     
             const gType = (g.generic_type || 'drug').toLowerCase();
             const isDrug = gType === 'drug';
@@ -2346,7 +2345,7 @@ async function fetchLogs() {
     
             return `<div class="list-item" style="border-left: 4px solid ${leftBorder}; flex-wrap:wrap; gap:10px;">
                         <div style="flex:1;">
-                            <span style="color:${typeColor}; font-weight:bold;">${g.generic_name}</span> 
+                            <span style="color:${typeColor}; font-weight:bold;">${sName}</span> 
                             ${typeBadge} ${adjBadge}
                             <br>
                             <small style="color:gray;">
