@@ -90,6 +90,19 @@
             70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
             100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
         }
+
+        .badge-new-active {
+            background: linear-gradient(135deg, #3b82f6, #06b6d4);
+            color: white;
+            border: 1px solid #bfdbfe;
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+            animation: pulse-blue 2s infinite;
+        }
+        @keyframes pulse-blue {
+            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.6); }
+            70% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
         
         .me-btn-alert {
             background: var(--danger);
@@ -210,7 +223,10 @@
                 <button class="btn btn-outline btn-sm" id="btn-toggle-all" onclick="toggleAllCards()" style="background:#f8fafc; border-color:#cbd5e1; color:#475569; white-space: nowrap; flex-shrink: 0;">🔽 ขยาย</button>
             </div>
             
-            <label id="admin-view-all-label" class="hidden" style="font-size:0.85rem; color:var(--danger); font-weight:bold; cursor:pointer; background:#fee2e2; padding:4px 10px; border-radius:8px; display:inline-flex; align-items:center; margin-left:auto;">
+            <div id="admin-quick-filters" class="hidden" style="display:flex; gap:8px; align-items:center; margin-left:auto;">
+                <button id="btn-filter-new" class="btn btn-sm" style="background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; font-weight:bold;" onclick="toggleFilterNew()">🆕 เฉพาะยาเปิดใหม่</button>
+                
+                <label style="font-size:0.85rem; color:var(--danger); font-weight:bold; cursor:pointer; background:#fee2e2; padding:4px 10px; border-radius:8px; display:inline-flex; align-items:center;">
                 <input type="checkbox" id="admin-view-all-cb" class="admin-bypass-cb" onchange="updateBaseVisibilityAndFilter()"> 👁️ โชว์ยาทุก Status
             </label>
         </div>
