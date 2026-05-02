@@ -796,9 +796,15 @@
                 </div>
             </div>
             
-            <div style="background:white; border:1px solid #86efac; padding:10px; border-radius:8px; text-align:center;">
-                <span style="font-size:0.85rem; color:#15803d; font-weight:bold;">💧 เติมน้ำให้ได้ปริมาตรรวม</span><br>
-                <b id="nutri-res-vol" style="font-size:1.2rem; color:var(--dark);"> - </b> <small>ml</small>
+            <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
+                <div style="background:white; border:1px solid #86efac; padding:10px; border-radius:8px; flex:1; text-align:center;">
+                    <span style="font-size:0.85rem; color:#15803d; font-weight:bold;">💧 เติมน้ำให้ได้ปริมาตร</span><br>
+                    <b id="nutri-res-vol" style="font-size:1.2rem; color:var(--dark);"> - </b> <small>ml</small>
+                </div>
+                <div style="background:#fffbeb; border:1px solid #fde68a; padding:10px; border-radius:8px; flex:1; text-align:center;">
+                    <span style="font-size:0.85rem; color:#d97706; font-weight:bold;">⚡ พลังงานต่อมื้อ</span><br>
+                    <b id="nutri-res-kcal" style="font-size:1.2rem; color:var(--danger);"> - </b> <small>kcal</small>
+                </div>
             </div>
 
             <div id="nutri-res-macros" style="display:flex; justify-content:space-between; margin-top:10px; background:white; padding:10px; border-radius:8px; border:1px solid #bbf7d0;">
@@ -3111,9 +3117,11 @@
         document.getElementById('nutri-res-scoop').innerText = '-';
         document.getElementById('nutri-res-gram').innerText = '-';
         document.getElementById('nutri-res-vol').innerText = '-';
+        document.getElementById('nutri-res-kcal').innerText = '-';
         document.getElementById('nutri-res-protein').innerText = '-';
         document.getElementById('nutri-res-carb').innerText = '-';
         document.getElementById('nutri-res-fat').innerText = '-';
+        
         
         // แสดง Note ถ้ามี
         const noteEl = document.getElementById('nutri-res-note');
@@ -3148,12 +3156,13 @@
         const elScoop = document.getElementById('nutri-res-scoop');
         const elGram = document.getElementById('nutri-res-gram');
         const elVol = document.getElementById('nutri-res-vol');
+        const elKcal = document.getElementById('nutri-res-kcal');
         const elPro = document.getElementById('nutri-res-protein');
         const elCarb = document.getElementById('nutri-res-carb');
         const elFat = document.getElementById('nutri-res-fat');
     
         if (isNaN(volume) || volume <= 0 || isNaN(targetKcalPerMl) || targetKcalPerMl <= 0) {
-            elScoop.innerText = '-'; elGram.innerText = '-'; elVol.innerText = '-';
+            elScoop.innerText = '-'; elGram.innerText = '-'; elVol.innerText = '-'; elKcal.innerText = '-';
             elPro.innerText = '-'; elCarb.innerText = '-'; elFat.innerText = '-'; // เคลียร์
             return;
         }
@@ -3171,6 +3180,7 @@
         elScoop.innerText = totalScoops.toFixed(1); // ปัด 1 ตำแหน่งให้ตวงช้อนง่าย
         elGram.innerText = totalGrams.toFixed(1);
         elVol.innerText = volume;
+        elKcal.innerText = Math.round(totalKcal);
 
         // 🌟 4. คำนวณ Macronutrients โดยอิงจาก totalKcal
         const multiplier = totalKcal / 100;
