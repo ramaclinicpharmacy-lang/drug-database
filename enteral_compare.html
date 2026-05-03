@@ -1,1 +1,313 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เปรียบเทียบอาหารทางการแพทย์ (Enteral Nutrition) | Rama Clinic DB</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary: #2563eb; --success: #10b981; --warning: #f59e0b; --danger: #ef4444; --dark: #1e293b; --bg: #f8fafc; }
+        body { font-family: 'Sarabun', sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: var(--dark); }
+        .container { max-width: 1200px; margin: auto; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .btn { padding: 8px 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; font-family: inherit; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-outline { background: white; border: 1px solid #cbd5e1; color: var(--dark); }
+        
+        .selector-box { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .chip-container { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .chip-container input[type="checkbox"] { display: none; }
+        .chip-container label { padding: 6px 15px; border: 2px solid #e2e8f0; border-radius: 20px; cursor: pointer; font-size: 0.9rem; transition: 0.3s; background: white; }
+        .chip-container input[type="checkbox"]:checked + label { background: #e0e7ff; border-color: var(--primary); color: var(--primary); font-weight: bold; }
+        
+        .compare-table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .compare-table th, .compare-table td { padding: 12px 15px; border: 1px solid #e2e8f0; text-align: center; }
+        .compare-table th { background: #f1f5f9; position: sticky; top: 0; font-size: 1rem; }
+        .compare-table .row-header { text-align: left; font-weight: bold; background: #f8fafc; position: sticky; left: 0; z-index: 2; }
+        .compare-table .category-header { background: #e2e8f0; font-weight: bold; text-align: left; padding: 8px 15px; color: var(--primary); font-size: 1.1rem; }
+        
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: white; margin: 5% auto; padding: 25px; border-radius: 12px; width: 90%; max-width: 650px; max-height: 85vh; overflow-y: auto; }
+        
+        .json-group { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+        .json-item { display: flex; gap: 10px; margin-bottom: 10px; }
+        .json-item input { flex: 1; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <h2 style="margin:0; color:#4338ca;">📊 เปรียบเทียบอาหารทางการแพทย์ <small style="color:gray; font-size:1rem;">(ต่อ 100 kcal)</small></h2>
+            <button class="btn btn-outline" onclick="window.close()">ปิดหน้าต่างนี้</button>
+        </div>
 
+        <div class="selector-box">
+            <b>☑️ เลือกสูตรที่ต้องการเปรียบเทียบ:</b>
+            <div id="product-selector" class="chip-container">
+                <div style="color:gray; font-size:0.9rem;">กำลังโหลดข้อมูลผลิตภัณฑ์...</div>
+            </div>
+        </div>
+
+        <div style="overflow-x: auto; border-radius: 12px;">
+            <table class="compare-table" id="compare-table">
+                <!-- ตารางเปรียบเทียบจะถูกสร้างที่นี่ -->
+            </table>
+        </div>
+    </div>
+
+    <!-- 🛠️ Modal ฝั่ง Admin สำหรับเพิ่ม/แก้สารอาหาร -->
+    <div id="admin-modal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-top:0; color:var(--primary);">🛠️ จัดการสารอาหาร: <span id="admin-drug-name"></span></h3>
+            <input type="hidden" id="admin-drug-code">
+            
+            <div class="json-group">
+                <div style="font-weight:bold; margin-bottom:10px; color:#c2410c;">🥩 Macronutrients (คาร์บ/โปรตีน/ไขมัน)</div>
+                <div id="admin-macros-list"></div>
+                <button class="btn btn-sm btn-outline" onclick="addJsonItem('admin-macros-list')">+ เพิ่ม Macronutrient</button>
+            </div>
+
+            <div class="json-group">
+                <div style="font-weight:bold; margin-bottom:10px; color:#047857;">💊 Vitamins (วิตามิน)</div>
+                <div id="admin-vitamins-list"></div>
+                <button class="btn btn-sm btn-outline" onclick="addJsonItem('admin-vitamins-list')">+ เพิ่ม Vitamin</button>
+            </div>
+
+            <div class="json-group">
+                <div style="font-weight:bold; margin-bottom:10px; color:#0369a1;">🧂 Minerals & Trace Elements (แร่ธาตุ)</div>
+                <div id="admin-minerals-list"></div>
+                <button class="btn btn-sm btn-outline" onclick="addJsonItem('admin-minerals-list')">+ เพิ่ม Mineral</button>
+            </div>
+
+            <div class="json-group">
+                <div style="font-weight:bold; margin-bottom:10px; color:#6d28d9;">✨ Special Ingredients (ส่วนผสมพิเศษอื่นๆ)</div>
+                <div id="admin-specials-list"></div>
+                <button class="btn btn-sm btn-outline" onclick="addJsonItem('admin-specials-list')">+ เพิ่มส่วนผสมพิเศษ</button>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn btn-success" style="flex:2;" onclick="saveNutrientData()">💾 บันทึกข้อมูลสารอาหาร</button>
+                <button class="btn btn-outline" style="flex:1;" onclick="document.getElementById('admin-modal').style.display='none'">ยกเลิก</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let isAdmin = false;
+        let allEnteralDrugs = [];
+        let nutrientsData = {}; // key: drug_code, value: DB Row
+
+        async function init() {
+            // เช็ก Auth (ถ้าเข้าผ่านเครื่องเดิมที่เคย Login จะรู้ว่าเป็น Admin ทันที)
+            const { data: { session } } = await supabase.auth.getSession();
+            isAdmin = !!session;
+
+            await fetchEnteralDrugs();
+            await fetchNutrients();
+            renderSelectors();
+            autoSelectFromUrl();
+        }
+
+        // ดึงเฉพาะยาที่เป็น Enteral Nutrition หรือมีการผูก Nutrition Config ไว้
+        async function fetchEnteralDrugs() {
+            const { data, error } = await supabase.from('drugs')
+                .select('drug_code, drug_name, drug_type, nutrition_configs(product_type)')
+                .eq('is_active', true);
+            
+            if (data) {
+                allEnteralDrugs = data.filter(d => 
+                    (d.drug_type && d.drug_type.toLowerCase().includes('enteral')) || 
+                    (d.nutrition_configs && d.nutrition_configs.length > 0)
+                ).sort((a,b) => a.drug_name.localeCompare(b.drug_name));
+            }
+        }
+
+        // ดึงข้อมูลสารอาหารเชิงลึก
+        async function fetchNutrients() {
+            const codes = allEnteralDrugs.map(d => d.drug_code);
+            if(codes.length === 0) return;
+
+            const { data, error } = await supabase.from('enteral_nutrients').select('*').in('drug_code', codes);
+            if (data) {
+                data.forEach(row => {
+                    nutrientsData[row.drug_code] = row;
+                });
+            }
+        }
+
+        // วาด Checkbox ให้ User เลือกเปิด/ปิด ยาที่จะเทียบ
+        function renderSelectors() {
+            const container = document.getElementById('product-selector');
+            if (allEnteralDrugs.length === 0) {
+                container.innerHTML = '<div style="color:red;">ไม่พบรายการอาหารทางการแพทย์ในระบบ</div>';
+                return;
+            }
+
+            container.innerHTML = allEnteralDrugs.map((d, idx) => `
+                <input type="checkbox" id="sel-${d.drug_code}" class="product-cb" value="${d.drug_code}" onchange="renderTable()">
+                <label for="sel-${d.drug_code}">${d.drug_name}</label>
+            `).join('');
+        }
+
+        // ดึงพารามิเตอร์จาก URL เผื่อเปิดมาจากหน้าการ์ดยา ให้ติ๊กถูกอันนั้นอัตโนมัติ
+        function autoSelectFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const focusCode = params.get('code');
+            if (focusCode) {
+                // ค้นหาว่าชื่อหรือโค้ดตรงไหม
+                const match = allEnteralDrugs.find(d => d.drug_code === focusCode || d.drug_name.includes(focusCode));
+                if (match) {
+                    const cb = document.getElementById('sel-' + match.drug_code);
+                    if(cb) cb.checked = true;
+                }
+            }
+            renderTable();
+        }
+
+        // ----------------------------------------------------------------
+        // 📊 วาดตารางเปรียบเทียบ (Dynamic JSON Table)
+        // ----------------------------------------------------------------
+        function renderTable() {
+            const selectedCodes = Array.from(document.querySelectorAll('.product-cb:checked')).map(cb => cb.value);
+            const table = document.getElementById('compare-table');
+
+            if (selectedCodes.length === 0) {
+                table.innerHTML = '<tr><td style="padding:40px; color:gray;">👆 กรุณาเลือกสูตรอาหารด้านบนอย่างน้อย 1 รายการเพื่อเริ่มเปรียบเทียบ</td></tr>';
+                return;
+            }
+
+            const drugsToCompare = allEnteralDrugs.filter(d => selectedCodes.includes(d.drug_code));
+            
+            // 1. วาด Header (ชื่อผลิตภัณฑ์)
+            let html = `<thead><tr>
+                            <th style="width: 250px; text-align:left;">รายการสารอาหาร <br><small style="color:gray;">(ต่อ 100 kcal)</small></th>`;
+            
+            drugsToCompare.forEach(d => {
+                const adminBtn = isAdmin ? `<br><button class="btn btn-sm btn-outline" style="margin-top:5px; font-size:0.75rem;" onclick="openAdminModal('${d.drug_code}', '${d.drug_name.replace(/'/g, "\\'")}')">🛠️ แก้ไขสารอาหาร</button>` : '';
+                html += `<th><b style="color:var(--primary); font-size:1.1rem;">${d.drug_name}</b>${adminBtn}</th>`;
+            });
+            html += `</tr></thead><tbody>`;
+
+            // Helper function สำหรับวาดกลุ่มสารอาหาร
+            const buildCategoryRows = (categoryKey, categoryName) => {
+                // กวาด Key (ชื่อสารอาหาร) ทั้งหมดที่มีในกลุ่มนี้จากทุกยาที่เลือก
+                const allKeys = new Set();
+                drugsToCompare.forEach(d => {
+                    const nutri = nutrientsData[d.drug_code];
+                    if (nutri && nutri[categoryKey]) {
+                        Object.keys(nutri[categoryKey]).forEach(k => allKeys.add(k));
+                    }
+                });
+
+                if (allKeys.size === 0) return ''; // ถ้าไม่มีสารอาหารกลุ่มนี้เลย ให้ข้ามไป
+
+                let catHtml = `<tr><td colspan="${drugsToCompare.length + 1}" class="category-header">${categoryName}</td></tr>`;
+                
+                // นำ Key มาเรียงลำดับตัวอักษร
+                Array.from(allKeys).sort().forEach(key => {
+                    catHtml += `<tr><td class="row-header">${key}</td>`;
+                    
+                    drugsToCompare.forEach(d => {
+                        const nutri = nutrientsData[d.drug_code];
+                        const val = (nutri && nutri[categoryKey] && nutri[categoryKey][key] !== undefined) ? nutri[categoryKey][key] : '-';
+                        catHtml += `<td>${val}</td>`;
+                    });
+                    
+                    catHtml += `</tr>`;
+                });
+                return catHtml;
+            };
+
+            html += buildCategoryRows('macros', '🥩 Macronutrients');
+            html += buildCategoryRows('vitamins', '💊 Vitamins');
+            html += buildCategoryRows('minerals', '🧂 Minerals & Trace Elements');
+            html += buildCategoryRows('specials', '✨ Special Ingredients');
+
+            html += `</tbody>`;
+            table.innerHTML = html;
+        }
+
+        // ----------------------------------------------------------------
+        // 🛠️ ฝั่ง Admin: จัดการข้อมูล JSONB
+        // ----------------------------------------------------------------
+        function openAdminModal(code, name) {
+            document.getElementById('admin-drug-code').value = code;
+            document.getElementById('admin-drug-name').innerText = name;
+
+            const nutri = nutrientsData[code] || {};
+            
+            buildAdminJsonList('admin-macros-list', nutri.macros || {});
+            buildAdminJsonList('admin-vitamins-list', nutri.vitamins || {});
+            buildAdminJsonList('admin-minerals-list', nutri.minerals || {});
+            buildAdminJsonList('admin-specials-list', nutri.specials || {});
+
+            document.getElementById('admin-modal').style.display = 'block';
+        }
+
+        function buildAdminJsonList(containerId, jsonObj) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            Object.entries(jsonObj).forEach(([key, val]) => {
+                addJsonItem(containerId, key, val);
+            });
+        }
+
+        function addJsonItem(containerId, key = '', val = '') {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = 'json-item';
+            div.innerHTML = `
+                <input type="text" placeholder="ชื่อสารอาหาร (เช่น Protein (g))" value="${key}" class="key-input">
+                <input type="text" placeholder="ปริมาณ" value="${val}" class="val-input">
+                <button class="btn btn-outline" style="color:red; border-color:red; padding:8px;" onclick="this.parentElement.remove()">🗑️</button>
+            `;
+            container.appendChild(div);
+        }
+
+        function extractJsonData(containerId) {
+            const container = document.getElementById(containerId);
+            const obj = {};
+            container.querySelectorAll('.json-item').forEach(item => {
+                const k = item.querySelector('.key-input').value.trim();
+                const v = item.querySelector('.val-input').value.trim();
+                if (k) obj[k] = isNaN(v) || v === '' ? v : parseFloat(v); // เก็บเป็นตัวเลขถ้าทำได้
+            });
+            return obj;
+        }
+
+        async function saveNutrientData() {
+            const code = document.getElementById('admin-drug-code').value;
+            
+            const payload = {
+                drug_code: code,
+                macros: extractJsonData('admin-macros-list'),
+                vitamins: extractJsonData('admin-vitamins-list'),
+                minerals: extractJsonData('admin-minerals-list'),
+                specials: extractJsonData('admin-specials-list'),
+                updated_at: new Date().toISOString()
+            };
+
+            const { error } = await supabase.from('enteral_nutrients').upsert(payload);
+            
+            if (error) {
+                alert("❌ เกิดข้อผิดพลาด: " + error.message);
+            } else {
+                nutrientsData[code] = payload; // อัปเดต State ในหน้าจอ
+                document.getElementById('admin-modal').style.display = 'none';
+                renderTable(); // วาดตารางใหม่ทันที
+                alert("✅ บันทึกข้อมูลสำเร็จ");
+            }
+        }
+
+        // เริ่มการทำงาน
+        init();
+    </script>
+</body>
+</html>
