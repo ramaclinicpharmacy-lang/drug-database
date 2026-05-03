@@ -307,7 +307,7 @@
             }
         }
 
-        // 5. วาดตารางเปรียบเทียบ (แสดงแค่ Generic เพียวๆ)
+        // 5. วาดตารางเปรียบเทียบ (แสดงแค่ Generic และปริมาณ)
         function renderTable() {
             const table = document.getElementById('compare-table');
             
@@ -318,7 +318,7 @@
 
             const drugsToCompare = selectedDrugCodes.map(code => detailedDrugCache[code]).filter(Boolean);
 
-            // 🟢 ส่วนที่ 1: วาดหัวตาราง (แสดงชื่อยา)
+            // 🟢 1. วาดหัวตาราง (รายชื่อยา)
             let html = `<thead><tr><th style="width: 250px; text-align:left;">รายการ / ตัวยาสำคัญ</th>`;
             
             drugsToCompare.forEach(d => {
@@ -333,7 +333,7 @@
             });
             html += `</tr></thead><tbody>`;
 
-            // 🟢 ส่วนที่ 2: รวบรวมชื่อ Generic ทั้งหมดจากยาทุกตัวที่เลือกมา
+            // 🟢 2. รวบรวมชื่อ Generic ทั้งหมดที่ไม่ซ้ำกัน
             const allGenerics = new Set();
             drugsToCompare.forEach(d => {
                 if (d.drug_contents) {
@@ -347,13 +347,14 @@
 
             const sortedGenerics = Array.from(allGenerics).sort();
 
-            // 🟢 ส่วนที่ 3: วาดแถวเนื้อหาตาราง (แสดงปริมาณ Generic)
+            // 🟢 3. สร้างแถวและดึงปริมาณมาใส่ (ส่วนที่ตกหล่นอยู่ตรงนี้ครับ 👇)
             if (sortedGenerics.length === 0) {
                 html += `<tr><td colspan="${drugsToCompare.length + 1}" style="text-align:center; color:gray; padding:20px;">ไม่มีข้อมูลตัวยาสำคัญ (ส่วนผสม) ในระบบ</td></tr>`;
             } else {
                 sortedGenerics.forEach(genName => {
                     html += `<tr><td class="row-header" style="color:#0284c7;">${genName}</td>`;
                     
+                    // วนลูปหายาแต่ละตัว ว่ามี Generic ตัวนี้ไหม ถ้ามีให้แสดง Amount + Unit
                     drugsToCompare.forEach(d => {
                         let cellVal = '-';
                         if (d.drug_contents) {
@@ -365,13 +366,14 @@
                                 
                                 const combinedStr = `${amt} ${unit}`.trim();
                                 
-                                // ถ้ามีข้อมูลตัวเลขหรือหน่วยให้แสดง ถ้าว่างเปล่าให้แสดง '✅ มีส่วนผสม'
+                                // ถ้ามีข้อมูลตัวเลขหรือหน่วยให้แสดง ถ้าว่างเปล่า (เป็น Null ทั้งคู่) ให้แสดงคำว่า '✅ มีส่วนผสม' แทน
                                 cellVal = combinedStr !== '' ? combinedStr : '✅ มีส่วนผสม';
                             }
                         }
-                        // จัดตัวเลขชิดขวา
-                        html += `<td style="text-align: right; padding-right: 25px; font-weight: bold; color: var(--dark);">${cellVal}</td>`;
+                        // จัดชิดขวาและเปลี่ยนสีตัวหนังสือให้ดูง่าย
+                        html += `<td style="text-align: right; padding-right: 25px; font-weight: bold; color: var(--primary);">${cellVal}</td>`;
                     });
+                    
                     html += `</tr>`;
                 });
             }
