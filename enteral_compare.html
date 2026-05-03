@@ -40,7 +40,7 @@
 <body>
     <div class="container">
         <div class="header-bar">
-            <h2 style="margin:0; color:#4338ca;">📊 เปรียบเทียบอาหารทางการแพทย์ <small style="color:gray; font-size:1rem;">(ต่อ 100 kcal)</small></h2>
+            <h2 style="margin:0; color:#4338ca;">📊 เปรียบเทียบอาหารทางการแพทย์</h2>
             <div style="display: flex; gap: 10px;">
                 <button class="btn btn-outline" style="border-color: var(--primary); color: var(--primary);" onclick="window.location.href='index.html'">🏠 กลับหน้าหลัก</button>
                 <button class="btn btn-outline" style="border-color: var(--danger); color: var(--danger);" onclick="window.close()">❌ ปิดหน้าต่างนี้</button>
@@ -48,10 +48,23 @@
         </div>
 
         <div class="selector-box">
+            <!-- 🌟 ส่วนปรับ Kcal ของผู้ใช้ (User Scale) -->
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom: 15px; background:#eff6ff; padding:12px; border-radius:8px; border:1px solid #bfdbfe;">
+                <b style="color:#1e40af;">📐 แสดงผลเทียบต่อปริมาณพลังงาน:</b>
+                <input type="number" id="compare-base-kcal" value="100" style="width:100px; margin:0; padding:6px; border:1px solid #93c5fd; border-radius:6px;" onchange="renderTable()" onkeyup="renderTable()">
+                <span style="font-weight:bold; color:var(--dark);">kcal</span>
+            </div>
+
             <b>☑️ เลือกสูตรที่ต้องการเปรียบเทียบ:</b>
             <div id="product-selector" class="chip-container">
                 <div style="color:gray; font-size:0.9rem;">กำลังโหลดข้อมูลผลิตภัณฑ์...</div>
             </div>
+        </div>
+
+        <div style="text-align: right; margin-bottom: 10px; font-size: 0.85rem; color: gray;">
+            <b>💡 ไฮไลต์เปรียบเทียบ:</b> 
+            <span style="display:inline-block; width:12px; height:12px; background:#ecfdf5; border:1px solid #047857; margin-left:10px; vertical-align:middle;"></span> <span style="color:#047857; font-weight:bold;">ค่ามากที่สุด</span>
+            <span style="display:inline-block; width:12px; height:12px; background:#fff7ed; border:1px solid #c2410c; margin-left:10px; vertical-align:middle;"></span> <span style="color:#c2410c; font-weight:bold;">ค่าน้อยที่สุด</span>
         </div>
 
         <div style="overflow-x: auto; border-radius: 12px;">
@@ -66,6 +79,18 @@
         <div class="modal-content">
             <h3 style="margin-top:0; color:var(--primary);">🛠️ จัดการสารอาหาร: <span id="admin-drug-name"></span></h3>
             <input type="hidden" id="admin-drug-code">
+            
+            <!-- 🌟 ส่วนกรอก Kcal ตั้งต้นของ Admin -->
+            <div style="background:#e0e7ff; border:1px solid #c7d2fe; padding:15px; border-radius:8px; margin-bottom:15px;">
+                <b style="color:#4338ca;">🔢 ข้อมูลที่กรอกด้านล่างนี้ อ้างอิงจากปริมาณพลังงาน:</b>
+                <div style="display:flex; gap:10px; align-items:center; margin-top:5px;">
+                    <input type="number" id="admin-base-kcal" value="100" style="width:120px; padding:6px; border:1px solid #a5b4fc; border-radius:6px; font-weight:bold;"> 
+                    <span style="font-size:0.9rem; color:var(--dark); font-weight:bold;">kcal</span>
+                </div>
+                <div style="font-size:0.8rem; color:#475569; margin-top:5px;">
+                    * <b>ทริค:</b> ถ้าดูจากฉลากกระป๋องเขียนว่า "ต่อ 250 kcal" ให้แก้ช่องด้านบนเป็น <b>250</b> แล้วพิมพ์สารอาหารตามฉลากได้เลย <u>ระบบจะหารแปลงกลับเป็นมาตรฐานต่อ 100 kcal เพื่อเก็บลงฐานข้อมูลให้อัตโนมัติ</u>
+                </div>
+            </div>
             
             <div class="json-group">
                 <div style="font-weight:bold; margin-bottom:10px; color:#c2410c;">🥩 Macronutrients (คาร์บ/โปรตีน/ไขมัน)</div>
@@ -92,7 +117,7 @@
             </div>
 
             <div style="display:flex; gap:10px; margin-top:20px;">
-                <button class="btn btn-success" style="flex:2;" onclick="saveNutrientData()">💾 บันทึกข้อมูลสารอาหาร</button>
+                <button class="btn btn-success" style="flex:2;" onclick="saveNutrientData()">💾 บันทึกข้อมูลและแปลงเป็นต่อ 100 kcal</button>
                 <button class="btn btn-outline" style="flex:1;" onclick="document.getElementById('admin-modal').style.display='none'">ยกเลิก</button>
             </div>
         </div>
@@ -115,7 +140,6 @@
 
         async function init() {
             try {
-                // เช็ก Auth
                 const { data: { session } } = await supabaseClient.auth.getSession();
                 isAdmin = !!session;
 
@@ -189,6 +213,48 @@
         }
 
         // ----------------------------------------------------------------
+        // 🧮 ฟังก์ชันช่วยแปลง Scale ของสารอาหาร ดักจับเครื่องหมาย < >
+        // ----------------------------------------------------------------
+        function formatNutrientValue(val, scaleFactor) {
+            if (val === undefined || val === null || val === '') return { numForCompare: null, display: '-' };
+            
+            // กรณีเป็น Number ตรงๆ
+            if (typeof val === 'number') {
+                const scaled = val * scaleFactor;
+                return { 
+                    numForCompare: scaled, 
+                    display: scaled > 0 && scaled < 0.01 ? '< 0.01' : scaled.toFixed(2),
+                    isOperator: false
+                };
+            }
+
+            // กรณีเป็น String ให้ดักจับ Operator (<, >) และ ตัวเลข
+            const strVal = String(val).trim();
+            const match = strVal.match(/^([<>])?\s*([\d.]+)(.*)$/);
+            
+            if (match) {
+                const operator = match[1] || '';
+                const num = parseFloat(match[2]);
+                const unit = match[3] || '';
+                
+                if (!isNaN(num)) {
+                    const scaled = num * scaleFactor;
+                    let displayStr = '';
+                    
+                    if (operator) {
+                        displayStr = `${operator} ${scaled > 0 && scaled < 0.01 ? '0.01' : parseFloat(scaled.toFixed(4))}${unit}`;
+                        return { numForCompare: operator === '<' ? scaled - 0.0001 : scaled, display: displayStr, isOperator: true }; 
+                    } else {
+                        displayStr = `${scaled > 0 && scaled < 0.01 ? '< 0.01' : scaled.toFixed(2)}${unit}`;
+                        return { numForCompare: scaled, display: displayStr, isOperator: false };
+                    }
+                }
+            }
+            // กรณีเป็น Text ล้วน (เช่น Trace)
+            return { numForCompare: null, display: strVal, isOperator: false };
+        }
+
+        // ----------------------------------------------------------------
         // 📊 วาดตารางเปรียบเทียบ
         // ----------------------------------------------------------------
         function renderTable() {
@@ -200,10 +266,14 @@
                 return;
             }
 
+            // 🌟 ดึงค่า Base Kcal ฝั่ง User (เช่น 250) เพื่อขยายค่าที่เก็บในระบบ
+            const compareBase = parseFloat(document.getElementById('compare-base-kcal').value) || 100;
+            const scaleFactor = compareBase / 100;
+
             const drugsToCompare = allEnteralDrugs.filter(d => selectedCodes.includes(d.drug_code));
             
             let html = `<thead><tr>
-                            <th style="width: 250px; text-align:left;">รายการสารอาหาร <br><small style="color:gray;">(ต่อ 100 kcal)</small></th>`;
+                            <th style="width: 250px; text-align:left;">รายการสารอาหาร</th>`;
             
             drugsToCompare.forEach(d => {
                 const safeName = (d.drug_name || '').replace(/'/g, "\\'");
@@ -212,7 +282,6 @@
             });
             html += `</tr></thead><tbody>`;
 
-            // Helper function สำหรับวาดกลุ่มสารอาหาร (พร้อมระบบไฮไลต์สี)
             const buildCategoryRows = (categoryKey, categoryName) => {
                 const allKeys = new Set();
                 drugsToCompare.forEach(d => {
@@ -229,53 +298,48 @@
                 Array.from(allKeys).sort().forEach(key => {
                     catHtml += `<tr><td class="row-header">${key}</td>`;
                     
-                    // 🌟 1. ดึงตัวเลขทั้งหมดในแถวนี้มาเทียบหาค่า Max / Min
+                    // 🌟 หาค่ามากสุด-น้อยสุด สำหรับทำสี (ไม่เอาค่า < หรือ Text มาเทียบ)
                     let numericValues = [];
                     drugsToCompare.forEach(d => {
                         const nutri = nutrientsData[d.drug_code];
-                        let val = (nutri && nutri[categoryKey] && nutri[categoryKey][key] !== undefined && nutri[categoryKey][key] !== "") ? nutri[categoryKey][key] : '-';
-                        if (val !== '-' && (typeof val === 'number' || (!isNaN(parseFloat(val)) && isFinite(val)))) {
-                            numericValues.push(parseFloat(val));
+                        let rawVal = (nutri && nutri[categoryKey] && nutri[categoryKey][key] !== undefined && nutri[categoryKey][key] !== "") ? nutri[categoryKey][key] : '-';
+                        let parsed = formatNutrientValue(rawVal, scaleFactor);
+                        
+                        if (parsed.numForCompare !== null && !parsed.isOperator) {
+                            numericValues.push(parsed.numForCompare);
                         }
                     });
 
                     let maxVal = null;
                     let minVal = null;
-                    if (numericValues.length > 1) { // เทียบเฉพาะเมื่อมีตัวเลขตั้งแต่ 2 ค่าขึ้นไป
+                    if (numericValues.length > 1) { 
                         maxVal = Math.max(...numericValues);
                         minVal = Math.min(...numericValues);
                     }
-
-                    // 🌟 2. วาดเซลล์ทีละช่องพร้อมกำหนดสี
+                    
+                    // 🌟 วาดเซลล์ทีละช่อง
                     drugsToCompare.forEach(d => {
                         const nutri = nutrientsData[d.drug_code];
-                        let val = (nutri && nutri[categoryKey] && nutri[categoryKey][key] !== undefined && nutri[categoryKey][key] !== "") ? nutri[categoryKey][key] : '-';
+                        let rawVal = (nutri && nutri[categoryKey] && nutri[categoryKey][key] !== undefined && nutri[categoryKey][key] !== "") ? nutri[categoryKey][key] : '-';
                         
                         let tdStyle = "text-align: right; padding-right: 25px; transition: 0.3s;";
-                        
-                        if (val !== '-') {
-                            if (typeof val === 'number' || (!isNaN(parseFloat(val)) && isFinite(val))) {
-                                const num = parseFloat(val);
-                                
-                                // ไฮไลต์สีถ้าค่า Max กับ Min ไม่เท่ากัน
-                                if (maxVal !== null && minVal !== null && maxVal !== minVal) {
-                                    if (num === maxVal) {
-                                        tdStyle += " background-color: #ecfdf5; color: #047857; font-weight: bold;"; // 🟩 สีเขียว (มากสุด)
-                                    } else if (num === minVal) {
-                                        tdStyle += " background-color: #fff7ed; color: #c2410c; font-weight: bold;"; // 🟧 สีส้ม (น้อยสุด)
-                                    }
-                                }
+                        let displayVal = '-';
 
-                                // แปลงทศนิยม
-                                if (num > 0 && num < 0.01) {
-                                    val = '< 0.01';
-                                } else {
-                                    val = num.toFixed(2);
+                        if (rawVal !== '-') {
+                            const parsed = formatNutrientValue(rawVal, scaleFactor);
+                            displayVal = parsed.display;
+                            
+                            // ไฮไลต์สี
+                            if (maxVal !== null && minVal !== null && maxVal !== minVal && parsed.numForCompare !== null && !parsed.isOperator) {
+                                if (Math.abs(parsed.numForCompare - maxVal) < 0.0001) {
+                                    tdStyle += " background-color: #ecfdf5; color: #047857; font-weight: bold;"; 
+                                } else if (Math.abs(parsed.numForCompare - minVal) < 0.0001) {
+                                    tdStyle += " background-color: #fff7ed; color: #c2410c; font-weight: bold;"; 
                                 }
                             }
                         }
                         
-                        catHtml += `<td style="${tdStyle}">${val}</td>`;
+                        catHtml += `<td style="${tdStyle}">${displayVal}</td>`;
                     });
                     
                     catHtml += `</tr>`;
@@ -296,7 +360,6 @@
         // 🛠️ ฝั่ง Admin: จัดการข้อมูล JSONB และระบบ Suggestion
         // ----------------------------------------------------------------
         
-        // 🌟 อัปเดตรายการคำแนะนำจากฐานข้อมูลปัจจุบัน
         function updateSuggestionLists() {
             const getKeys = (category) => {
                 const keys = new Set();
@@ -319,8 +382,10 @@
         function openAdminModal(code, name) {
             document.getElementById('admin-drug-code').value = code;
             document.getElementById('admin-drug-name').innerText = name;
+            
+            // รีเซ็ต Base Kcal ให้เป็น 100 ทุกครั้งที่เปิด เพื่อให้ค่าที่โหลดมาแสดงอย่างถูกต้อง
+            document.getElementById('admin-base-kcal').value = '100';
 
-            // กวาดข้อมูลใน DB มาใส่ Datalist ก่อน
             updateSuggestionLists();
 
             const nutri = nutrientsData[code] || {};
@@ -344,7 +409,6 @@
         function addJsonItem(containerId, key = '', val = '') {
             const container = document.getElementById(containerId);
             
-            // 🌟 จับคู่ Input กับ Datalist ให้ถูกต้อง
             let listId = '';
             if (containerId.includes('macros')) listId = 'dl-macros';
             else if (containerId.includes('vitamins')) listId = 'dl-vitamins';
@@ -361,13 +425,35 @@
             container.appendChild(div);
         }
 
-        function extractJsonData(containerId) {
+        // 🌟 Helper: บันทึกข้อมูลและแปลงย้อนกลับเป็นต่อ 100 Kcal
+        function scaleRawValueForDB(val, scaleFactor) {
+            if (val === '') return null;
+            if (typeof val === 'number') return parseFloat((val * scaleFactor).toFixed(4));
+            
+            const strVal = String(val).trim();
+            const match = strVal.match(/^([<>])?\s*([\d.]+)(.*)$/);
+            if (match) {
+                const operator = match[1] || '';
+                const num = parseFloat(match[2]);
+                const unit = match[3] || '';
+                if (!isNaN(num)) {
+                    const scaled = num * scaleFactor;
+                    if (operator) return `${operator}${parseFloat(scaled.toFixed(4))}${unit}`;
+                    return parseFloat(scaled.toFixed(4));
+                }
+            }
+            return strVal; // ถ้าเป็น Text ล้วน ส่งกลับไปปกติ
+        }
+
+        function extractJsonData(containerId, scaleFactor) {
             const container = document.getElementById(containerId);
             const obj = {};
             container.querySelectorAll('.json-item').forEach(item => {
                 const k = item.querySelector('.key-input').value.trim();
                 const v = item.querySelector('.val-input').value.trim();
-                if (k) obj[k] = isNaN(v) || v === '' ? v : parseFloat(v);
+                if (k && v !== '') {
+                    obj[k] = scaleRawValueForDB(v, scaleFactor);
+                }
             });
             return obj;
         }
@@ -375,12 +461,16 @@
         async function saveNutrientData() {
             const code = document.getElementById('admin-drug-code').value;
             
+            // 🌟 ดึงค่า Base Kcal ที่แอดมินกรอก แล้วหาตัวหาร (Scale Factor)
+            const baseKcal = parseFloat(document.getElementById('admin-base-kcal').value) || 100;
+            const scaleFactorTo100 = 100 / baseKcal; // ตัวคูณแปลงกลับเป็นต่อ 100 kcal
+            
             const payload = {
                 drug_code: code,
-                macros: extractJsonData('admin-macros-list'),
-                vitamins: extractJsonData('admin-vitamins-list'),
-                minerals: extractJsonData('admin-minerals-list'),
-                specials: extractJsonData('admin-specials-list'),
+                macros: extractJsonData('admin-macros-list', scaleFactorTo100),
+                vitamins: extractJsonData('admin-vitamins-list', scaleFactorTo100),
+                minerals: extractJsonData('admin-minerals-list', scaleFactorTo100),
+                specials: extractJsonData('admin-specials-list', scaleFactorTo100),
                 updated_at: new Date().toISOString()
             };
 
@@ -390,17 +480,17 @@
 
             const { error } = await supabaseClient.from('enteral_nutrients').upsert(payload);
             
-            btn.innerHTML = '💾 บันทึกข้อมูลสารอาหาร';
+            btn.innerHTML = '💾 บันทึกข้อมูลและแปลงเป็นต่อ 100 kcal';
             btn.disabled = false;
 
             if (error) {
                 alert("❌ เกิดข้อผิดพลาด: " + error.message);
             } else {
-                nutrientsData[code] = payload; // อัปเดตในระบบ
-                updateSuggestionLists(); // อัปเดต List คำแนะนำทันที
+                nutrientsData[code] = payload; 
+                updateSuggestionLists(); 
                 document.getElementById('admin-modal').style.display = 'none';
                 renderTable(); 
-                alert("✅ บันทึกข้อมูลสำเร็จ");
+                alert("✅ บันทึกข้อมูลสำเร็จ ระบบได้คำนวณและจัดเก็บเป็นสัดส่วนต่อ 100 kcal เรียบร้อยแล้ว");
             }
         }
 
