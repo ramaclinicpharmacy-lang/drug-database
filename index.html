@@ -775,10 +775,13 @@
                             <label style="font-size:0.75rem; font-weight:bold;">จำนวนช้อน (Scoops)</label>
                             <input type="number" id="nutri-admin-scoops" placeholder="เช่น 7" style="margin:0;">
                         </div>
+                        
+                        <!-- 🌟 เปลี่ยนกล่องนี้ -->
                         <div style="flex:1;">
-                            <label style="font-size:0.75rem; font-weight:bold;">น้ำหนัก/ 1 ช้อน (g)</label>
-                            <input type="number" id="nutri-admin-g-scoop" placeholder="เช่น 8.5" step="0.01" style="margin:0;">
+                            <label style="font-size:0.75rem; font-weight:bold;">น้ำหนักรวมต่อมื้อ (g)</label>
+                            <input type="number" id="nutri-admin-g-serve" placeholder="เช่น 55" step="0.01" style="margin:0;">
                         </div>
+                        
                     </div>
                     <div style="display:flex; gap:10px; margin-top:10px;">
                         <div style="flex:1;">
@@ -3385,7 +3388,13 @@ async function fetchLogs() {
 
         // ฝั่งผง
         document.getElementById('nutri-admin-scoops').value = config.scoops_per_serving || '';
-        document.getElementById('nutri-admin-g-scoop').value = config.grams_per_scoop || '';
+        
+        // 🌟 ดึงน้ำหนักต่อช้อนมาคูณกับจำนวนช้อน เพื่อแสดงเป็นน้ำหนักรวม
+        const total_g = (config.scoops_per_serving && config.grams_per_scoop) 
+            ? parseFloat((config.scoops_per_serving * config.grams_per_scoop).toFixed(2)) 
+            : '';
+        document.getElementById('nutri-admin-g-serve').value = total_g;
+        
         document.getElementById('nutri-admin-powder-vol').value = config.serving_volume_ml || '';
         document.getElementById('nutri-admin-powder-kcal').value = config.serving_kcal || '';
         
@@ -3414,10 +3423,16 @@ async function fetchLogs() {
             if (isNaN(serving_vol) || isNaN(serving_kcal)) return alert('กรุณาระบุปริมาตรและพลังงานขวดให้ครบถ้วน');
         } else {
             scoops = parseFloat(document.getElementById('nutri-admin-scoops').value);
-            g_scoop = parseFloat(document.getElementById('nutri-admin-g-scoop').value);
+            const g_serve = parseFloat(document.getElementById('nutri-admin-g-serve').value); // 🌟 รับน้ำหนักรวมมา
             serving_vol = parseFloat(document.getElementById('nutri-admin-powder-vol').value);
             serving_kcal = parseFloat(document.getElementById('nutri-admin-powder-kcal').value);
-            if (isNaN(scoops) || isNaN(g_scoop) || isNaN(serving_vol) || isNaN(serving_kcal)) return alert('กรุณาระบุข้อมูลสูตรผงมาตรฐานให้ครบถ้วน');
+            
+            if (isNaN(scoops) || isNaN(g_serve) || isNaN(serving_vol) || isNaN(serving_kcal)) {
+                return alert('กรุณาระบุข้อมูลสูตรผงมาตรฐานให้ครบถ้วน');
+            }
+            
+            // 🌟 จับหารเพื่อเก็บเป็น "น้ำหนักต่อ 1 ช้อน" ลงฐานข้อมูลเดิม
+            g_scoop = parseFloat((g_serve / scoops).toFixed(4)); 
         }
 
         const protein = document.getElementById('nutri-admin-protein').value;
