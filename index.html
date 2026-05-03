@@ -820,6 +820,7 @@
             <div style="display:flex; gap:10px; margin-top:15px;">
                 <button class="btn btn-success" style="flex:2; height:42px;" onclick="saveNutriConfig()">💾 บันทึกตั้งค่า</button>
                 <button class="btn btn-outline" style="flex:1; height:42px; color:red; border-color:red;" onclick="deleteNutriConfig()">🗑️ ลบค่า</button>
+                <button class="btn" style="flex:2; height:42px; background:#6366f1; color:white;" onclick="window.open('enteral_compare.html?code=' + document.getElementById('nutri-admin-code').value, '_blank')">📊 เทียบสารอาหารเชิงลึก</button>
             </div>
         </div>
         <button class="btn btn-outline" style="width:100%; margin-top:10px; height: 42px;" onclick="closeModal('nutri-admin-modal')">ปิดหน้าต่าง</button>
@@ -899,7 +900,7 @@
             
             <div id="nutri-res-note" style="margin-top:10px; font-size:0.8rem; color:#065f46;"></div>
         </div>
-
+        <button class="btn" style="width:100%; margin-top:15px; height:42px; background:#6366f1; color:white;" onclick="window.open('enteral_compare.html?code=' + document.getElementById('nutri-calc-name').innerText, '_blank')">📊 เปรียบเทียบสารอาหารเชิงลึกกับสูตรอื่น</button>
         <button class="btn btn-outline" style="width:100%; margin-top:15px; height:42px;" onclick="closeModal('nutri-calc-modal')">ปิดหน้าต่าง</button>
     </div>
 </div>
