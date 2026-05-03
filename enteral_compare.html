@@ -95,11 +95,15 @@
         </div>
     </div>
 
-<script>
+    <!-- 🌟 Datalists สำหรับเก็บประวัติคำที่เคยพิมพ์ (Suggestion) -->
+    <datalist id="dl-macros"></datalist>
+    <datalist id="dl-vitamins"></datalist>
+    <datalist id="dl-minerals"></datalist>
+    <datalist id="dl-specials"></datalist>
+
+    <script>
         const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
-        
-        // 🌟 แก้ไข: เปลี่ยนชื่อตัวแปรจาก supabase เป็น supabaseClient เพื่อไม่ให้ชนกับไลบรารีหลัก
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         let isAdmin = false;
@@ -108,7 +112,7 @@
 
         async function init() {
             try {
-                // เช็ก Auth (ถ้าเข้าผ่านเครื่องเดิมที่เคย Login จะรู้ว่าเป็น Admin ทันที)
+                // เช็ก Auth
                 const { data: { session } } = await supabaseClient.auth.getSession();
                 isAdmin = !!session;
 
@@ -118,31 +122,26 @@
                 autoSelectFromUrl();
             } catch (err) {
                 console.error("Init Error:", err);
-                document.getElementById('product-selector').innerHTML = `<div style="color:red; font-weight:bold;">❌ โหลดข้อมูลล้มเหลว: ${err.message}</div><small style="color:gray;">ลองกด F12 เพื่อดูรายละเอียด Error ใน Console ครับ</small>`;
+                document.getElementById('product-selector').innerHTML = `<div style="color:red; font-weight:bold;">❌ โหลดข้อมูลล้มเหลว: ${err.message}</div>`;
             }
         }
 
-        // ดึงเฉพาะยาที่เป็น Enteral Nutrition หรือมีการผูก Nutrition Config ไว้
         async function fetchEnteralDrugs() {
             const { data, error } = await supabaseClient.from('drugs')
                 .select('drug_code, drug_name, drug_type, nutrition_configs(product_type)')
                 .eq('is_active', true);
             
-            if (error) throw error; // โยน Error ไปให้บล็อก try-catch จัดการ
+            if (error) throw error;
             
             if (data) {
                 allEnteralDrugs = data.filter(d => {
-                    // ป้องกัน Error กรณี drug_type เป็น null
                     const typeMatch = d.drug_type && typeof d.drug_type === 'string' && d.drug_type.toLowerCase().includes('enteral');
-                    // ป้องกัน Error กรณี nutrition_configs คืนค่าเป็น Object เดี่ยวๆ หรือ null
                     const configMatch = d.nutrition_configs && (Array.isArray(d.nutrition_configs) ? d.nutrition_configs.length > 0 : Object.keys(d.nutrition_configs).length > 0);
-                    
                     return typeMatch || configMatch;
-                }).sort((a,b) => (a.drug_name || '').localeCompare(b.drug_name || '')); // ป้องกัน Error จาก drug_name เป็น null
+                }).sort((a,b) => (a.drug_name || '').localeCompare(b.drug_name || ''));
             }
         }
 
-        // ดึงข้อมูลสารอาหารเชิงลึก
         async function fetchNutrients() {
             const codes = allEnteralDrugs.map(d => d.drug_code);
             if(codes.length === 0) return;
@@ -157,11 +156,10 @@
             }
         }
 
-        // วาด Checkbox ให้ User เลือกเปิด/ปิด ยาที่จะเทียบ
         function renderSelectors() {
             const container = document.getElementById('product-selector');
             if (allEnteralDrugs.length === 0) {
-                container.innerHTML = '<div style="color:var(--danger); font-weight:bold;">ไม่พบรายการอาหารทางการแพทย์ในระบบ (ยังไม่มียาหมวด Enteral Nutrition)</div>';
+                container.innerHTML = '<div style="color:var(--danger); font-weight:bold;">ไม่พบรายการอาหารทางการแพทย์ในระบบ</div>';
                 return;
             }
 
@@ -171,14 +169,13 @@
             `).join('');
         }
 
-        // ดึงพารามิเตอร์จาก URL เผื่อเปิดมาจากหน้าการ์ดยา ให้ติ๊กถูกอันนั้นอัตโนมัติ
         function autoSelectFromUrl() {
             const params = new URLSearchParams(window.location.search);
             const focusCode = params.get('code');
             if (focusCode) {
                 const match = allEnteralDrugs.find(d => 
                     d.drug_code === focusCode || 
-                    (d.drug_name && d.drug_name.includes(focusCode)) // ป้องกัน null
+                    (d.drug_name && d.drug_name.includes(focusCode))
                 );
                 if (match) {
                     const cb = document.getElementById('sel-' + match.drug_code);
@@ -189,20 +186,19 @@
         }
 
         // ----------------------------------------------------------------
-        // 📊 วาดตารางเปรียบเทียบ (Dynamic JSON Table)
+        // 📊 วาดตารางเปรียบเทียบ
         // ----------------------------------------------------------------
         function renderTable() {
             const selectedCodes = Array.from(document.querySelectorAll('.product-cb:checked')).map(cb => cb.value);
             const table = document.getElementById('compare-table');
 
             if (selectedCodes.length === 0) {
-                table.innerHTML = '<tr><td style="padding:40px; color:gray;">👆 กรุณาเลือกสูตรอาหารด้านบนอย่างน้อย 1 รายการเพื่อเริ่มเปรียบเทียบ</td></tr>';
+                table.innerHTML = '<tr><td style="padding:40px; color:gray; text-align:center;">👆 กรุณาเลือกสูตรอาหารด้านบนอย่างน้อย 1 รายการเพื่อเริ่มเปรียบเทียบ</td></tr>';
                 return;
             }
 
             const drugsToCompare = allEnteralDrugs.filter(d => selectedCodes.includes(d.drug_code));
             
-            // 1. วาด Header (ชื่อผลิตภัณฑ์)
             let html = `<thead><tr>
                             <th style="width: 250px; text-align:left;">รายการสารอาหาร <br><small style="color:gray;">(ต่อ 100 kcal)</small></th>`;
             
@@ -213,7 +209,6 @@
             });
             html += `</tr></thead><tbody>`;
 
-            // Helper function สำหรับวาดกลุ่มสารอาหาร
             const buildCategoryRows = (categoryKey, categoryName) => {
                 const allKeys = new Set();
                 drugsToCompare.forEach(d => {
@@ -233,7 +228,9 @@
                     drugsToCompare.forEach(d => {
                         const nutri = nutrientsData[d.drug_code];
                         const val = (nutri && nutri[categoryKey] && nutri[categoryKey][key] !== undefined && nutri[categoryKey][key] !== "") ? nutri[categoryKey][key] : '-';
-                        catHtml += `<td>${val}</td>`;
+                        
+                        // 🌟 จัดชิดขวา และเว้นระยะขอบให้สวยงาม เพื่อให้ดูทศนิยมง่าย
+                        catHtml += `<td style="text-align: right; padding-right: 25px;">${val}</td>`;
                     });
                     
                     catHtml += `</tr>`;
@@ -251,11 +248,35 @@
         }
 
         // ----------------------------------------------------------------
-        // 🛠️ ฝั่ง Admin: จัดการข้อมูล JSONB
+        // 🛠️ ฝั่ง Admin: จัดการข้อมูล JSONB และระบบ Suggestion
         // ----------------------------------------------------------------
+        
+        // 🌟 อัปเดตรายการคำแนะนำจากฐานข้อมูลปัจจุบัน
+        function updateSuggestionLists() {
+            const getKeys = (category) => {
+                const keys = new Set();
+                Object.values(nutrientsData).forEach(nutri => {
+                    if (nutri && nutri[category]) {
+                        Object.keys(nutri[category]).forEach(k => keys.add(k));
+                    }
+                });
+                return Array.from(keys).sort();
+            };
+
+            const buildOptions = (keys) => keys.map(k => `<option value="${k}">`).join('');
+
+            document.getElementById('dl-macros').innerHTML = buildOptions(getKeys('macros'));
+            document.getElementById('dl-vitamins').innerHTML = buildOptions(getKeys('vitamins'));
+            document.getElementById('dl-minerals').innerHTML = buildOptions(getKeys('minerals'));
+            document.getElementById('dl-specials').innerHTML = buildOptions(getKeys('specials'));
+        }
+
         function openAdminModal(code, name) {
             document.getElementById('admin-drug-code').value = code;
             document.getElementById('admin-drug-name').innerText = name;
+
+            // กวาดข้อมูลใน DB มาใส่ Datalist ก่อน
+            updateSuggestionLists();
 
             const nutri = nutrientsData[code] || {};
             
@@ -277,10 +298,18 @@
 
         function addJsonItem(containerId, key = '', val = '') {
             const container = document.getElementById(containerId);
+            
+            // 🌟 จับคู่ Input กับ Datalist ให้ถูกต้อง
+            let listId = '';
+            if (containerId.includes('macros')) listId = 'dl-macros';
+            else if (containerId.includes('vitamins')) listId = 'dl-vitamins';
+            else if (containerId.includes('minerals')) listId = 'dl-minerals';
+            else if (containerId.includes('specials')) listId = 'dl-specials';
+
             const div = document.createElement('div');
             div.className = 'json-item';
             div.innerHTML = `
-                <input type="text" placeholder="ชื่อสารอาหาร (เช่น Protein (g))" value="${key}" class="key-input">
+                <input type="text" placeholder="ชื่อสารอาหาร" value="${key}" class="key-input" list="${listId}">
                 <input type="text" placeholder="ปริมาณ" value="${val}" class="val-input">
                 <button class="btn btn-outline" style="color:red; border-color:red; padding:8px;" onclick="this.parentElement.remove()">🗑️</button>
             `;
@@ -293,7 +322,7 @@
             container.querySelectorAll('.json-item').forEach(item => {
                 const k = item.querySelector('.key-input').value.trim();
                 const v = item.querySelector('.val-input').value.trim();
-                if (k) obj[k] = isNaN(v) || v === '' ? v : parseFloat(v); // เก็บเป็นตัวเลขถ้าทำได้
+                if (k) obj[k] = isNaN(v) || v === '' ? v : parseFloat(v);
             });
             return obj;
         }
@@ -322,14 +351,14 @@
             if (error) {
                 alert("❌ เกิดข้อผิดพลาด: " + error.message);
             } else {
-                nutrientsData[code] = payload; // อัปเดต State ในหน้าจอ
+                nutrientsData[code] = payload; // อัปเดตในระบบ
+                updateSuggestionLists(); // อัปเดต List คำแนะนำทันที
                 document.getElementById('admin-modal').style.display = 'none';
-                renderTable(); // วาดตารางใหม่ทันที
+                renderTable(); 
                 alert("✅ บันทึกข้อมูลสำเร็จ");
             }
         }
 
-        // เริ่มการทำงาน
         init();
     </script>
 </body>
