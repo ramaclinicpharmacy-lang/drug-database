@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>tเปรียบเทียบอาหารทางการแพทย์ (Enteral Nutrition) | Rama Clinic DB</title>
+    <title>sเปรียบเทียบอาหารทางการแพทย์ (Enteral Nutrition) | Rama Clinic DB</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -25,7 +25,7 @@
         
         .compare-table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         .compare-table th, .compare-table td { padding: 12px 15px; border: 1px solid #e2e8f0; text-align: center; }
-        .compare-table th { background: #f1f5f9; position: sticky; top: 0; font-size: 1rem; }
+        .compare-table th { background: #f1f5f9; position: sticky; top: 0; font-size: 1rem; z-index: 10; } /* 🌟 เติม z-index: 10 ให้หัวตารางอยู่บนสุด */
         .compare-table .row-header { text-align: left; font-weight: bold; background: #f8fafc; position: sticky; left: 0; z-index: 2; }
         .compare-table tr:hover td { background-color: #e0e7ff !important; }
         .compare-table .category-header { background: #e2e8f0; font-weight: bold; text-align: left; padding: 8px 15px; color: var(--primary); font-size: 1.1rem; }
@@ -37,20 +37,22 @@
         .json-item { display: flex; gap: 10px; margin-bottom: 10px; }
         .json-item input { flex: 1; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; }
 
-        /* 🌟 Custom Tooltip (เด้งทันทีที่เอาเมาส์ชี้) */
+        /* 🌟 Custom Tooltip (ปรับให้เด้งลงด้านล่างแทน จะได้ไม่โดนขอบตารางบัง) */
         .tooltip {
             position: relative; display: inline-block; cursor: help;
             border-bottom: 1px dashed var(--primary); color: var(--primary); font-size: 1.1rem; font-weight: bold; padding-bottom: 2px;
         }
+        .tooltip:hover { z-index: 9999; }
         .tooltip .tooltiptext {
             visibility: hidden; width: 250px; background-color: #1e293b; color: #fff; text-align: left;
-            border-radius: 8px; padding: 10px; position: absolute; z-index: 1000; bottom: 125%; left: 50%;
+            border-radius: 8px; padding: 10px; position: absolute; z-index: 9999; 
+            top: 125%; left: 50%; /* 🌟 เปลี่ยนเป็น top ให้ห้อยลงมาข้างล่าง */
             margin-left: -125px; opacity: 0; transition: opacity 0.2s, visibility 0.2s;
-            font-size: 0.85rem; font-weight: normal; line-height: 1.4; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            font-size: 0.85rem; font-weight: normal; line-height: 1.4; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
         .tooltip .tooltiptext::after {
-            content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px;
-            border-width: 5px; border-style: solid; border-color: #1e293b transparent transparent transparent;
+            content: ""; position: absolute; bottom: 100%; left: 50%; margin-left: -5px; /* 🌟 ย้ายสามเหลี่ยมชี้ขึ้นด้านบน */
+            border-width: 5px; border-style: solid; border-color: transparent transparent #1e293b transparent;
         }
         .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
     
