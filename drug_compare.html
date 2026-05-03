@@ -108,13 +108,12 @@
         let detailedDrugCache = {}; // Cache เก็บข้อมูลเต็มของยา (Lazy Load)
         let selectedDrugCodes = []; // Array เก็บ drug_code ที่ผู้ใช้เลือก
 
-        // โครงสร้างหัวข้อที่ต้องการนำมาเปรียบเทียบ (สามารถเพิ่ม/ลด ได้ตาม Schema ของฐานข้อมูลจริง)
+        // โครงสร้างหัวข้อที่ต้องการนำมาเปรียบเทียบ (ปรับชื่อ key ตาม Schema ใหม่ให้เป๊ะ)
         const compareFields = [
-            { key: 'generic_name', label: 'ชื่อสามัญ (Generic)' },
-            { key: 'drug_type', label: 'ประเภทยา (Type)' },
-            { key: 'pregnancy_category', label: 'Pregnancy Cat.' }, // สมมติว่ามีฟิลด์นี้
-            { key: 'indications', label: 'ข้อบ่งใช้ (Indications)' }, // สมมติว่ามีฟิลด์นี้
-            { key: 'dosage_form', label: 'รูปแบบยา (Form)' }, // สมมติว่ามีฟิลด์นี้
+            { key: 'generic_name_display', label: 'ชื่อสามัญ (Generic)' },
+            { key: 'trade_name', label: 'ชื่อการค้า (Trade Name)' },
+            { key: 'dosage_form', label: 'รูปแบบยา (Form)' },
+            { key: 'strength', label: 'ความแรง (Strength)' },
             { key: 'special_note', label: 'Note พิเศษ' },
             { key: 'remarks', label: 'ลักษณะยา' }
         ];
@@ -124,15 +123,44 @@
             renderTable();
         }
 
-        // 1. โหลดข้อมูลพื้นฐานมาสำหรับช่องค้นหา (โหลดไว ไม่หนักเครื่อง)
+        // 1. โหลดข้อมูลพื้นฐานมาสำหรับช่องค้นหา 
         async function fetchBasicDrugList() {
             try {
+                // 🌟 โค้ดที่แก้: สั่งให้ Supabase วิ่งไปดึง generic_name ที่อยู่ลึกเข้าไป 2 ชั้น
                 const { data, error } = await supabaseClient.from('drugs')
-                    .select('drug_code, drug_name, generic_name')
+                    .select(`
+                        drug_code, 
+                        drug_name, 
+                        trade_name,
+                        drug_contents (
+                            generics (
+                                generic_name
+                            )
+                        )
+                    `)
                     .eq('is_active', true);
                 
-                if (error) throw error;
-                if (data) basicDrugList = data;
+                if (error) {
+                    document.getElementById('search-results').innerHTML = `<div style="padding:15px; color:red;">❌ โหลดข้อมูลไม่สำเร็จ: ${error.message}</div>`;
+                    document.getElementById('search-results').style.display = 'block';
+                    throw error;
+                }
+                
+                if (data) {
+                    // แปลงโครงสร้างให้ค้นหาง่ายขึ้น (ยุบ array ชื่อสามัญให้กลายเป็น String คั่นด้วย +)
+                    basicDrugList = data.map(d => {
+                        const genericsArray = d.drug_contents 
+                            ? d.drug_contents.map(content => content.generics?.generic_name).filter(Boolean)
+                            : [];
+                        
+                        return {
+                            drug_code: d.drug_code,
+                            drug_name: d.drug_name,
+                            trade_name: d.trade_name,
+                            generic_name_display: genericsArray.length > 0 ? genericsArray.join(' + ') : 'ไม่ระบุ'
+                        };
+                    });
+                }
             } catch (err) {
                 console.error("Error loading basic list:", err);
             }
@@ -151,14 +179,15 @@
             const matches = basicDrugList.filter(d => 
                 (d.drug_code && d.drug_code.toLowerCase().includes(q)) ||
                 (d.drug_name && d.drug_name.toLowerCase().includes(q)) ||
-                (d.generic_name && d.generic_name.toLowerCase().includes(q))
-            ).slice(0, 10); // จำกัดแสดงแค่ 10 รายการ
+                (d.trade_name && d.trade_name.toLowerCase().includes(q)) ||
+                (d.generic_name_display && d.generic_name_display.toLowerCase().includes(q))
+            ).slice(0, 10); 
 
             if (matches.length > 0) {
                 resultsBox.innerHTML = matches.map(d => `
                     <div class="search-item" onclick="addDrugToCompare('${d.drug_code}', '${(d.drug_name || '').replace(/'/g, "\\'")}')">
                         <b style="color:var(--primary); font-size:1.05rem;">${d.drug_name || '-'}</b>
-                        <span style="font-size:0.85rem; color:gray;">Generic: ${d.generic_name || '-'} | Code: ${d.drug_code}</span>
+                        <span style="font-size:0.85rem; color:gray;">Generic: ${d.generic_name_display} | Code: ${d.drug_code}</span>
                     </div>
                 `).join('');
                 resultsBox.style.display = 'block';
@@ -170,7 +199,6 @@
 
         // 3. เพิ่มยาเข้าตาราง (Trigger Lazy Load)
         async function addDrugToCompare(code, name) {
-            // เคลียร์ช่องค้นหา
             document.getElementById('search-input').value = '';
             document.getElementById('search-results').style.display = 'none';
 
@@ -182,9 +210,7 @@
             selectedDrugCodes.push(code);
             renderChips();
             
-            // 🌟 Lazy Loading: โหลดข้อมูลละเอียดเฉพาะตัวที่เพิ่มใหม่
             await fetchDetailedDrugData([code]);
-            
             renderTable();
         }
 
@@ -202,7 +228,6 @@
             }
 
             container.innerHTML = selectedDrugCodes.map(code => {
-                // ดึงชื่อมาจาก Cache หรือ Basic List
                 const drug = detailedDrugCache[code] || basicDrugList.find(d => d.drug_code === code) || {};
                 return `
                     <div class="chip">
@@ -215,20 +240,30 @@
 
         // 4. Lazy Loading Function
         async function fetchDetailedDrugData(codesToFetch) {
-            // กรองเฉพาะ Code ที่ยังไม่มีใน Cache
             const missingCodes = codesToFetch.filter(code => !detailedDrugCache[code]);
-            if (missingCodes.length === 0) return; // มีครบแล้ว ไม่ต้องต่อ DB
+            if (missingCodes.length === 0) return; 
 
             try {
-                // สมมติว่าดึงฟิลด์ทั้งหมด (*) หรือระบุฟิลด์ที่ต้องการ
+                // 🌟 โค้ดที่แก้: โหลดฟิลด์เชิงลึกทั้งหมด รวมถึงชื่อ generic
                 const { data, error } = await supabaseClient.from('drugs')
-                    .select('*') 
+                    .select(`
+                        *,
+                        drug_contents (
+                            generics ( generic_name )
+                        )
+                    `) 
                     .in('drug_code', missingCodes);
                 
                 if (error) throw error;
                 if (data) {
                     data.forEach(drug => {
-                        detailedDrugCache[drug.drug_code] = drug; // 🌟 เก็บเข้า Cache
+                        // ปรุงแต่ง generic_name_display ให้ตัวเต็มพร้อมใช้งานเลย
+                        const genArray = drug.drug_contents 
+                            ? drug.drug_contents.map(c => c.generics?.generic_name).filter(Boolean)
+                            : [];
+                        drug.generic_name_display = genArray.length > 0 ? genArray.join(' + ') : '-';
+                        
+                        detailedDrugCache[drug.drug_code] = drug; 
                     });
                 }
             } catch (err) {
@@ -245,12 +280,10 @@
                 return;
             }
 
-            // เตรียมข้อมูลยาที่จะแสดง (ดึงจาก Cache)
             const drugsToCompare = selectedDrugCodes.map(code => detailedDrugCache[code]).filter(Boolean);
 
             let html = `<thead><tr><th class="row-header">คุณสมบัติ</th>`;
             
-            // วาดหัวตาราง (พร้อมใส่ Event ให้กดเปิด Drug Card)
             drugsToCompare.forEach(d => {
                 html += `
                     <th>
@@ -263,13 +296,11 @@
             });
             html += `</tr></thead><tbody>`;
 
-            // วาดแถวข้อมูลตามฟิลด์ที่กำหนด
             compareFields.forEach(field => {
                 html += `<tr><td class="row-header">${field.label}</td>`;
                 
                 drugsToCompare.forEach(d => {
                     let val = d[field.key] || '-';
-                    // ป้องกัน XSS เบื้องต้นสำหรับข้อความ
                     if (typeof val === 'string') val = val.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
                     html += `<td>${val}</td>`;
                 });
@@ -287,20 +318,28 @@
             if (!drug) return;
 
             document.getElementById('card-drug-name').innerText = drug.drug_name || 'ไม่ระบุชื่อการค้า';
-            document.getElementById('card-generic-name').innerText = drug.generic_name || 'ไม่ระบุชื่อสามัญ';
+            document.getElementById('card-generic-name').innerText = drug.generic_name_display || 'ไม่ระบุชื่อสามัญ';
 
-            // จัดเรียงข้อมูลใส่ Card (โชว์ฟิลด์สำคัญทั้งหมดที่ดึงมา)
             let bodyHtml = '';
             
+            // ปรับแก้คอลัมน์ให้อิงตามที่มีในตาราง drugs จริง
             const cardFields = [
                 { k: 'drug_code', label: 'รหัสยา (Code)' },
-                { k: 'drug_type', label: 'ประเภทยา' },
-                { k: 'generic_name', label: 'ชื่อสามัญ' },
-                { k: 'indications', label: 'ข้อบ่งใช้' },
-                { k: 'pregnancy_category', label: 'Pregnancy Category' },
+                { k: 'trade_name', label: 'ชื่อการค้า' },
+                { k: 'dosage_form', label: 'รูปแบบยา' },
+                { k: 'strength', label: 'ความแรง' },
                 { k: 'special_note', label: 'Note พิเศษ' },
                 { k: 'remarks', label: 'ลักษณะยา' }
             ];
+
+            // เช็กเตือนเรื่องความเสี่ยง (is_high_error_risk)
+            if (drug.is_high_error_risk) {
+                 bodyHtml += `
+                    <div style="background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5; padding:10px; border-radius:8px; margin-bottom:15px;">
+                        ⚠️ <b>High Alert Drug:</b> ยานี้มีความเสี่ยงสูง โปรดระมัดระวังในการใช้งาน
+                    </div>
+                `;
+            }
 
             cardFields.forEach(f => {
                 if (drug[f.k]) {
@@ -318,7 +357,6 @@
             document.getElementById('drug-card-modal').style.display = 'block';
         }
 
-        // ปิด Popup เมื่อคลิกพื้นที่ว่าง
         window.onclick = function(event) {
             const modal = document.getElementById('drug-card-modal');
             if (event.target === modal) {
