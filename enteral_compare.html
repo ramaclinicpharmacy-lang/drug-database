@@ -230,8 +230,20 @@
                     
                     drugsToCompare.forEach(d => {
                         const nutri = nutrientsData[d.drug_code];
-                        const val = (nutri && nutri[categoryKey] && nutri[categoryKey][key] !== undefined && nutri[categoryKey][key] !== "") ? nutri[categoryKey][key] : '-';
+                        let val = (nutri && nutri[categoryKey] && nutri[categoryKey][key] !== undefined && nutri[categoryKey][key] !== "") ? nutri[categoryKey][key] : '-';
                         
+                        // 🌟 จัดการรูปแบบตัวเลข: ทศนิยม 2 ตำแหน่ง / ค่าน้อยมาก / Text
+                        if (val !== '-') {
+                            // เช็กว่าเป็นตัวเลขที่สามารถคำนวณได้หรือไม่ (ไม่ใช่ text เช่น "<0.1" หรือ "Trace")
+                            if (typeof val === 'number' || (!isNaN(parseFloat(val)) && isFinite(val))) {
+                                const num = parseFloat(val);
+                                if (num > 0 && num < 0.01) {
+                                    val = '< 0.01'; // ถ้าน้อยกว่า 0.01 ให้แสดงว่าค่าน้อยมาก
+                                } else {
+                                    val = num.toFixed(2); // ปรับเป็นทศนิยม 2 ตำแหน่ง (เช่น 1.5 -> 1.50)
+                                }
+                            }
+                        }
                         // 🌟 จัดชิดขวา และเว้นระยะขอบให้สวยงาม เพื่อให้ดูทศนิยมง่าย
                         catHtml += `<td style="text-align: right; padding-right: 25px;">${val}</td>`;
                     });
