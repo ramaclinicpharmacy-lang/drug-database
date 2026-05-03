@@ -262,14 +262,13 @@
             }).join('');
         }
 
-        // 4. Lazy Loading Function
-        // 4. Lazy Loading Function
+        // 4. Lazy Loading Function (อัปเกรดคิวรีให้ดึง NLEM และ Administration มาด้วย)
         async function fetchDetailedDrugData(codesToFetch) {
             const missingCodes = codesToFetch.filter(code => !detailedDrugCache[code]);
             if (missingCodes.length === 0) return; 
 
             try {
-                // 🌟 โค้ดที่แก้: โหลดฟิลด์ amount, unit ออกมาจาก drug_contents ด้วย
+                // 🌟 ดึงทะลุไปถึงตาราง drug_nlem_mapping และ drug_administrations
                 const { data, error } = await supabaseClient.from('drugs')
                     .select(`
                         *,
@@ -277,6 +276,17 @@
                             amount,
                             unit,
                             generics ( generic_name )
+                        ),
+                        drug_nlem_mapping (
+                            condition_note,
+                            nlem_categories ( category_code, description )
+                        ),
+                        drug_administrations (
+                            instructions,
+                            max_conc,
+                            min_conc,
+                            conc_unit,
+                            routes ( route_name )
                         )
                     `) 
                     .in('drug_code', missingCodes);
@@ -297,7 +307,7 @@
             }
         }
 
-        // 5. วาดตารางเปรียบเทียบ (🌟 รื้อใหม่แบบ Enteral Nutrition)
+        // 5. วาดตารางเปรียบเทียบ (แสดงแค่ Generic เพียวๆ)
         function renderTable() {
             const table = document.getElementById('compare-table');
             
@@ -315,35 +325,12 @@
                     <th>
                         <div style="cursor:pointer; display:inline-block;" onclick="openDrugCard('${d.drug_code}')">
                             <b style="color:var(--primary); font-size:1.1rem; border-bottom:1px dashed var(--primary);">${d.drug_name || '-'}</b>
-                            <br><span style="font-size:0.8rem; color:gray; font-weight:normal;">🔍 ดูรายละเอียด</span>
+                            <br><span style="font-size:0.8rem; color:gray; font-weight:normal;">🔍 คลิกดูข้อมูลยา</span>
                         </div>
                     </th>
                 `;
             });
             html += `</tr></thead><tbody>`;
-
-            // 📋 1. หมวดหมู่ข้อมูลทั่วไป
-            html += `<tr><td colspan="${drugsToCompare.length + 1}" class="category-header">📋 ข้อมูลทั่วไป (General Info)</td></tr>`;
-            const basicFields = [
-                { key: 'trade_name', label: 'ชื่อการค้า (Trade Name)' },
-                { key: 'dosage_form', label: 'รูปแบบยา (Form)' },
-                { key: 'strength', label: 'ความแรง (Strength)' },
-                { key: 'special_note', label: 'Note พิเศษ' },
-                { key: 'remarks', label: 'ลักษณะยา' }
-            ];
-
-            basicFields.forEach(field => {
-                html += `<tr><td class="row-header">${field.label}</td>`;
-                drugsToCompare.forEach(d => {
-                    let val = d[field.key] || '-';
-                    if (typeof val === 'string') val = val.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
-                    html += `<td>${val}</td>`;
-                });
-                html += `</tr>`;
-            });
-
-            // 🧪 2. หมวดหมู่ตัวยาสำคัญ (แยก Generic เป็นแถว เหมือนสารอาหาร)
-            html += `<tr><td colspan="${drugsToCompare.length + 1}" class="category-header" style="background:#e0f2fe; color:#0369a1;">🧪 ตัวยาสำคัญ (Active Ingredients)</td></tr>`;
 
             // ดึงชื่อ Generic ทั้งหมดที่ไม่ซ้ำกันจากยาที่เลือก
             const allGenerics = new Set();
@@ -360,12 +347,11 @@
             const sortedGenerics = Array.from(allGenerics).sort();
 
             if (sortedGenerics.length === 0) {
-                html += `<tr><td colspan="${drugsToCompare.length + 1}" style="text-align:center; color:gray;">ไม่มีข้อมูลตัวยาสำคัญ (ส่วนผสม) ในระบบ</td></tr>`;
+                html += `<tr><td colspan="${drugsToCompare.length + 1}" style="text-align:center; color:gray; padding:20px;">ไม่มีข้อมูลตัวยาสำคัญ (ส่วนผสม) ในระบบ</td></tr>`;
             } else {
                 sortedGenerics.forEach(genName => {
                     html += `<tr><td class="row-header" style="color:#0284c7;">${genName}</td>`;
                     
-                    // วนลูปหายาแต่ละตัว ว่ามี Generic ตัวนี้ไหม ถ้ามีให้แสดง Amount + Unit
                     drugsToCompare.forEach(d => {
                         let cellVal = '-';
                         if (d.drug_contents) {
@@ -376,7 +362,6 @@
                                 cellVal = `${amt} ${unit}`.trim() || '✅ มีส่วนผสม';
                             }
                         }
-                        // จัดชิดขวาให้ตัวเลขดูเปรียบเทียบง่ายเหมือนหน้า Enteral
                         html += `<td style="text-align: right; padding-right: 25px; font-weight: bold; color: var(--dark);">${cellVal}</td>`;
                     });
                     html += `</tr>`;
@@ -387,7 +372,7 @@
             table.innerHTML = html;
         }
 
-        // 6. ระบบ Drug Card Popup
+        // 6. ระบบ Drug Card Popup (ย้ายคุณสมบัติทั้งหมดมาไว้ที่นี่)
         function openDrugCard(code) {
             const drug = detailedDrugCache[code];
             if (!drug) return;
@@ -396,8 +381,17 @@
             document.getElementById('card-generic-name').innerText = drug.generic_name_display || 'ไม่ระบุชื่อสามัญ';
 
             let bodyHtml = '';
-            
-            // ปรับแก้คอลัมน์ให้อิงตามที่มีในตาราง drugs จริง
+
+            // ⚠️ เตือน High Alert
+            if (drug.is_high_error_risk) {
+                 bodyHtml += `
+                    <div style="background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5; padding:10px; border-radius:8px; margin-bottom:15px;">
+                        ⚠️ <b>High Alert Drug:</b> ยานี้มีความเสี่ยงสูง โปรดระมัดระวังในการใช้งาน
+                    </div>
+                `;
+            }
+
+            // 📋 ข้อมูลทั่วไป
             const cardFields = [
                 { k: 'drug_code', label: 'รหัสยา (Code)' },
                 { k: 'trade_name', label: 'ชื่อการค้า' },
@@ -406,15 +400,6 @@
                 { k: 'special_note', label: 'Note พิเศษ' },
                 { k: 'remarks', label: 'ลักษณะยา' }
             ];
-
-            // เช็กเตือนเรื่องความเสี่ยง (is_high_error_risk)
-            if (drug.is_high_error_risk) {
-                 bodyHtml += `
-                    <div style="background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5; padding:10px; border-radius:8px; margin-bottom:15px;">
-                        ⚠️ <b>High Alert Drug:</b> ยานี้มีความเสี่ยงสูง โปรดระมัดระวังในการใช้งาน
-                    </div>
-                `;
-            }
 
             cardFields.forEach(f => {
                 if (drug[f.k]) {
@@ -428,15 +413,47 @@
                 }
             });
 
+            // 🏥 บัญชียา (NLEM)
+            if (drug.drug_nlem_mapping && drug.drug_nlem_mapping.length > 0) {
+                let nlemHtml = drug.drug_nlem_mapping.map(n => {
+                    let catCode = n.nlem_categories?.category_code || 'ไม่ระบุบัญชี';
+                    let condition = n.condition_note ? `<span style="color:#d97706; font-size:0.9rem;">(เงื่อนไข: ${n.condition_note})</span>` : '';
+                    return `• บัญชี <b>${catCode}</b> ${condition}`;
+                }).join('<br>');
+                
+                bodyHtml += `
+                    <div class="info-group" style="background:#fffbeb; padding:10px; border-radius:8px; border:1px solid #fde68a;">
+                        <b style="display:block; color:#b45309; font-size:0.85rem; margin-bottom:5px;">🏥 บัญชียาหลักแห่งชาติ (NLEM)</b>
+                        <div>${nlemHtml}</div>
+                    </div>
+                `;
+            }
+
+            // 💉 วิธีให้ยา (Administration Routes)
+            if (drug.drug_administrations && drug.drug_administrations.length > 0) {
+                let adminHtml = drug.drug_administrations.map(a => {
+                    let route = a.routes?.route_name || 'ไม่ระบุ Route';
+                    let inst = a.instructions ? `<div style="color:gray; font-size:0.9rem; margin-left:15px;">- ${a.instructions}</div>` : '';
+                    
+                    let concHtml = '';
+                    if (a.min_conc || a.max_conc) {
+                        concHtml = `<div style="color:#059669; font-size:0.85rem; margin-left:15px; background:#ecfdf5; display:inline-block; padding:2px 8px; border-radius:4px; border:1px solid #a7f3d0; margin-top:4px;">
+                            💧 Conc: ${a.min_conc || 0} - ${a.max_conc || 'N/A'} ${a.conc_unit || ''}
+                        </div>`;
+                    }
+                    return `<div style="margin-bottom:8px;">💊 <b>${route}</b>${inst}${concHtml}</div>`;
+                }).join('');
+                
+                bodyHtml += `
+                    <div class="info-group" style="background:#f0fdf4; padding:10px; border-radius:8px; border:1px solid #bbf7d0;">
+                        <b style="display:block; color:#15803d; font-size:0.85rem; margin-bottom:5px;">💉 วิธีให้ยา (Administration)</b>
+                        <div>${adminHtml}</div>
+                    </div>
+                `;
+            }
+
             document.getElementById('card-body-content').innerHTML = bodyHtml || '<div style="color:gray;">ไม่มีข้อมูลรายละเอียดเพิ่มเติม</div>';
             document.getElementById('drug-card-modal').style.display = 'block';
-        }
-
-        window.onclick = function(event) {
-            const modal = document.getElementById('drug-card-modal');
-            if (event.target === modal) {
-                modal.style.display = "none";
-            }
         }
 
         init();
