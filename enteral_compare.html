@@ -291,7 +291,7 @@
         async function fetchEnteralDrugs() {
             // 🌟 อัปเดต: ดึงข้อมูล Nutrition Config มาให้ครบทุกฟิลด์สำหรับคำนวณ
             const { data, error } = await supabaseClient.from('drugs')
-                .select('drug_code, drug_name, drug_type, nutrition_configs(product_type, grams_per_scoop, scoops_per_serving, serving_volume_ml, serving_kcal, protein_per_serving, carb_per_serving, fat_per_serving, preparation_note)')
+                .select('drug_code, drug_name, drug_type, remarks, nutrition_configs(product_type, grams_per_scoop, scoops_per_serving, serving_volume_ml, serving_kcal, protein_per_serving, carb_per_serving, fat_per_serving, preparation_note)')
                 .eq('is_active', true);
             
             if (error) throw error;
