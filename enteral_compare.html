@@ -291,7 +291,7 @@
         async function fetchEnteralDrugs() {
             // 🌟 อัปเดต: ดึงข้อมูล Nutrition Config มาให้ครบทุกฟิลด์สำหรับคำนวณ
             const { data, error } = await supabaseClient.from('drugs')
-                .select('drug_code, drug_name, drug_type, remarks, nutrition_configs(product_type, grams_per_scoop, scoops_per_serving, serving_volume_ml, serving_kcal, protein_per_serving, carb_per_serving, fat_per_serving, preparation_note)')
+                .select('drug_code, drug_name, drug_type, special_note, nutrition_configs(product_type, grams_per_scoop, scoops_per_serving, serving_volume_ml, serving_kcal, protein_per_serving, carb_per_serving, fat_per_serving, preparation_note)')
                 .eq('is_active', true);
             
             if (error) throw error;
@@ -420,13 +420,12 @@
                 const nutriConfig = Array.isArray(configData) ? configData[0] : configData; 
                 
                 const calcBtn = nutriConfig ? `<br><button class="btn btn-sm" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0; margin-top:5px; font-size:0.75rem; padding:4px 8px; border-radius:6px; font-weight:bold;" onclick="openNutriCalc('${d.drug_code}')">🍼 คำนวณชงอาหาร</button>` : '';
-                // 🌟 สร้างโค้ด Tooltip ถ้ามียามีข้อมูล Remarks
-                // ใส่ border-bottom แบบเส้นประ (dashed) และเปลี่ยนเมาส์เป็นรูปเครื่องหมายคำถาม (help) เพื่อสื่อให้ User รู้ว่าชี้ได้
+                // 🌟 สร้างโค้ด Tooltip โดยดึงจาก special_note
                 let tooltipStyle = `color:var(--primary); font-size:1.1rem;`;
                 let tooltipAttr = '';
-                if (d.remarks && d.remarks.trim() !== '') {
-                    const safeRemark = d.remarks.replace(/"/g, '&quot;');
-                    tooltipAttr = ` title="💊 ลักษณะ: ${safeRemark}"`;
+                if (d.special_note && d.special_note.trim() !== '') {
+                    const safeNote = d.special_note.replace(/"/g, '&quot;');
+                    tooltipAttr = ` title="💡 Note: ${safeNote}"`; // เปลี่ยนไอคอนและคำนำหน้าให้เข้ากับ Note
                     tooltipStyle += ` cursor:help; border-bottom:1px dashed var(--primary); display:inline-block; padding-bottom:2px;`;
                 }
                 // 🌟 จุดที่แก้: เติม ${calcBtn} เข้าไปในคำสั่งวาด HTML ด้านล่างนี้ครับ (พร้อมจัดให้อยู่ด้านบนด้วย vertical-align: top)
