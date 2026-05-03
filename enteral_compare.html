@@ -95,7 +95,7 @@
         </div>
     </div>
 
-    <script>
+<script>
         const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -105,14 +105,19 @@
         let nutrientsData = {}; // key: drug_code, value: DB Row
 
         async function init() {
-            // เช็ก Auth (ถ้าเข้าผ่านเครื่องเดิมที่เคย Login จะรู้ว่าเป็น Admin ทันที)
-            const { data: { session } } = await supabase.auth.getSession();
-            isAdmin = !!session;
+            try {
+                // เช็ก Auth (ถ้าเข้าผ่านเครื่องเดิมที่เคย Login จะรู้ว่าเป็น Admin ทันที)
+                const { data: { session } } = await supabase.auth.getSession();
+                isAdmin = !!session;
 
-            await fetchEnteralDrugs();
-            await fetchNutrients();
-            renderSelectors();
-            autoSelectFromUrl();
+                await fetchEnteralDrugs();
+                await fetchNutrients();
+                renderSelectors();
+                autoSelectFromUrl();
+            } catch (err) {
+                console.error("Init Error:", err);
+                document.getElementById('product-selector').innerHTML = `<div style="color:red; font-weight:bold;">❌ โหลดข้อมูลล้มเหลว: ${err.message}</div><small style="color:gray;">ลองกด F12 เพื่อดูรายละเอียด Error ใน Console ครับ</small>`;
+            }
         }
 
         // ดึงเฉพาะยาที่เป็น Enteral Nutrition หรือมีการผูก Nutrition Config ไว้
@@ -121,11 +126,17 @@
                 .select('drug_code, drug_name, drug_type, nutrition_configs(product_type)')
                 .eq('is_active', true);
             
+            if (error) throw error; // โยน Error ไปให้บล็อก try-catch จัดการ
+            
             if (data) {
-                allEnteralDrugs = data.filter(d => 
-                    (d.drug_type && d.drug_type.toLowerCase().includes('enteral')) || 
-                    (d.nutrition_configs && d.nutrition_configs.length > 0)
-                ).sort((a,b) => a.drug_name.localeCompare(b.drug_name));
+                allEnteralDrugs = data.filter(d => {
+                    // ป้องกัน Error กรณี drug_type เป็น null
+                    const typeMatch = d.drug_type && typeof d.drug_type === 'string' && d.drug_type.toLowerCase().includes('enteral');
+                    // ป้องกัน Error กรณี nutrition_configs คืนค่าเป็น Object เดี่ยวๆ หรือ null
+                    const configMatch = d.nutrition_configs && (Array.isArray(d.nutrition_configs) ? d.nutrition_configs.length > 0 : Object.keys(d.nutrition_configs).length > 0);
+                    
+                    return typeMatch || configMatch;
+                }).sort((a,b) => (a.drug_name || '').localeCompare(b.drug_name || '')); // ป้องกัน Error จาก drug_name เป็น null
             }
         }
 
@@ -135,6 +146,8 @@
             if(codes.length === 0) return;
 
             const { data, error } = await supabase.from('enteral_nutrients').select('*').in('drug_code', codes);
+            if (error) throw error;
+
             if (data) {
                 data.forEach(row => {
                     nutrientsData[row.drug_code] = row;
@@ -146,13 +159,13 @@
         function renderSelectors() {
             const container = document.getElementById('product-selector');
             if (allEnteralDrugs.length === 0) {
-                container.innerHTML = '<div style="color:red;">ไม่พบรายการอาหารทางการแพทย์ในระบบ</div>';
+                container.innerHTML = '<div style="color:var(--danger); font-weight:bold;">ไม่พบรายการอาหารทางการแพทย์ในระบบ (ยังไม่มียาหมวด Enteral Nutrition)</div>';
                 return;
             }
 
             container.innerHTML = allEnteralDrugs.map((d, idx) => `
                 <input type="checkbox" id="sel-${d.drug_code}" class="product-cb" value="${d.drug_code}" onchange="renderTable()">
-                <label for="sel-${d.drug_code}">${d.drug_name}</label>
+                <label for="sel-${d.drug_code}">${d.drug_name || 'ไม่ระบุชื่อ'}</label>
             `).join('');
         }
 
@@ -161,8 +174,10 @@
             const params = new URLSearchParams(window.location.search);
             const focusCode = params.get('code');
             if (focusCode) {
-                // ค้นหาว่าชื่อหรือโค้ดตรงไหม
-                const match = allEnteralDrugs.find(d => d.drug_code === focusCode || d.drug_name.includes(focusCode));
+                const match = allEnteralDrugs.find(d => 
+                    d.drug_code === focusCode || 
+                    (d.drug_name && d.drug_name.includes(focusCode)) // ป้องกัน null
+                );
                 if (match) {
                     const cb = document.getElementById('sel-' + match.drug_code);
                     if(cb) cb.checked = true;
@@ -190,14 +205,14 @@
                             <th style="width: 250px; text-align:left;">รายการสารอาหาร <br><small style="color:gray;">(ต่อ 100 kcal)</small></th>`;
             
             drugsToCompare.forEach(d => {
-                const adminBtn = isAdmin ? `<br><button class="btn btn-sm btn-outline" style="margin-top:5px; font-size:0.75rem;" onclick="openAdminModal('${d.drug_code}', '${d.drug_name.replace(/'/g, "\\'")}')">🛠️ แก้ไขสารอาหาร</button>` : '';
-                html += `<th><b style="color:var(--primary); font-size:1.1rem;">${d.drug_name}</b>${adminBtn}</th>`;
+                const safeName = (d.drug_name || '').replace(/'/g, "\\'");
+                const adminBtn = isAdmin ? `<br><button class="btn btn-sm btn-outline" style="margin-top:5px; font-size:0.75rem;" onclick="openAdminModal('${d.drug_code}', '${safeName}')">🛠️ แก้ไขสารอาหาร</button>` : '';
+                html += `<th><b style="color:var(--primary); font-size:1.1rem;">${d.drug_name || 'ไม่ระบุชื่อ'}</b>${adminBtn}</th>`;
             });
             html += `</tr></thead><tbody>`;
 
             // Helper function สำหรับวาดกลุ่มสารอาหาร
             const buildCategoryRows = (categoryKey, categoryName) => {
-                // กวาด Key (ชื่อสารอาหาร) ทั้งหมดที่มีในกลุ่มนี้จากทุกยาที่เลือก
                 const allKeys = new Set();
                 drugsToCompare.forEach(d => {
                     const nutri = nutrientsData[d.drug_code];
@@ -206,17 +221,16 @@
                     }
                 });
 
-                if (allKeys.size === 0) return ''; // ถ้าไม่มีสารอาหารกลุ่มนี้เลย ให้ข้ามไป
+                if (allKeys.size === 0) return ''; 
 
                 let catHtml = `<tr><td colspan="${drugsToCompare.length + 1}" class="category-header">${categoryName}</td></tr>`;
                 
-                // นำ Key มาเรียงลำดับตัวอักษร
                 Array.from(allKeys).sort().forEach(key => {
                     catHtml += `<tr><td class="row-header">${key}</td>`;
                     
                     drugsToCompare.forEach(d => {
                         const nutri = nutrientsData[d.drug_code];
-                        const val = (nutri && nutri[categoryKey] && nutri[categoryKey][key] !== undefined) ? nutri[categoryKey][key] : '-';
+                        const val = (nutri && nutri[categoryKey] && nutri[categoryKey][key] !== undefined && nutri[categoryKey][key] !== "") ? nutri[categoryKey][key] : '-';
                         catHtml += `<td>${val}</td>`;
                     });
                     
@@ -294,8 +308,15 @@
                 updated_at: new Date().toISOString()
             };
 
+            const btn = document.querySelector('#admin-modal .btn-success');
+            btn.innerHTML = '⏳ กำลังบันทึก...';
+            btn.disabled = true;
+
             const { error } = await supabase.from('enteral_nutrients').upsert(payload);
             
+            btn.innerHTML = '💾 บันทึกข้อมูลสารอาหาร';
+            btn.disabled = false;
+
             if (error) {
                 alert("❌ เกิดข้อผิดพลาด: " + error.message);
             } else {
