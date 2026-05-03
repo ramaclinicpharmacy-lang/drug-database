@@ -83,9 +83,16 @@
                 <span style="font-weight:bold; color:var(--dark);">kcal</span>
             </div>
 
-            <b>☑️ เลือกสูตรที่ต้องการเปรียบเทียบ:</b>
-            <div id="product-selector" class="chip-container">
-                <div style="color:gray; font-size:0.9rem;">กำลังโหลดข้อมูลผลิตภัณฑ์...</div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom: 8px;">
+                <b style="margin:0;">☑️ เลือกสูตรที่ต้องการเปรียบเทียบ:</b>
+                <button class="btn btn-sm btn-outline" id="btn-toggle-selector" onclick="toggleSelectorSize()" style="font-size:0.75rem; padding:4px 10px; border-color:#cbd5e1; color:#475569; background:white;">🔽 ขยายกล่อง</button>
+            </div>
+            
+            <!-- 🌟 Wrapper กล่องเลือกยา (มี Scrollbar, ลากมุมขวาล่างเพื่อยืดหดได้) -->
+            <div id="product-selector-wrapper" style="height: 140px; min-height: 80px; max-height: 800px; resize: vertical; overflow-y: auto; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; transition: height 0.3s ease;">
+                <div id="product-selector" class="chip-container" style="margin-top:0;">
+                    <div style="color:gray; font-size:0.9rem;">กำลังโหลดข้อมูลผลิตภัณฑ์...</div>
+                </div>
             </div>
         </div>
 
@@ -982,6 +989,23 @@
             document.getElementById('nutri-res-protein').innerText = activeNutriConfig.protein_per_serving ? (activeNutriConfig.protein_per_serving * multiplier).toFixed(1) : '-';
             document.getElementById('nutri-res-carb').innerText = activeNutriConfig.carb_per_serving ? (activeNutriConfig.carb_per_serving * multiplier).toFixed(1) : '-';
             document.getElementById('nutri-res-fat').innerText = activeNutriConfig.fat_per_serving ? (activeNutriConfig.fat_per_serving * multiplier).toFixed(1) : '-';
+        }
+        // ----------------------------------------------------------------
+        // ↕️ ฟังก์ชันย่อ/ขยาย กล่องเลือกสูตรอาหาร
+        // ----------------------------------------------------------------
+        function toggleSelectorSize() {
+            const wrapper = document.getElementById('product-selector-wrapper');
+            const btn = document.getElementById('btn-toggle-selector');
+            
+            // เช็กความสูงปัจจุบัน ถ้าน้อยกว่า 200 ถือว่าย่ออยู่ ให้ขยายออก
+            if (wrapper.offsetHeight < 200) {
+                wrapper.style.height = '400px'; 
+                btn.innerHTML = '🔼 ย่อกล่องลง';
+            } else {
+                // ถ้าใหญ่อยู่แล้ว ให้ย่อกลับไปขนาดมาตรฐาน
+                wrapper.style.height = '140px'; 
+                btn.innerHTML = '🔽 ขยายกล่อง';
+            }
         }
         init();
     </script>
