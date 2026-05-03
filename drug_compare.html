@@ -263,16 +263,19 @@
         }
 
         // 4. Lazy Loading Function
+        // 4. Lazy Loading Function
         async function fetchDetailedDrugData(codesToFetch) {
             const missingCodes = codesToFetch.filter(code => !detailedDrugCache[code]);
             if (missingCodes.length === 0) return; 
 
             try {
-                // 🌟 โค้ดที่แก้: โหลดฟิลด์เชิงลึกทั้งหมด รวมถึงชื่อ generic
+                // 🌟 โค้ดที่แก้: โหลดฟิลด์ amount, unit ออกมาจาก drug_contents ด้วย
                 const { data, error } = await supabaseClient.from('drugs')
                     .select(`
                         *,
                         drug_contents (
+                            amount,
+                            unit,
                             generics ( generic_name )
                         )
                     `) 
@@ -281,7 +284,6 @@
                 if (error) throw error;
                 if (data) {
                     data.forEach(drug => {
-                        // ปรุงแต่ง generic_name_display ให้ตัวเต็มพร้อมใช้งานเลย
                         const genArray = drug.drug_contents 
                             ? drug.drug_contents.map(c => c.generics?.generic_name).filter(Boolean)
                             : [];
@@ -295,7 +297,7 @@
             }
         }
 
-        // 5. วาดตารางเปรียบเทียบ
+        // 5. วาดตารางเปรียบเทียบ (🌟 รื้อใหม่แบบ Enteral Nutrition)
         function renderTable() {
             const table = document.getElementById('compare-table');
             
@@ -306,7 +308,7 @@
 
             const drugsToCompare = selectedDrugCodes.map(code => detailedDrugCache[code]).filter(Boolean);
 
-            let html = `<thead><tr><th class="row-header">คุณสมบัติ</th>`;
+            let html = `<thead><tr><th style="width: 250px; text-align:left;">รายการ / ตัวยาสำคัญ</th>`;
             
             drugsToCompare.forEach(d => {
                 html += `
@@ -320,17 +322,66 @@
             });
             html += `</tr></thead><tbody>`;
 
-            compareFields.forEach(field => {
+            // 📋 1. หมวดหมู่ข้อมูลทั่วไป
+            html += `<tr><td colspan="${drugsToCompare.length + 1}" class="category-header">📋 ข้อมูลทั่วไป (General Info)</td></tr>`;
+            const basicFields = [
+                { key: 'trade_name', label: 'ชื่อการค้า (Trade Name)' },
+                { key: 'dosage_form', label: 'รูปแบบยา (Form)' },
+                { key: 'strength', label: 'ความแรง (Strength)' },
+                { key: 'special_note', label: 'Note พิเศษ' },
+                { key: 'remarks', label: 'ลักษณะยา' }
+            ];
+
+            basicFields.forEach(field => {
                 html += `<tr><td class="row-header">${field.label}</td>`;
-                
                 drugsToCompare.forEach(d => {
                     let val = d[field.key] || '-';
                     if (typeof val === 'string') val = val.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
                     html += `<td>${val}</td>`;
                 });
-                
                 html += `</tr>`;
             });
+
+            // 🧪 2. หมวดหมู่ตัวยาสำคัญ (แยก Generic เป็นแถว เหมือนสารอาหาร)
+            html += `<tr><td colspan="${drugsToCompare.length + 1}" class="category-header" style="background:#e0f2fe; color:#0369a1;">🧪 ตัวยาสำคัญ (Active Ingredients)</td></tr>`;
+
+            // ดึงชื่อ Generic ทั้งหมดที่ไม่ซ้ำกันจากยาที่เลือก
+            const allGenerics = new Set();
+            drugsToCompare.forEach(d => {
+                if (d.drug_contents) {
+                    d.drug_contents.forEach(c => {
+                        if (c.generics && c.generics.generic_name) {
+                            allGenerics.add(c.generics.generic_name);
+                        }
+                    });
+                }
+            });
+
+            const sortedGenerics = Array.from(allGenerics).sort();
+
+            if (sortedGenerics.length === 0) {
+                html += `<tr><td colspan="${drugsToCompare.length + 1}" style="text-align:center; color:gray;">ไม่มีข้อมูลตัวยาสำคัญ (ส่วนผสม) ในระบบ</td></tr>`;
+            } else {
+                sortedGenerics.forEach(genName => {
+                    html += `<tr><td class="row-header" style="color:#0284c7;">${genName}</td>`;
+                    
+                    // วนลูปหายาแต่ละตัว ว่ามี Generic ตัวนี้ไหม ถ้ามีให้แสดง Amount + Unit
+                    drugsToCompare.forEach(d => {
+                        let cellVal = '-';
+                        if (d.drug_contents) {
+                            const content = d.drug_contents.find(c => c.generics?.generic_name === genName);
+                            if (content) {
+                                const amt = content.amount != null ? content.amount : '';
+                                const unit = content.unit || '';
+                                cellVal = `${amt} ${unit}`.trim() || '✅ มีส่วนผสม';
+                            }
+                        }
+                        // จัดชิดขวาให้ตัวเลขดูเปรียบเทียบง่ายเหมือนหน้า Enteral
+                        html += `<td style="text-align: right; padding-right: 25px; font-weight: bold; color: var(--dark);">${cellVal}</td>`;
+                    });
+                    html += `</tr>`;
+                });
+            }
 
             html += `</tbody>`;
             table.innerHTML = html;
