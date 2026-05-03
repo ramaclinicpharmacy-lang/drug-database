@@ -181,7 +181,76 @@
     <datalist id="dl-vitamins"></datalist>
     <datalist id="dl-minerals"></datalist>
     <datalist id="dl-specials"></datalist>
+    <div id="nutri-calc-modal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <h3 style="color:#166534; margin-top:0;">🧮 คำนวณสัดส่วนชงอาหาร</h3>
+            <h4 id="nutri-calc-name" style="margin-bottom: 10px; color:var(--dark);"></h4>
+            <div id="nutri-calc-info" style="font-size:0.85rem; color:gray; margin-bottom:15px;"></div>
 
+            <div class="section-box" style="background:#f8fafc; border-color:#cbd5e1; padding:15px; border-radius:8px; margin-bottom:15px;">
+                <label style="font-size:0.85rem; font-weight:bold; display:block; margin-bottom:5px;">📋 คำสั่งแพทย์ (Doctor's Order)</label>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <div style="flex:1;">
+                        <label style="font-size:0.75rem; color:gray;">ความเข้มข้น (kcal/ml)</label>
+                        <select id="nutri-calc-ratio" onchange="runNutriCalc()" style="margin:0; width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1;">
+                            </select>
+                    </div>
+                    <div style="flex:1; display:none;" id="nutri-calc-ratio-custom-box">
+                        <label style="font-size:0.75rem; color:gray;">ระบุ kcal/ml</label>
+                        <input type="number" id="nutri-calc-ratio-custom" placeholder="kcal/ml" step="0.1" oninput="runNutriCalc()" style="margin:0; width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1;">
+                    </div>
+                    <div style="flex:1;">
+                        <label style="font-size:0.75rem; color:gray;">ปริมาตรรวม (ml)</label>
+                        <input type="number" id="nutri-calc-volume" placeholder="เช่น 200, 300" oninput="runNutriCalc()" style="margin:0; width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1;">
+                    </div>
+                </div>
+            </div>
+
+            <div style="padding:15px; background:#f0fdf4; border-radius:8px; border:1px solid #bbf7d0;">
+                <div style="font-size:0.85rem; color:#166534; font-weight:bold; margin-bottom:10px;">✅ วิธีการเตรียม (Preparation):</div>
+                
+                <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
+                    <div style="background:white; border:1px solid #86efac; padding:10px; border-radius:8px; flex:1; text-align:center;">
+                        <span id="lbl-res-box1-title" style="font-size:0.75rem; color:gray; display:block;">ใช้ผงปริมาณ</span>
+                        <b id="nutri-res-scoop" style="font-size:1.4rem; color:#166534;">-</b> <small id="lbl-res-box1-unit">ช้อน</small>
+                    </div>
+                    <div style="background:white; border:1px solid #86efac; padding:10px; border-radius:8px; flex:1; text-align:center;">
+                        <span id="lbl-res-box2-title" style="font-size:0.75rem; color:gray; display:block;">น้ำหนักรวม</span>
+                        <b id="nutri-res-gram" style="font-size:1.4rem; color:#166534;">-</b> <small id="lbl-res-box2-unit">กรัม</small>
+                    </div>
+                </div>
+                
+                <div id="nutri-res-water-section" style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
+                    <div style="background:white; border:1px solid #86efac; padding:10px; border-radius:8px; flex:1; text-align:center;">
+                        <span id="lbl-water-title" style="font-size:0.85rem; color:#15803d; font-weight:bold;">💧 เติมน้ำให้ได้ปริมาตรรวม</span><br>
+                        <b id="nutri-res-vol" style="font-size:1.2rem; color:var(--dark);"> - </b> <small>ml</small>
+                    </div>
+                    <div style="background:#fffbeb; border:1px solid #fde68a; padding:10px; border-radius:8px; flex:1; text-align:center;">
+                        <span style="font-size:0.85rem; color:#d97706; font-weight:bold;">⚡ พลังงานต่อมื้อ</span><br>
+                        <b id="nutri-res-kcal" style="font-size:1.2rem; color:var(--danger);"> - </b> <small>kcal</small>
+                    </div>
+                </div>
+
+                <div id="nutri-res-macros" style="display:flex; justify-content:space-between; margin-top:10px; background:white; padding:10px; border-radius:8px; border:1px solid #bbf7d0;">
+                    <div style="text-align:center; flex:1; border-right:1px solid #e2e8f0;">
+                        <span style="font-size:0.75rem; color:gray;">🥩 โปรตีน</span><br>
+                        <b id="nutri-res-protein" style="font-size:1.1rem; color:#b91c1c;">-</b> <small>g</small>
+                    </div>
+                    <div style="text-align:center; flex:1; border-right:1px solid #e2e8f0;">
+                        <span style="font-size:0.75rem; color:gray;">🍚 คาร์บฯ</span><br>
+                        <b id="nutri-res-carb" style="font-size:1.1rem; color:#d97706;">-</b> <small>g</small>
+                    </div>
+                    <div style="text-align:center; flex:1;">
+                        <span style="font-size:0.75rem; color:gray;">🧈 ไขมัน</span><br>
+                        <b id="nutri-res-fat" style="font-size:1.1rem; color:#4338ca;">-</b> <small>g</small>
+                    </div>
+                </div>
+                
+                <div id="nutri-res-note" style="margin-top:10px; font-size:0.8rem; color:#065f46;"></div>
+            </div>
+            <button class="btn btn-outline" style="width:100%; margin-top:15px; height:42px;" onclick="document.getElementById('nutri-calc-modal').style.display='none'">ปิดหน้าต่าง</button>
+        </div>
+    </div>
     <script>
         const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
@@ -213,8 +282,9 @@
         }
 
         async function fetchEnteralDrugs() {
+            // 🌟 อัปเดต: ดึงข้อมูล Nutrition Config มาให้ครบทุกฟิลด์สำหรับคำนวณ
             const { data, error } = await supabaseClient.from('drugs')
-                .select('drug_code, drug_name, drug_type, nutrition_configs(product_type)')
+                .select('drug_code, drug_name, drug_type, nutrition_configs(product_type, grams_per_scoop, scoops_per_serving, serving_volume_ml, serving_kcal, protein_per_serving, carb_per_serving, fat_per_serving, preparation_note)')
                 .eq('is_active', true);
             
             if (error) throw error;
@@ -337,6 +407,11 @@
             drugsToCompare.forEach(d => {
                 const safeName = (d.drug_name || '').replace(/'/g, "\\'");
                 const adminBtn = isAdmin ? `<br><button class="btn btn-sm btn-outline" style="margin-top:5px; font-size:0.75rem;" onclick="openAdminModal('${d.drug_code}', '${safeName}')">🛠️ แก้ไขสารอาหาร</button>` : '';
+                // 🌟 แทรกปุ่มเปิดเครื่องคิดเลข (ถ้ามียาตัวนี้มีข้อมูลชง)
+                const configData = d.nutrition_configs;
+                const nutriConfig = Array.isArray(configData) ? configData : configData;
+                const calcBtn = nutriConfig ? `<br><button class="btn btn-sm" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0; margin-top:5px; font-size:0.75rem; padding:4px 8px; border-radius:6px; font-weight:bold;" onclick="openNutriCalc('${d.drug_code}')">🍼 คำนวณชงอาหาร</button>` : '';
+                
                 html += `<th><b style="color:var(--primary); font-size:1.1rem;">${d.drug_name || 'ไม่ระบุชื่อ'}</b>${adminBtn}</th>`;
             });
             html += `</tr></thead><tbody>`;
@@ -761,6 +836,149 @@
                 document.getElementById('admin-minerals-list').innerHTML = '';
                 document.getElementById('admin-specials-list').innerHTML = '';
             }
+        }
+        // -------------------------------------------------------------
+        // 🧮 ฝั่ง User: เครื่องคิดเลขคำนวณตาม Kcal และ Volume
+        // -------------------------------------------------------------
+        let activeNutriConfig = null;
+
+        function openNutriCalc(code) {
+            const drug = allEnteralDrugs.find(d => d.drug_code === code);
+            const configData = drug ? drug.nutrition_configs : null;
+            const actualConfig = Array.isArray(configData) ? configData : configData;
+
+            if (!drug || !actualConfig || !actualConfig.serving_volume_ml || !actualConfig.serving_kcal) {
+                alert('ข้อมูลสูตรมาตรฐานยังไม่สมบูรณ์ โปรดให้ Admin อัปเดตข้อมูลที่หน้าแรกก่อนครับ'); return;
+            }
+            
+            activeNutriConfig = actualConfig;
+            document.getElementById('nutri-calc-name').innerText = drug.drug_name || 'ไม่ระบุชื่อ';
+            
+            const isLiquid = activeNutriConfig.product_type === 'liquid';
+            const s_vol = activeNutriConfig.serving_volume_ml;
+            const s_kcal = activeNutriConfig.serving_kcal;
+            const ratio = s_kcal / s_vol;
+
+            if (isLiquid) {
+                document.getElementById('nutri-calc-info').innerHTML = `
+                    <span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:6px; font-weight:bold;">แบบน้ำ (Ready to feed)</span>
+                    <span style="background:#fef08a; color:#a16207; padding:2px 8px; border-radius:6px; font-weight:bold;">สูตรมาตรฐาน: ${s_vol} ml = ${s_kcal} kcal</span>
+                `;
+                document.getElementById('lbl-res-box1-title').innerText = 'จำนวนขวด/กล่อง';
+                document.getElementById('lbl-res-box1-unit').innerText = 'ขวด';
+                document.getElementById('lbl-res-box2-title').innerText = 'ปริมาตรของเหลวที่ใช้';
+                document.getElementById('lbl-res-box2-unit').innerText = 'ml';
+                document.getElementById('nutri-res-water-section').style.display = 'none'; 
+            } else {
+                const scoops = activeNutriConfig.scoops_per_serving;
+                const g_scoop = activeNutriConfig.grams_per_scoop;
+                const totalGrams = (scoops * g_scoop).toFixed(1);
+                
+                document.getElementById('nutri-calc-info').innerHTML = `
+                    <span style="background:#e2e8f0; color:#475569; padding:2px 8px; border-radius:6px; font-weight:bold;">แบบผง (Powder)</span>
+                    <span style="background:#fef08a; color:#a16207; padding:2px 8px; border-radius:6px; font-weight:bold;">สูตรมาตรฐาน: ${scoops} ช้อน (${totalGrams}g) ชงได้ ${s_vol} ml = ${s_kcal} kcal</span>
+                `;
+                document.getElementById('lbl-res-box1-title').innerText = 'ใช้ผงปริมาณ';
+                document.getElementById('lbl-res-box1-unit').innerText = 'ช้อน';
+                document.getElementById('lbl-res-box2-title').innerText = 'น้ำหนักรวม';
+                document.getElementById('lbl-res-box2-unit').innerText = 'กรัม';
+                document.getElementById('nutri-res-water-section').style.display = 'flex'; 
+            }
+
+            document.getElementById('nutri-calc-ratio').innerHTML = `
+                <option value="${ratio}">ความเข้มข้นปกติ (${ratio.toFixed(2)} kcal/ml)</option>
+                <option value="1">1:1 (1 kcal/ml)</option>
+                <option value="1.2">1.2:1 (1.2 kcal/ml)</option>
+                <option value="1.5">1.5:1 (1.5 kcal/ml)</option>
+                <option value="2">2:1 (2 kcal/ml)</option>
+                <option value="custom">กำหนดเอง...</option>
+            `;
+
+            document.getElementById('nutri-calc-ratio').selectedIndex = 0;
+            document.getElementById('nutri-calc-ratio-custom-box').style.display = 'none';
+            document.getElementById('nutri-calc-ratio-custom').value = '';
+            document.getElementById('nutri-calc-volume').value = '';
+            
+            document.getElementById('nutri-res-scoop').innerText = '-';
+            document.getElementById('nutri-res-gram').innerText = '-';
+            document.getElementById('nutri-res-vol').innerText = '-';
+            document.getElementById('nutri-res-kcal').innerText = '-';
+            document.getElementById('nutri-res-protein').innerText = '-';
+            document.getElementById('nutri-res-carb').innerText = '-';
+            document.getElementById('nutri-res-fat').innerText = '-';
+            
+            const noteEl = document.getElementById('nutri-res-note');
+            let safeNote = activeNutriConfig.preparation_note ? activeNutriConfig.preparation_note.replace(/</g, "&lt;").replace(/>/g, "&gt;") : '';
+            noteEl.innerHTML = safeNote ? `<b>💡 Note:</b> ${safeNote}` : '';
+
+            document.getElementById('nutri-calc-modal').style.display = 'block';
+        }
+
+        function runNutriCalc() {
+            if (!activeNutriConfig) return;
+            
+            const ratioSelect = document.getElementById('nutri-calc-ratio').value;
+            const customBox = document.getElementById('nutri-calc-ratio-custom-box');
+            
+            let targetKcalPerMl = 1;
+            if (ratioSelect === 'custom') {
+                customBox.style.display = 'block';
+                targetKcalPerMl = parseFloat(document.getElementById('nutri-calc-ratio-custom').value);
+            } else {
+                customBox.style.display = 'none';
+                targetKcalPerMl = parseFloat(ratioSelect);
+            }
+
+            const volume = parseFloat(document.getElementById('nutri-calc-volume').value);
+
+            if (isNaN(volume) || volume <= 0 || isNaN(targetKcalPerMl) || targetKcalPerMl <= 0) {
+                document.getElementById('nutri-res-scoop').innerText = '-'; document.getElementById('nutri-res-gram').innerText = '-';
+                document.getElementById('nutri-res-vol').innerText = '-'; document.getElementById('nutri-res-kcal').innerText = '-';
+                document.getElementById('nutri-res-protein').innerText = '-'; document.getElementById('nutri-res-carb').innerText = '-'; document.getElementById('nutri-res-fat').innerText = '-';
+                return;
+            }
+
+            const isLiquid = activeNutriConfig.product_type === 'liquid';
+            const totalKcal = volume * targetKcalPerMl;
+            const s_kcal = activeNutriConfig.serving_kcal;
+            const s_vol = activeNutriConfig.serving_volume_ml;
+
+            document.getElementById('nutri-res-kcal').innerText = Math.round(totalKcal);
+
+            if (isLiquid) {
+                const productKcalPerMl = s_kcal / s_vol;
+                const productVolumeNeeded = totalKcal / productKcalPerMl; 
+                const bottlesNeeded = productVolumeNeeded / s_vol;
+
+                document.getElementById('nutri-res-scoop').innerText = bottlesNeeded.toFixed(2);
+                document.getElementById('nutri-res-gram').innerText = productVolumeNeeded.toFixed(0);
+
+                if (productVolumeNeeded < volume - 1) { 
+                    document.getElementById('nutri-res-water-section').style.display = 'flex';
+                    document.getElementById('nutri-res-vol').innerText = volume;
+                    document.getElementById('lbl-water-title').innerText = '💧 เติมน้ำเจือจางให้ได้ปริมาตร';
+                } else {
+                    document.getElementById('nutri-res-water-section').style.display = 'none'; 
+                }
+
+            } else {
+                const scoops = activeNutriConfig.scoops_per_serving;
+                const g_scoop = activeNutriConfig.grams_per_scoop;
+                
+                const totalScoops = (totalKcal / s_kcal) * scoops;
+                const totalGrams = totalScoops * g_scoop;
+                
+                document.getElementById('nutri-res-water-section').style.display = 'flex';
+                document.getElementById('lbl-water-title').innerText = '💧 เติมน้ำให้ได้ปริมาตรรวม';
+                document.getElementById('nutri-res-scoop').innerText = totalScoops.toFixed(1);
+                document.getElementById('nutri-res-gram').innerText = totalGrams.toFixed(1);
+                document.getElementById('nutri-res-vol').innerText = volume;
+            }
+
+            const multiplier = totalKcal / s_kcal;
+            document.getElementById('nutri-res-protein').innerText = activeNutriConfig.protein_per_serving ? (activeNutriConfig.protein_per_serving * multiplier).toFixed(1) : '-';
+            document.getElementById('nutri-res-carb').innerText = activeNutriConfig.carb_per_serving ? (activeNutriConfig.carb_per_serving * multiplier).toFixed(1) : '-';
+            document.getElementById('nutri-res-fat').innerText = activeNutriConfig.fat_per_serving ? (activeNutriConfig.fat_per_serving * multiplier).toFixed(1) : '-';
         }
         init();
     </script>
