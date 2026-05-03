@@ -409,10 +409,13 @@
                 const adminBtn = isAdmin ? `<br><button class="btn btn-sm btn-outline" style="margin-top:5px; font-size:0.75rem;" onclick="openAdminModal('${d.drug_code}', '${safeName}')">🛠️ แก้ไขสารอาหาร</button>` : '';
                 // 🌟 แทรกปุ่มเปิดเครื่องคิดเลข (ถ้ามียาตัวนี้มีข้อมูลชง)
                 const configData = d.nutrition_configs;
-                const nutriConfig = Array.isArray(configData) ? configData : configData;
+                // แก้ให้ดึง Index [0] กรณีที่ Supabase ส่งมาเป็น Array
+                const nutriConfig = Array.isArray(configData) ? configData[0] : configData; 
+                
                 const calcBtn = nutriConfig ? `<br><button class="btn btn-sm" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0; margin-top:5px; font-size:0.75rem; padding:4px 8px; border-radius:6px; font-weight:bold;" onclick="openNutriCalc('${d.drug_code}')">🍼 คำนวณชงอาหาร</button>` : '';
                 
-                html += `<th><b style="color:var(--primary); font-size:1.1rem;">${d.drug_name || 'ไม่ระบุชื่อ'}</b>${adminBtn}</th>`;
+                // 🌟 จุดที่แก้: เติม ${calcBtn} เข้าไปในคำสั่งวาด HTML ด้านล่างนี้ครับ (พร้อมจัดให้อยู่ด้านบนด้วย vertical-align: top)
+                html += `<th style="vertical-align: top;"><b style="color:var(--primary); font-size:1.1rem;">${d.drug_name || 'ไม่ระบุชื่อ'}</b>${calcBtn}${adminBtn}</th>`;
             });
             html += `</tr></thead><tbody>`;
 
