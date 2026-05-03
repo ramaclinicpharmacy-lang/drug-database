@@ -149,9 +149,10 @@
                 <button class="btn btn-sm btn-outline" onclick="addJsonItem('admin-specials-list')">+ เพิ่มส่วนผสมพิเศษ</button>
             </div>
 
-            <div style="display:flex; gap:10px; margin-top:20px;">
-                <button class="btn btn-success" style="flex:2;" onclick="saveNutrientData()">💾 บันทึกข้อมูลและแปลงเป็นต่อ 100 kcal</button>
-                <button class="btn btn-outline" style="flex:1;" onclick="document.getElementById('admin-modal').style.display='none'">ยกเลิก</button>
+            <div style="display:flex; gap:10px; margin-top:20px; flex-wrap:wrap;">
+                <button class="btn btn-success" style="flex:2; min-width:200px;" onclick="saveNutrientData()">💾 บันทึกข้อมูลและแปลงเป็นต่อ 100 kcal</button>
+                <button class="btn btn-outline" style="flex:1; min-width:100px; border-color:var(--danger); color:var(--danger);" onclick="clearAllNutrients()">🗑️ ล้างทั้งหมด</button>
+                <button class="btn btn-outline" style="flex:1; min-width:100px;" onclick="document.getElementById('admin-modal').style.display='none'">ยกเลิก</button>
             </div>
         </div>
     </div>
@@ -747,6 +748,20 @@
             }
         }
 
+        // ----------------------------------------------------------------
+        // 🗑️ Helper: ฟังก์ชันล้างค่าสารอาหารทั้งหมด (ปุ่มล้างทั้งหมด)
+        // ----------------------------------------------------------------
+        function clearAllNutrients() {
+            const confirmMsg = "⚠️ ยืนยันการล้างค่าสารอาหารทั้งหมด?\n\nรายการสารอาหารและตัวเลขทั้งหมดในหน้าต่างนี้จะถูกล้างออก\n(คุณต้องกด 'บันทึกข้อมูล...' อีกครั้ง เพื่อลบออกจากฐานข้อมูลอย่างถาวร)\n\nคุณแน่ใจหรือไม่?";
+            
+            if (confirm(confirmMsg)) {
+                // ล้างค่าด้านในกล่องทั้งหมดให้ว่างเปล่า
+                document.getElementById('admin-macros-list').innerHTML = '';
+                document.getElementById('admin-vitamins-list').innerHTML = '';
+                document.getElementById('admin-minerals-list').innerHTML = '';
+                document.getElementById('admin-specials-list').innerHTML = '';
+            }
+        }
         init();
     </script>
 </body>
