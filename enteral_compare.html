@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>เปรียบเทียบอาหารทางการแพทย์ (Enteral Nutrition) | Rama Clinic DB</title>
+    <title>tเปรียบเทียบอาหารทางการแพทย์ (Enteral Nutrition) | Rama Clinic DB</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -36,6 +36,23 @@
         .json-group { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
         .json-item { display: flex; gap: 10px; margin-bottom: 10px; }
         .json-item input { flex: 1; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; }
+
+        /* 🌟 Custom Tooltip (เด้งทันทีที่เอาเมาส์ชี้) */
+        .tooltip {
+            position: relative; display: inline-block; cursor: help;
+            border-bottom: 1px dashed var(--primary); color: var(--primary); font-size: 1.1rem; font-weight: bold; padding-bottom: 2px;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden; width: 250px; background-color: #1e293b; color: #fff; text-align: left;
+            border-radius: 8px; padding: 10px; position: absolute; z-index: 1000; bottom: 125%; left: 50%;
+            margin-left: -125px; opacity: 0; transition: opacity 0.2s, visibility 0.2s;
+            font-size: 0.85rem; font-weight: normal; line-height: 1.4; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .tooltip .tooltiptext::after {
+            content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px;
+            border-width: 5px; border-style: solid; border-color: #1e293b transparent transparent transparent;
+        }
+        .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
     
         /* 📱 ปรับหน้าตาสำหรับหน้าจอมือถือ (Responsive Mobile) */
         @media (max-width: 768px) {
@@ -43,22 +60,18 @@
             .header-bar { padding: 12px; flex-direction: column; gap: 10px; text-align: center; }
             .header-bar h2 { font-size: 1.1rem !important; }
             .header-bar div { justify-content: center; width: 100%; flex-wrap: wrap; }
-            
-            /* ปรับขนาดหัวตาราง */
             .compare-table th { padding: 8px !important; font-size: 0.8rem !important; }
             .compare-table th b { font-size: 0.9rem !important; }
-            
-            /* หดคอลัมน์แรก (ชื่อสารอาหาร) ให้เล็กลง */
             .compare-table th:first-child { width: 120px !important; min-width: 120px !important; }
             .compare-table .row-header { font-size: 0.75rem !important; padding: 8px !important; line-height: 1.2; }
-            
-            /* ลด Padding และลดระยะชิดขวาของช่องตัวเลขสารอาหาร */
             .compare-table td { padding: 8px 10px !important; font-size: 0.8rem !important; }
-            
             .compare-table .category-header { font-size: 0.9rem !important; padding: 6px 10px !important; }
-            
             .selector-box { padding: 15px; }
             .chip-container label { font-size: 0.8rem; padding: 6px 12px; }
+            
+            /* เลื่อน Tooltip ในมือถือไม่ให้ล้นจอ */
+            .tooltip .tooltiptext { margin-left: -50px; }
+            .tooltip .tooltiptext::after { left: 20%; }
         }
     </style>
 </head>
@@ -69,10 +82,8 @@
             <div style="display: flex; gap: 10px; align-items:center;">
                 <!-- 🌟 ซ่อนปุ่ม Rank ไว้ให้เฉพาะ Admin -->
                 <button id="btn-manage-rank" class="btn btn-outline" style="border-color: #f59e0b; color: #d97706; display:none;" onclick="openRankModal()">🔢 ตั้งค่าลำดับสารอาหาร</button>
-                
                 <button class="btn btn-outline" style="display: none; border-color: var(--primary); color: var(--primary);" onclick="window.location.href='index.html'">🏠 กลับหน้าหลัก</button>
                 <button class="btn btn-outline" style="display: none; border-color: var(--danger); color: var(--danger);" onclick="window.close()">❌ ปิดหน้าต่างนี้</button>
-                
             </div>
         </div>
 
@@ -183,11 +194,7 @@
         </div>
     </div>
 
-    <!-- 🌟 Datalists สำหรับเก็บประวัติคำที่เคยพิมพ์ (Suggestion) -->
-    <datalist id="dl-macros"></datalist>
-    <datalist id="dl-vitamins"></datalist>
-    <datalist id="dl-minerals"></datalist>
-    <datalist id="dl-specials"></datalist>
+    <!-- 🧮 Modal: เครื่องคิดเลขคำนวณสัดส่วนชงอาหาร (User) -->
     <div id="nutri-calc-modal" class="modal">
         <div class="modal-content" style="max-width: 450px;">
             <h3 style="color:#166534; margin-top:0;">🧮 คำนวณสัดส่วนชงอาหาร</h3>
@@ -200,7 +207,8 @@
                     <div style="flex:1;">
                         <label style="font-size:0.75rem; color:gray;">ความเข้มข้น (kcal/ml)</label>
                         <select id="nutri-calc-ratio" onchange="runNutriCalc()" style="margin:0; width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1;">
-                            </select>
+                            <!-- Options generated in JS -->
+                        </select>
                     </div>
                     <div style="flex:1; display:none;" id="nutri-calc-ratio-custom-box">
                         <label style="font-size:0.75rem; color:gray;">ระบุ kcal/ml</label>
@@ -258,6 +266,13 @@
             <button class="btn btn-outline" style="width:100%; margin-top:15px; height:42px;" onclick="document.getElementById('nutri-calc-modal').style.display='none'">ปิดหน้าต่าง</button>
         </div>
     </div>
+
+    <!-- 🌟 Datalists สำหรับเก็บประวัติคำที่เคยพิมพ์ (Suggestion) -->
+    <datalist id="dl-macros"></datalist>
+    <datalist id="dl-vitamins"></datalist>
+    <datalist id="dl-minerals"></datalist>
+    <datalist id="dl-specials"></datalist>
+
     <script>
         const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
@@ -279,7 +294,7 @@
 
                 await fetchEnteralDrugs();
                 await fetchNutrients();
-                await fetchRankings(); // 🌟 โหลด Rank ตั้งแต่เริ่ม
+                await fetchRankings();
                 renderSelectors();
                 autoSelectFromUrl();
             } catch (err) {
@@ -289,7 +304,6 @@
         }
 
         async function fetchEnteralDrugs() {
-            // 🌟 อัปเดต: ดึงข้อมูล Nutrition Config มาให้ครบทุกฟิลด์สำหรับคำนวณ
             const { data, error } = await supabaseClient.from('drugs')
                 .select('drug_code, drug_name, drug_type, special_note, nutrition_configs(product_type, grams_per_scoop, scoops_per_serving, serving_volume_ml, serving_kcal, protein_per_serving, carb_per_serving, fat_per_serving, preparation_note)')
                 .eq('is_active', true);
@@ -319,7 +333,6 @@
             }
         }
 
-        // 🌟 ดึงข้อมูล Ranking
         async function fetchRankings() {
             const { data, error } = await supabaseClient.from('nutrient_ranking').select('*');
             if (!error && data) {
@@ -414,22 +427,25 @@
             drugsToCompare.forEach(d => {
                 const safeName = (d.drug_name || '').replace(/'/g, "\\'");
                 const adminBtn = isAdmin ? `<br><button class="btn btn-sm btn-outline" style="margin-top:5px; font-size:0.75rem;" onclick="openAdminModal('${d.drug_code}', '${safeName}')">🛠️ แก้ไขสารอาหาร</button>` : '';
+                
                 // 🌟 แทรกปุ่มเปิดเครื่องคิดเลข (ถ้ามียาตัวนี้มีข้อมูลชง)
                 const configData = d.nutrition_configs;
-                // แก้ให้ดึง Index [0] กรณีที่ Supabase ส่งมาเป็น Array
-                const nutriConfig = Array.isArray(configData) ? configData[0] : configData; 
+                const nutriConfig = Array.isArray(configData) ? configData[0] : configData; // 🔥 แก้ [0] ตรงนี้
                 
                 const calcBtn = nutriConfig ? `<br><button class="btn btn-sm" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0; margin-top:5px; font-size:0.75rem; padding:4px 8px; border-radius:6px; font-weight:bold;" onclick="openNutriCalc('${d.drug_code}')">🍼 คำนวณชงอาหาร</button>` : '';
-                // 🌟 สร้างโค้ด Tooltip โดยดึงจาก special_note
-                let tooltipStyle = `color:var(--primary); font-size:1.1rem;`;
-                let tooltipAttr = '';
+                
+                // 🌟 สร้างโค้ด Custom Tooltip เด้งทันทีที่เอาเมาส์ชี้
+                let tooltipHtml = `<b style="color:var(--primary); font-size:1.1rem;">${d.drug_name || 'ไม่ระบุชื่อ'}</b>`;
                 if (d.special_note && d.special_note.trim() !== '') {
                     const safeNote = d.special_note.replace(/"/g, '&quot;');
-                    tooltipAttr = ` title="💡 Note: ${safeNote}"`; // เปลี่ยนไอคอนและคำนำหน้าให้เข้ากับ Note
-                    tooltipStyle += ` cursor:help; border-bottom:1px dashed var(--primary); display:inline-block; padding-bottom:2px;`;
+                    tooltipHtml = `
+                        <div class="tooltip">${d.drug_name || 'ไม่ระบุชื่อ'}
+                            <span class="tooltiptext">💡 <b>Note:</b><br>${safeNote}</span>
+                        </div>
+                    `;
                 }
-                // 🌟 จุดที่แก้: เติม ${calcBtn} เข้าไปในคำสั่งวาด HTML ด้านล่างนี้ครับ (พร้อมจัดให้อยู่ด้านบนด้วย vertical-align: top)
-                html += `<th style="vertical-align: top;"><b style="color:var(--primary); font-size:1.1rem;">${d.drug_name || 'ไม่ระบุชื่อ'}</b>${calcBtn}${adminBtn}</th>`;
+
+                html += `<th style="vertical-align: top;">${tooltipHtml}${calcBtn}${adminBtn}</th>`;
             });
             html += `</tr></thead><tbody>`;
 
@@ -463,7 +479,7 @@
                         let rawVal = (nutri && nutri[categoryKey] && nutri[categoryKey][key] !== undefined && nutri[categoryKey][key] !== "") ? nutri[categoryKey][key] : '-';
                         let parsed = formatNutrientValue(rawVal, scaleFactor);
                         
-                        // 🌟 ปลดล็อก: เอาเงื่อนไข !parsed.isOperator ออก เพื่อให้เอาค่า < หรือ > มาร่วมคำนวณ Min/Max ด้วย
+                        // 🌟 ปลดล็อก เอาเงื่อนไข !parsed.isOperator ออก
                         if (parsed.numForCompare !== null) {
                             numericValues.push(parsed.numForCompare);
                         }
@@ -488,7 +504,7 @@
                             const parsed = formatNutrientValue(rawVal, scaleFactor);
                             displayVal = parsed.display;
                             
-                            // 🌟 ปลดล็อก: เอาเงื่อนไข !parsed.isOperator ออกเช่นกัน
+                            // 🌟 ปลดล็อก เอาเงื่อนไข !parsed.isOperator ออก
                             if (maxVal !== null && minVal !== null && maxVal !== minVal && parsed.numForCompare !== null) {
                                 if (Math.abs(parsed.numForCompare - maxVal) < 0.0001) {
                                     tdStyle += " background-color: #ecfdf5; color: #047857; font-weight: bold;"; 
@@ -513,6 +529,24 @@
 
             html += `</tbody>`;
             table.innerHTML = html;
+        }
+
+        // ----------------------------------------------------------------
+        // ↕️ ฟังก์ชันย่อ/ขยาย กล่องเลือกสูตรอาหาร
+        // ----------------------------------------------------------------
+        function toggleSelectorSize() {
+            const wrapper = document.getElementById('product-selector-wrapper');
+            const btn = document.getElementById('btn-toggle-selector');
+            
+            // เช็กความสูงปัจจุบัน ถ้าน้อยกว่า 200 ถือว่าย่ออยู่ ให้ขยายออก
+            if (wrapper.offsetHeight < 200) {
+                wrapper.style.height = '400px'; 
+                btn.innerHTML = '🔼 ย่อกล่องลง';
+            } else {
+                // ถ้าใหญ่อยู่แล้ว ให้ย่อกลับไปขนาดมาตรฐาน
+                wrapper.style.height = '80px'; 
+                btn.innerHTML = '🔽 ขยายกล่อง';
+            }
         }
 
         // ----------------------------------------------------------------
@@ -559,7 +593,6 @@
             const container = document.getElementById(containerId);
             container.innerHTML = '';
             
-            // 🌟 ให้แถวในหน้าแก้ไข เรียงตาม Rank ด้วยเหมือนกัน
             const sortedKeys = Object.keys(jsonObj).sort((a, b) => {
                 const rankA = rankData[a] !== undefined ? rankData[a] : 99;
                 const rankB = rankData[b] !== undefined ? rankData[b] : 99;
@@ -666,11 +699,20 @@
         }
 
         // ----------------------------------------------------------------
-        // 🔢 ฝั่ง Admin: ระบบจัดการ Rank
+        // 🗑️ Helper: ฟังก์ชันล้างค่าสารอาหารทั้งหมด (ปุ่มล้างทั้งหมด)
         // ----------------------------------------------------------------
-        // ----------------------------------------------------------------
-        // 🔢 ฝั่ง Admin: ระบบจัดการ Rank (พร้อมระบบลากวาง Drag & Drop)
-        // ----------------------------------------------------------------
+        function clearAllNutrients() {
+            const confirmMsg = "⚠️ ยืนยันการล้างค่าสารอาหารทั้งหมด?\n\nรายการสารอาหารและตัวเลขทั้งหมดในหน้าต่างนี้จะถูกล้างออก\n(คุณต้องกด 'บันทึกข้อมูล...' อีกครั้ง เพื่อลบออกจากฐานข้อมูลอย่างถาวร)\n\nคุณแน่ใจหรือไม่?";
+            
+            if (confirm(confirmMsg)) {
+                // ล้างค่าด้านในกล่องทั้งหมดให้ว่างเปล่า
+                document.getElementById('admin-macros-list').innerHTML = '';
+                document.getElementById('admin-vitamins-list').innerHTML = '';
+                document.getElementById('admin-minerals-list').innerHTML = '';
+                document.getElementById('admin-specials-list').innerHTML = '';
+            }
+        }
+
         // ----------------------------------------------------------------
         // 🔢 ฝั่ง Admin: ระบบจัดการ Rank (แยกกลุ่มหมวดหมู่ชัดเจน)
         // ----------------------------------------------------------------
@@ -680,7 +722,6 @@
         }
 
         function renderRankList() {
-            // กำหนดสีและชื่อหมวดหมู่ให้ตรงกับตารางเปรียบเทียบ
             const categories = [
                 { key: 'macros', name: '🥩 Macronutrients', color: '#c2410c', bg: '#ffedd5', border: '#fdba74' },
                 { key: 'vitamins', name: '💊 Vitamins', color: '#047857', bg: '#d1fae5', border: '#6ee7b7' },
@@ -707,12 +748,9 @@
                         return a.localeCompare(b);
                     });
 
-                    // 🌟 สร้าง Section แยกให้แต่ละกลุ่ม
                     html += `
                         <div class="rank-category-section" style="margin-bottom: 20px;">
                             <div style="font-weight:bold; padding:8px 12px; background:${cat.bg}; color:${cat.color}; border:1px solid ${cat.border}; border-radius:6px; margin-bottom:10px;">${cat.name}</div>
-                            
-                            <!-- พื้นที่ดรอป (Dropzone) รองรับเฉพาะกลุ่มของตัวเอง -->
                             <div class="rank-dropzone" data-category="${cat.key}" style="min-height: 10px;">
                                 ${sortedKeys.map((k, index) => `
                                     <div class="rank-item" draggable="true" data-cat="${cat.key}" style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid #e2e8f0; cursor:grab; background:white; border-radius:6px; margin-bottom:4px; box-shadow:0 1px 2px rgba(0,0,0,0.05); transition:background 0.2s;">
@@ -731,7 +769,6 @@
 
             container.innerHTML = html || '<div style="color:gray; text-align:center; padding:20px;">ไม่มีข้อมูลสารอาหารในระบบ</div>';
 
-            // 🌟 ตั้งค่า Drag & Drop ให้แยกอิสระในแต่ละกลุ่ม (ไม่ให้ลากข้ามกลุ่มกัน)
             const dropzones = container.querySelectorAll('.rank-dropzone');
             dropzones.forEach(zone => {
                 const rankItems = zone.querySelectorAll('.rank-item');
@@ -752,7 +789,6 @@
                 zone.addEventListener('dragover', e => {
                     e.preventDefault();
                     const draggable = document.querySelector('.dragging');
-                    // อนุญาตให้วาง (Drop) ได้เฉพาะเมื่ออยู่กลุ่มเดียวกัน (ป้องกันลากโปรตีนไปไว้ในกลุ่มวิตามิน)
                     if (draggable && draggable.dataset.cat === zone.dataset.category) {
                         const afterElement = getDragAfterElement(zone, e.clientY);
                         if (afterElement == null) {
@@ -780,14 +816,13 @@
             }, { offset: Number.NEGATIVE_INFINITY }).element;
         }
 
-        // 🌟 อัปเดตเลข Rank (ลำดับที่ 1 2 3...) ใหม่ให้แต่ละกลุ่มแยกกัน
         function updateRankNumbers() {
             const dropzones = document.querySelectorAll('.rank-dropzone');
             dropzones.forEach(zone => {
                 const items = zone.querySelectorAll('.rank-item');
                 items.forEach((item, index) => {
                     const input = item.querySelector('.rank-input');
-                    if (input) input.value = index + 1; // เริ่มนับ 1 ใหม่ในทุกๆ หมวดหมู่
+                    if (input) input.value = index + 1; 
                 });
             });
         }
@@ -805,8 +840,6 @@
                         item.style.display = 'none';
                     }
                 });
-                
-                // ถ้าระบุค้นหาแล้วกลุ่มนั้นไม่มีสารอาหารตรงกันเลย ให้ซ่อนหัวข้อกลุ่มนั้นไปเลย
                 section.style.display = hasVisibleItem ? 'block' : 'none';
             });
         }
@@ -819,7 +852,7 @@
                 const key = input.dataset.key;
                 const rankVal = parseInt(input.value) || 99;
                 payload.push({ nutrient_key: key, rank_order: rankVal });
-                rankData[key] = rankVal; // อัปเดต State ในหน้าจอ
+                rankData[key] = rankVal;
             });
 
             const btn = document.querySelector('#rank-modal .btn-warning');
@@ -836,24 +869,10 @@
             } else {
                 alert("✅ บันทึกลำดับสำเร็จ!");
                 document.getElementById('rank-modal').style.display = 'none';
-                renderTable(); // วาดตารางใหม่ให้เรียงตาม Rank ล่าสุด
+                renderTable(); 
             }
         }
 
-        // ----------------------------------------------------------------
-        // 🗑️ Helper: ฟังก์ชันล้างค่าสารอาหารทั้งหมด (ปุ่มล้างทั้งหมด)
-        // ----------------------------------------------------------------
-        function clearAllNutrients() {
-            const confirmMsg = "⚠️ ยืนยันการล้างค่าสารอาหารทั้งหมด?\n\nรายการสารอาหารและตัวเลขทั้งหมดในหน้าต่างนี้จะถูกล้างออก\n(คุณต้องกด 'บันทึกข้อมูล...' อีกครั้ง เพื่อลบออกจากฐานข้อมูลอย่างถาวร)\n\nคุณแน่ใจหรือไม่?";
-            
-            if (confirm(confirmMsg)) {
-                // ล้างค่าด้านในกล่องทั้งหมดให้ว่างเปล่า
-                document.getElementById('admin-macros-list').innerHTML = '';
-                document.getElementById('admin-vitamins-list').innerHTML = '';
-                document.getElementById('admin-minerals-list').innerHTML = '';
-                document.getElementById('admin-specials-list').innerHTML = '';
-            }
-        }
         // -------------------------------------------------------------
         // 🧮 ฝั่ง User: เครื่องคิดเลขคำนวณตาม Kcal และ Volume
         // -------------------------------------------------------------
@@ -862,7 +881,8 @@
         function openNutriCalc(code) {
             const drug = allEnteralDrugs.find(d => d.drug_code === code);
             const configData = drug ? drug.nutrition_configs : null;
-            const actualConfig = Array.isArray(configData) ? configData : configData;
+            // 🌟 แก้ไข: ดึงข้อมูลจาก Array index 0
+            const actualConfig = Array.isArray(configData) ? configData[0] : configData;
 
             if (!drug || !actualConfig || !actualConfig.serving_volume_ml || !actualConfig.serving_kcal) {
                 alert('ข้อมูลสูตรมาตรฐานยังไม่สมบูรณ์ โปรดให้ Admin อัปเดตข้อมูลที่หน้าแรกก่อนครับ'); return;
@@ -997,23 +1017,7 @@
             document.getElementById('nutri-res-carb').innerText = activeNutriConfig.carb_per_serving ? (activeNutriConfig.carb_per_serving * multiplier).toFixed(1) : '-';
             document.getElementById('nutri-res-fat').innerText = activeNutriConfig.fat_per_serving ? (activeNutriConfig.fat_per_serving * multiplier).toFixed(1) : '-';
         }
-        // ----------------------------------------------------------------
-        // ↕️ ฟังก์ชันย่อ/ขยาย กล่องเลือกสูตรอาหาร
-        // ----------------------------------------------------------------
-        function toggleSelectorSize() {
-            const wrapper = document.getElementById('product-selector-wrapper');
-            const btn = document.getElementById('btn-toggle-selector');
-            
-            // เช็กความสูงปัจจุบัน ถ้าน้อยกว่า 200 ถือว่าย่ออยู่ ให้ขยายออก
-            if (wrapper.offsetHeight < 200) {
-                wrapper.style.height = '400px'; 
-                btn.innerHTML = '🔼 ย่อกล่องลง';
-            } else {
-                // ถ้าใหญ่อยู่แล้ว ให้ย่อกลับไปขนาดมาตรฐาน
-                wrapper.style.height = '80px'; 
-                btn.innerHTML = '🔽 ขยายกล่อง';
-            }
-        }
+
         init();
     </script>
 </body>
