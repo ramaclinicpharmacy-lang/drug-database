@@ -546,6 +546,9 @@
         // ----------------------------------------------------------------
         // 🔢 ฝั่ง Admin: ระบบจัดการ Rank
         // ----------------------------------------------------------------
+        // ----------------------------------------------------------------
+        // 🔢 ฝั่ง Admin: ระบบจัดการ Rank (พร้อมระบบลากวาง Drag & Drop)
+        // ----------------------------------------------------------------
         function openRankModal() {
             renderRankList();
             document.getElementById('rank-modal').style.display = 'block';
@@ -568,12 +571,71 @@
             });
 
             const container = document.getElementById('rank-list-container');
-            container.innerHTML = sortedKeys.map(k => `
-                <div class="rank-item" style="display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid #e2e8f0;">
-                    <b style="color:var(--dark); font-size:0.9rem;" class="rank-key-name">${k}</b>
-                    <input type="number" class="rank-input" data-key="${k}" value="${rankData[k] !== undefined ? rankData[k] : 99}" style="width:70px; padding:4px; border:1px solid #cbd5e1; border-radius:6px; text-align:center;">
+            container.innerHTML = sortedKeys.map((k, index) => `
+                <div class="rank-item" draggable="true" style="display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid #e2e8f0; cursor:grab; background:white; border-radius:6px; margin-bottom:4px; box-shadow:0 1px 2px rgba(0,0,0,0.05); transition:background 0.2s;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <span style="color:#94a3b8; font-size:1.2rem; cursor:grab;">☰</span>
+                        <b style="color:var(--dark); font-size:0.9rem;" class="rank-key-name">${k}</b>
+                    </div>
+                    <input type="number" class="rank-input" data-key="${k}" value="${rankData[k] !== undefined ? rankData[k] : index + 1}" style="width:60px; padding:4px; border:1px solid #cbd5e1; border-radius:6px; text-align:center; font-weight:bold; color:var(--primary); background:#f8fafc;">
                 </div>
             `).join('');
+
+            // 🌟 1. ผูก Event ลากวาง (Drag & Drop) ให้แต่ละแถว
+            const rankItems = container.querySelectorAll('.rank-item');
+            rankItems.forEach(item => {
+                item.addEventListener('dragstart', () => {
+                    item.classList.add('dragging');
+                    item.style.opacity = '0.4';
+                    item.style.transform = 'scale(0.98)';
+                });
+                item.addEventListener('dragend', () => {
+                    item.classList.remove('dragging');
+                    item.style.opacity = '1';
+                    item.style.transform = 'scale(1)';
+                    updateRankNumbers(); // อัปเดตเลขเมื่อปล่อยเมาส์
+                });
+            });
+
+            // 🌟 2. ให้ Container คอยรับการลากแทรกตรงกลาง
+            container.ondragover = e => {
+                e.preventDefault();
+                const afterElement = getDragAfterElement(container, e.clientY);
+                const draggable = document.querySelector('.dragging');
+                if (draggable) {
+                    if (afterElement == null) {
+                        container.appendChild(draggable);
+                    } else {
+                        container.insertBefore(draggable, afterElement);
+                    }
+                }
+            };
+
+            // บังคับรันอัปเดตตัวเลขทันทีตอนเปิดหน้า เพื่อป้องกันเลข 99 ซ้ำกัน
+            updateRankNumbers();
+        }
+
+        // 🌟 Helper: คำนวณตำแหน่งเมาส์ เพื่อหาว่าจะแทรกแถวไว้ตรงไหน
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.rank-item:not(.dragging)')];
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        // 🌟 Helper: กวาดดูแถวที่เรียงใหม่ แล้วแก้ไขตัวเลขในกล่อง input ตามลำดับอัตโนมัติ
+        function updateRankNumbers() {
+            const items = document.querySelectorAll('.rank-item');
+            items.forEach((item, index) => {
+                const input = item.querySelector('.rank-input');
+                if (input) input.value = index + 1; // เริ่มจากลำดับที่ 1
+            });
         }
 
         function filterRankList() {
