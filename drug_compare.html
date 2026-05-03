@@ -318,29 +318,22 @@
 
             const drugsToCompare = selectedDrugCodes.map(code => detailedDrugCache[code]).filter(Boolean);
 
+            // 🟢 ส่วนที่ 1: วาดหัวตาราง (แสดงชื่อยา)
             let html = `<thead><tr><th style="width: 250px; text-align:left;">รายการ / ตัวยาสำคัญ</th>`;
             
             drugsToCompare.forEach(d => {
-                        let cellVal = '-';
-                        if (d.drug_contents) {
-                            const content = d.drug_contents.find(c => c.generics?.generic_name === genName);
-                            if (content) {
-                                // 🌟 ดักจับ Null และ Undefined อย่างระมัดระวัง
-                                const amt = (content.amount !== null && content.amount !== undefined) ? content.amount : '';
-                                const unit = (content.unit !== null && content.unit !== undefined) ? content.unit.trim() : '';
-                                
-                                const combinedStr = `${amt} ${unit}`.trim();
-                                
-                                // ถ้ามีข้อมูลตัวเลขหรือหน่วยให้แสดง ถ้าว่างเปล่า (เป็น Null ทั้งคู่) ให้แสดงคำว่า '✅ มีส่วนผสม' แทน
-                                cellVal = combinedStr !== '' ? combinedStr : '✅ มีส่วนผสม';
-                            }
-                        }
-                        // จัดชิดขวาและเปลี่ยนสีตัวหนังสือให้ดูง่าย
-                        html += `<td style="text-align: right; padding-right: 25px; font-weight: bold; color: var(--primary);">${cellVal}</td>`;
-                    });
+                html += `
+                    <th>
+                        <div style="cursor:pointer; display:inline-block;" onclick="openDrugCard('${d.drug_code}')">
+                            <b style="color:var(--primary); font-size:1.1rem; border-bottom:1px dashed var(--primary);">${d.drug_name || '-'}</b>
+                            <br><span style="font-size:0.8rem; color:gray; font-weight:normal;">🔍 คลิกดูข้อมูลยา</span>
+                        </div>
+                    </th>
+                `;
+            });
             html += `</tr></thead><tbody>`;
 
-            // ดึงชื่อ Generic ทั้งหมดที่ไม่ซ้ำกันจากยาที่เลือก
+            // 🟢 ส่วนที่ 2: รวบรวมชื่อ Generic ทั้งหมดจากยาทุกตัวที่เลือกมา
             const allGenerics = new Set();
             drugsToCompare.forEach(d => {
                 if (d.drug_contents) {
@@ -354,6 +347,7 @@
 
             const sortedGenerics = Array.from(allGenerics).sort();
 
+            // 🟢 ส่วนที่ 3: วาดแถวเนื้อหาตาราง (แสดงปริมาณ Generic)
             if (sortedGenerics.length === 0) {
                 html += `<tr><td colspan="${drugsToCompare.length + 1}" style="text-align:center; color:gray; padding:20px;">ไม่มีข้อมูลตัวยาสำคัญ (ส่วนผสม) ในระบบ</td></tr>`;
             } else {
@@ -365,11 +359,17 @@
                         if (d.drug_contents) {
                             const content = d.drug_contents.find(c => c.generics?.generic_name === genName);
                             if (content) {
-                                const amt = content.amount != null ? content.amount : '';
-                                const unit = content.unit || '';
-                                cellVal = `${amt} ${unit}`.trim() || '✅ มีส่วนผสม';
+                                // 🌟 ดักจับ Null และ Undefined อย่างระมัดระวัง
+                                const amt = (content.amount !== null && content.amount !== undefined) ? content.amount : '';
+                                const unit = (content.unit !== null && content.unit !== undefined) ? content.unit.trim() : '';
+                                
+                                const combinedStr = `${amt} ${unit}`.trim();
+                                
+                                // ถ้ามีข้อมูลตัวเลขหรือหน่วยให้แสดง ถ้าว่างเปล่าให้แสดง '✅ มีส่วนผสม'
+                                cellVal = combinedStr !== '' ? combinedStr : '✅ มีส่วนผสม';
                             }
                         }
+                        // จัดตัวเลขชิดขวา
                         html += `<td style="text-align: right; padding-right: 25px; font-weight: bold; color: var(--dark);">${cellVal}</td>`;
                     });
                     html += `</tr>`;
