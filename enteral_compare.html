@@ -549,75 +549,102 @@
         // ----------------------------------------------------------------
         // 🔢 ฝั่ง Admin: ระบบจัดการ Rank (พร้อมระบบลากวาง Drag & Drop)
         // ----------------------------------------------------------------
+        // ----------------------------------------------------------------
+        // 🔢 ฝั่ง Admin: ระบบจัดการ Rank (แยกกลุ่มหมวดหมู่ชัดเจน)
+        // ----------------------------------------------------------------
         function openRankModal() {
             renderRankList();
             document.getElementById('rank-modal').style.display = 'block';
         }
 
         function renderRankList() {
-            // ดึง Key ทั้งหมดที่มีในระบบ
-            const allKeys = new Set();
-            Object.values(nutrientsData).forEach(nutri => {
-                ['macros', 'vitamins', 'minerals', 'specials'].forEach(cat => {
-                    if (nutri[cat]) Object.keys(nutri[cat]).forEach(k => allKeys.add(k));
-                });
-            });
-
-            const sortedKeys = Array.from(allKeys).sort((a, b) => {
-                const rankA = rankData[a] !== undefined ? rankData[a] : 99;
-                const rankB = rankData[b] !== undefined ? rankData[b] : 99;
-                if (rankA !== rankB) return rankA - rankB;
-                return a.localeCompare(b);
-            });
+            // กำหนดสีและชื่อหมวดหมู่ให้ตรงกับตารางเปรียบเทียบ
+            const categories = [
+                { key: 'macros', name: '🥩 Macronutrients', color: '#c2410c', bg: '#ffedd5', border: '#fdba74' },
+                { key: 'vitamins', name: '💊 Vitamins', color: '#047857', bg: '#d1fae5', border: '#6ee7b7' },
+                { key: 'minerals', name: '🧂 Minerals & Trace Elements', color: '#0369a1', bg: '#e0f2fe', border: '#bae6fd' },
+                { key: 'specials', name: '✨ Special Ingredients', color: '#6d28d9', bg: '#f3e8ff', border: '#d8b4fe' }
+            ];
 
             const container = document.getElementById('rank-list-container');
-            container.innerHTML = sortedKeys.map((k, index) => `
-                <div class="rank-item" draggable="true" style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid #e2e8f0; cursor:grab; background:white; border-radius:6px; margin-bottom:4px; box-shadow:0 1px 2px rgba(0,0,0,0.05); transition:background 0.2s;">
-                    <div style="display:flex; align-items:center; gap:12px;">
-                        <span style="color:#94a3b8; font-size:1.2rem; cursor:grab;">☰</span>
-                        <b style="color:var(--dark); font-size:0.95rem;" class="rank-key-name">${k}</b>
-                    </div>
-                    
-                    <!-- 🌟 ปรับเป็น type="hidden" เพื่อซ่อนตัวเลขจากหน้าตา UI แต่ระบบยังนับเลขเบื้องหลังได้ -->
-                    <input type="hidden" class="rank-input" data-key="${k}" value="${rankData[k] !== undefined ? rankData[k] : index + 1}">
-                </div>
-            `).join('');
+            let html = '';
 
-            // 🌟 1. ผูก Event ลากวาง (Drag & Drop) ให้แต่ละแถว
-            const rankItems = container.querySelectorAll('.rank-item');
-            rankItems.forEach(item => {
-                item.addEventListener('dragstart', () => {
-                    item.classList.add('dragging');
-                    item.style.opacity = '0.4';
-                    item.style.transform = 'scale(0.98)';
+            categories.forEach(cat => {
+                const catKeys = new Set();
+                Object.values(nutrientsData).forEach(nutri => {
+                    if (nutri && nutri[cat.key]) {
+                        Object.keys(nutri[cat.key]).forEach(k => catKeys.add(k));
+                    }
                 });
-                item.addEventListener('dragend', () => {
-                    item.classList.remove('dragging');
-                    item.style.opacity = '1';
-                    item.style.transform = 'scale(1)';
-                    updateRankNumbers(); // อัปเดตเลขเมื่อปล่อยเมาส์
+
+                if (catKeys.size > 0) {
+                    const sortedKeys = Array.from(catKeys).sort((a, b) => {
+                        const rankA = rankData[a] !== undefined ? rankData[a] : 99;
+                        const rankB = rankData[b] !== undefined ? rankData[b] : 99;
+                        if (rankA !== rankB) return rankA - rankB;
+                        return a.localeCompare(b);
+                    });
+
+                    // 🌟 สร้าง Section แยกให้แต่ละกลุ่ม
+                    html += `
+                        <div class="rank-category-section" style="margin-bottom: 20px;">
+                            <div style="font-weight:bold; padding:8px 12px; background:${cat.bg}; color:${cat.color}; border:1px solid ${cat.border}; border-radius:6px; margin-bottom:10px;">${cat.name}</div>
+                            
+                            <!-- พื้นที่ดรอป (Dropzone) รองรับเฉพาะกลุ่มของตัวเอง -->
+                            <div class="rank-dropzone" data-category="${cat.key}" style="min-height: 10px;">
+                                ${sortedKeys.map((k, index) => `
+                                    <div class="rank-item" draggable="true" data-cat="${cat.key}" style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid #e2e8f0; cursor:grab; background:white; border-radius:6px; margin-bottom:4px; box-shadow:0 1px 2px rgba(0,0,0,0.05); transition:background 0.2s;">
+                                        <div style="display:flex; align-items:center; gap:12px;">
+                                            <span style="color:#94a3b8; font-size:1.2rem; cursor:grab;">☰</span>
+                                            <b style="color:var(--dark); font-size:0.95rem;" class="rank-key-name">${k}</b>
+                                        </div>
+                                        <input type="hidden" class="rank-input" data-key="${k}" value="${rankData[k] !== undefined ? rankData[k] : index + 1}">
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+
+            container.innerHTML = html || '<div style="color:gray; text-align:center; padding:20px;">ไม่มีข้อมูลสารอาหารในระบบ</div>';
+
+            // 🌟 ตั้งค่า Drag & Drop ให้แยกอิสระในแต่ละกลุ่ม (ไม่ให้ลากข้ามกลุ่มกัน)
+            const dropzones = container.querySelectorAll('.rank-dropzone');
+            dropzones.forEach(zone => {
+                const rankItems = zone.querySelectorAll('.rank-item');
+                rankItems.forEach(item => {
+                    item.addEventListener('dragstart', () => {
+                        item.classList.add('dragging');
+                        item.style.opacity = '0.4';
+                        item.style.transform = 'scale(0.98)';
+                    });
+                    item.addEventListener('dragend', () => {
+                        item.classList.remove('dragging');
+                        item.style.opacity = '1';
+                        item.style.transform = 'scale(1)';
+                        updateRankNumbers(); 
+                    });
+                });
+
+                zone.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    const draggable = document.querySelector('.dragging');
+                    // อนุญาตให้วาง (Drop) ได้เฉพาะเมื่ออยู่กลุ่มเดียวกัน (ป้องกันลากโปรตีนไปไว้ในกลุ่มวิตามิน)
+                    if (draggable && draggable.dataset.cat === zone.dataset.category) {
+                        const afterElement = getDragAfterElement(zone, e.clientY);
+                        if (afterElement == null) {
+                            zone.appendChild(draggable);
+                        } else {
+                            zone.insertBefore(draggable, afterElement);
+                        }
+                    }
                 });
             });
 
-            // 🌟 2. ให้ Container คอยรับการลากแทรกตรงกลาง
-            container.ondragover = e => {
-                e.preventDefault();
-                const afterElement = getDragAfterElement(container, e.clientY);
-                const draggable = document.querySelector('.dragging');
-                if (draggable) {
-                    if (afterElement == null) {
-                        container.appendChild(draggable);
-                    } else {
-                        container.insertBefore(draggable, afterElement);
-                    }
-                }
-            };
-
-            // บังคับรันอัปเดตตัวเลขทันทีตอนเปิดหน้า
             updateRankNumbers();
         }
 
-        // 🌟 Helper: คำนวณตำแหน่งเมาส์ เพื่อหาว่าจะแทรกแถวไว้ตรงไหน
         function getDragAfterElement(container, y) {
             const draggableElements = [...container.querySelectorAll('.rank-item:not(.dragging)')];
             return draggableElements.reduce((closest, child) => {
@@ -631,20 +658,34 @@
             }, { offset: Number.NEGATIVE_INFINITY }).element;
         }
 
-        // 🌟 Helper: กวาดดูแถวที่เรียงใหม่ แล้วแก้ไขตัวเลขในกล่อง input ตามลำดับอัตโนมัติ
+        // 🌟 อัปเดตเลข Rank (ลำดับที่ 1 2 3...) ใหม่ให้แต่ละกลุ่มแยกกัน
         function updateRankNumbers() {
-            const items = document.querySelectorAll('.rank-item');
-            items.forEach((item, index) => {
-                const input = item.querySelector('.rank-input');
-                if (input) input.value = index + 1; // เริ่มจากลำดับที่ 1
+            const dropzones = document.querySelectorAll('.rank-dropzone');
+            dropzones.forEach(zone => {
+                const items = zone.querySelectorAll('.rank-item');
+                items.forEach((item, index) => {
+                    const input = item.querySelector('.rank-input');
+                    if (input) input.value = index + 1; // เริ่มนับ 1 ใหม่ในทุกๆ หมวดหมู่
+                });
             });
         }
 
         function filterRankList() {
             const q = document.getElementById('search-rank-input').value.toLowerCase();
-            document.querySelectorAll('.rank-item').forEach(item => {
-                const keyName = item.querySelector('.rank-key-name').innerText.toLowerCase();
-                item.style.display = keyName.includes(q) ? 'flex' : 'none';
+            document.querySelectorAll('.rank-category-section').forEach(section => {
+                let hasVisibleItem = false;
+                section.querySelectorAll('.rank-item').forEach(item => {
+                    const keyName = item.querySelector('.rank-key-name').innerText.toLowerCase();
+                    if (keyName.includes(q)) {
+                        item.style.display = 'flex';
+                        hasVisibleItem = true;
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+                
+                // ถ้าระบุค้นหาแล้วกลุ่มนั้นไม่มีสารอาหารตรงกันเลย ให้ซ่อนหัวข้อกลุ่มนั้นไปเลย
+                section.style.display = hasVisibleItem ? 'block' : 'none';
             });
         }
 
