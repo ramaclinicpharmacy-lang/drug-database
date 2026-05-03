@@ -220,31 +220,31 @@
     <div class="search-container">
         <input type="text" id="main-search" class="search-input" placeholder="🔍 ค้นหายา, ส่วนประกอบ, ลักษณะยา, สถานะ, หรือบัญชียา..." onkeyup="filterDrugs()">
         
-        <div style="display: flex; gap: 8px; flex-wrap: nowrap; overflow-x: auto; align-items: center; justify-content: space-between;">
-            <!-- 🌟 แถบเมนูปุ่ม (แยกซ้าย-ขวา ชัดเจน) -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                
-                <!-- 👈 กลุ่มปุ่มฝั่งซ้าย มัดรวมกันด้วย gap -->
-                <div style="display: flex; gap: 10px;">
-                    <button id="btn-filter" class="btn btn-outline" onclick="toggleFilter()">🔍 ตัวกรอง</button>
-                    <button class="btn btn-outline" onclick="clearFilters()">🧹 ล้าง</button>
-                    <button id="btn-toggle-view" class="btn btn-outline" onclick="toggleView()">🔽 ขยาย</button>
-                </div>
+        <!-- 🌟 แถบเมนูปุ่ม (คลีนโครงสร้างใหม่เพื่อจัดซ้าย-ขวา) -->
+        <div style="display: flex; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 15px; flex-wrap: wrap;">
             
-                <!-- 👉 ปุ่มฝั่งขวา (จะถูกดันไปชิดขวาสุดอัตโนมัติ) -->
+            <!-- 👈 กลุ่มปุ่มฝั่งซ้าย (Standard Actions) -->
+            <div style="display: flex; gap: 8px;">
+                <button id="btn-filter" class="btn btn-outline" onclick="toggleFilter()">🔍 ตัวกรอง</button>
+                <button class="btn btn-outline" onclick="clearFilters()">🧹 ล้าง</button>
+                <button id="btn-toggle-view" class="btn btn-outline" onclick="toggleView()">🔽 ขยาย</button>
+            </div>
+    
+            <!-- 👉 กลุ่มปุ่มฝั่งขวา (Tools & Admin) -->
+            <div style="display: flex; gap: 8px; align-items: center; margin-left: auto;">
+                
+                <!-- 🛠️ Admin Buttons (จะแสดงเมื่อล็อกอิน) -->
+                <div id="admin-quick-filters" class="hidden" style="display: flex; gap: 8px; align-items: center;">
+                    <button id="btn-filter-new" class="btn btn-sm" style="background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; font-weight:bold;" onclick="toggleFilterNew()">🆕 เฉพาะยาเปิดใหม่</button>
+                    <label style="font-size:0.85rem; color:var(--danger); font-weight:bold; cursor:pointer; background:#fee2e2; padding:4px 10px; border-radius:8px; display:inline-flex; align-items:center; gap: 5px;">
+                        <input type="checkbox" id="admin-view-all-cb" class="admin-bypass-cb" onchange="updateBaseVisibilityAndFilter()"> 👁️ ทุก Status
+                    </label>
+                </div>
+    
+                <!-- 💊 ปุ่มเปรียบเทียบยา -->
                 <button class="btn btn-sm" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; font-weight: bold; border-radius: 6px; padding: 6px 12px; cursor: pointer;" onclick="window.open('drug_compare.html', '_blank')">
                     💊 เปรียบเทียบยา
                 </button>
-            
-            </div>
-            
-            <!-- 🌟 เปลี่ยนกล่องตรงนี้ เพื่อรวม 2 ปุ่มของ Admin ไว้ด้วยกัน -->
-            <div id="admin-quick-filters" class="hidden" style="display:flex; gap:8px; align-items:center; margin-left:auto;">
-                <button id="btn-filter-new" class="btn btn-sm" style="background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; font-weight:bold;" onclick="toggleFilterNew()">🆕 เฉพาะยาเปิดใหม่</button>
-                
-                <label style="font-size:0.85rem; color:var(--danger); font-weight:bold; cursor:pointer; background:#fee2e2; padding:4px 10px; border-radius:8px; display:inline-flex; align-items:center;">
-                    <input type="checkbox" id="admin-view-all-cb" class="admin-bypass-cb" onchange="updateBaseVisibilityAndFilter()"> 👁️ โชว์ยาทุก Status
-                </label>
             </div>
         </div>
         
