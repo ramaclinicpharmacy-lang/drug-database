@@ -124,31 +124,52 @@
         }
 
         // 1. โหลดข้อมูลพื้นฐานมาสำหรับช่องค้นหา 
+        // 1. โหลดข้อมูลพื้นฐานมาสำหรับช่องค้นหา (🌟 อัปเกรด: ทะลุลิมิต 1,000 แถวด้วย Pagination)
         async function fetchBasicDrugList() {
             try {
-                // 🌟 โค้ดที่แก้: สั่งให้ Supabase วิ่งไปดึง generic_name ที่อยู่ลึกเข้าไป 2 ชั้น
-                const { data, error } = await supabaseClient.from('drugs')
-                    .select(`
-                        drug_code, 
-                        drug_name, 
-                        trade_name,
-                        drug_contents (
-                            generics (
-                                generic_name
+                let allData = [];
+                let isFetching = true;
+                let from = 0;
+                const step = 1000; // ดึงทีละ 1,000
+
+                // วนลูปดึงข้อมูลจนกว่าจะหมด
+                while (isFetching) {
+                    const { data, error } = await supabaseClient.from('drugs')
+                        .select(`
+                            drug_code, 
+                            drug_name, 
+                            trade_name,
+                            drug_contents (
+                                generics (
+                                    generic_name
+                                )
                             )
-                        )
-                    `)
-                    .eq('is_active', true);
-                
-                if (error) {
-                    document.getElementById('search-results').innerHTML = `<div style="padding:15px; color:red;">❌ โหลดข้อมูลไม่สำเร็จ: ${error.message}</div>`;
-                    document.getElementById('search-results').style.display = 'block';
-                    throw error;
+                        `)
+                        .eq('is_active', true)
+                        .range(from, from + step - 1); // 🌟 กำหนดช่วงที่จะดึง (เช่น 0-999, 1000-1999)
+                    
+                    if (error) {
+                        document.getElementById('search-results').innerHTML = `<div style="padding:15px; color:red;">❌ โหลดข้อมูลไม่สำเร็จ: ${error.message}</div>`;
+                        document.getElementById('search-results').style.display = 'block';
+                        throw error;
+                    }
+                    
+                    if (data && data.length > 0) {
+                        allData = allData.concat(data); // เอาของใหม่มาต่อท้ายของเดิม
+                        from += step; // ขยับจุดเริ่มต้นไปอีก 1,000
+                        
+                        // ถ้าดึงมาได้น้อยกว่า 1,000 แสดงว่าหมดก๊อกแล้ว ให้หยุดลูป
+                        if (data.length < step) {
+                            isFetching = false;
+                        }
+                    } else {
+                        isFetching = false; // ถ้าไม่มีข้อมูลมาเลย ให้หยุดลูป
+                    }
                 }
                 
-                if (data) {
-                    // แปลงโครงสร้างให้ค้นหาง่ายขึ้น (ยุบ array ชื่อสามัญให้กลายเป็น String คั่นด้วย +)
-                    basicDrugList = data.map(d => {
+                // นำข้อมูลทั้งหมดมาแปลงโครงสร้างเหมือนเดิม
+                if (allData.length > 0) {
+                    basicDrugList = allData.map(d => {
                         const genericsArray = d.drug_contents 
                             ? d.drug_contents.map(content => content.generics?.generic_name).filter(Boolean)
                             : [];
@@ -160,6 +181,9 @@
                             generic_name_display: genericsArray.length > 0 ? genericsArray.join(' + ') : 'ไม่ระบุ'
                         };
                     });
+                    
+                    // แอบ Console log ดูว่าดึงมาได้ทั้งหมดกี่ตัว (กด F12 ดูได้ครับ)
+                    console.log(`✅ โหลดรายชื่อยาสำเร็จทั้งหมด ${basicDrugList.length} รายการ (ทะลุ 1000 limit)`);
                 }
             } catch (err) {
                 console.error("Error loading basic list:", err);
