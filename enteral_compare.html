@@ -37,21 +37,23 @@
         .json-item { display: flex; gap: 10px; margin-bottom: 10px; }
         .json-item input { flex: 1; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; }
 
-        /* 🌟 Custom Tooltip (ปรับให้เด้งลงด้านล่างแทน จะได้ไม่โดนขอบตารางบัง) */
+        /* 🌟 Custom Tooltip (ปรับให้จัดกึ่งกลางด้วย transform ยืดหยุ่นกว่า margin) */
         .tooltip {
             position: relative; display: inline-block; cursor: help;
             border-bottom: 1px dashed var(--primary); color: var(--primary); font-size: 1.1rem; font-weight: bold; padding-bottom: 2px;
         }
         .tooltip:hover { z-index: 9999; }
         .tooltip .tooltiptext {
-            visibility: hidden; width: 250px; background-color: #1e293b; color: #fff; text-align: left;
+            visibility: hidden; width: 250px; max-width: 85vw; /* 🌟 ป้องกันความกว้างเกินหน้าจอมือถือ */
+            background-color: #1e293b; color: #fff; text-align: left;
             border-radius: 8px; padding: 10px; position: absolute; z-index: 9999; 
-            top: 125%; left: 50%; /* 🌟 เปลี่ยนเป็น top ให้ห้อยลงมาข้างล่าง */
-            margin-left: -125px; opacity: 0; transition: opacity 0.2s, visibility 0.2s;
+            top: 125%; left: 50%; 
+            transform: translateX(-50%); /* 🌟 ใช้ transform แทน margin-left */
+            opacity: 0; transition: opacity 0.2s, visibility 0.2s;
             font-size: 0.85rem; font-weight: normal; line-height: 1.4; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
         .tooltip .tooltiptext::after {
-            content: ""; position: absolute; bottom: 100%; left: 50%; margin-left: -5px; /* 🌟 ย้ายสามเหลี่ยมชี้ขึ้นด้านบน */
+            content: ""; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
             border-width: 5px; border-style: solid; border-color: transparent transparent #1e293b transparent;
         }
         .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
@@ -71,9 +73,16 @@
             .selector-box { padding: 15px; }
             .chip-container label { font-size: 0.8rem; padding: 6px 12px; }
             
-            /* เลื่อน Tooltip ในมือถือไม่ให้ล้นจอ */
-            .tooltip .tooltiptext { margin-left: -50px; }
-            .tooltip .tooltiptext::after { left: 20%; }
+            /* 📱 ปรับ Tooltip ไม่ให้ล้นจอซ้ายขวาในมือถือ */
+            .tooltip .tooltiptext { width: max-content; max-width: 220px; }
+            
+            /* ถ้าเป็นยาสูตรแรกสุด (คอลัมน์ 2 ถัดจากชื่อสารอาหาร) ให้ Tooltip ชิดซ้าย */
+            .compare-table th:nth-child(2) .tooltip .tooltiptext { left: -5px; transform: none; }
+            .compare-table th:nth-child(2) .tooltip .tooltiptext::after { left: 25px; transform: none; }
+            
+            /* ถ้าเป็นยาสูตรขวาสุด ให้ Tooltip ชิดขวา */
+            .compare-table th:last-child .tooltip .tooltiptext { left: auto; right: -5px; transform: none; }
+            .compare-table th:last-child .tooltip .tooltiptext::after { left: auto; right: 25px; transform: none; }
         }
     </style>
 </head>
