@@ -465,11 +465,18 @@
             return obj;
         }
 
-        async function saveNutrientData() {
+async function saveNutrientData() {
             const code = document.getElementById('admin-drug-code').value;
-            
-            // 🌟 ดึงค่า Base Kcal ที่แอดมินกรอก แล้วหาตัวหาร (Scale Factor)
             const baseKcal = parseFloat(document.getElementById('admin-base-kcal').value) || 100;
+            
+            // 🌟 กันเหนียวชั้นที่ 2: ถ้า Kcal ไม่ใช่ 100 ให้เด้ง Popup ถามเพื่อดึงสติ
+            if (baseKcal !== 100) {
+                const confirmMsg = `⚠️ ยืนยันการคำนวณใหม่?\n\nคุณกำหนดฐานพลังงานไว้ที่ ${baseKcal} kcal\nระบบจะนำตัวเลขสารอาหารทั้งหมดที่คุณกรอกมา "หารและแปลงกลับเป็นต่อ 100 kcal"\n\nหากตัวเลขในช่องยังเป็นค่า 100 kcal เดิมอยู่ การบันทึกนี้จะทำให้ข้อมูลเพี้ยนทันที!\n\nกด OK เพื่อบันทึก หรือ Cancel เพื่อกลับไปแก้ตัวเลข`;
+                if (!confirm(confirmMsg)) {
+                    return; // ยกเลิกการเซฟถ้าแอดมินกด Cancel
+                }
+            }
+
             const scaleFactorTo100 = 100 / baseKcal; // ตัวคูณแปลงกลับเป็นต่อ 100 kcal
             
             const payload = {
