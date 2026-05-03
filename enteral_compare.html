@@ -79,6 +79,13 @@
         <div class="modal-content">
             <h3 style="margin-top:0; color:var(--primary);">🛠️ จัดการสารอาหาร: <span id="admin-drug-name"></span></h3>
             <input type="hidden" id="admin-drug-code">
+
+            <!-- 🌟 กล่องเตือนกันพลาด (ใหม่) -->
+            <div style="background:#fffbeb; border:1px solid #fde68a; padding:12px; border-radius:8px; margin-bottom:15px; font-size:0.85rem; color:#b45309;">
+                <b>⚠️ ข้อควรระวังเมื่อกลับมาแก้ไขข้อมูล:</b><br>
+                ตัวเลขสารอาหารที่แสดงอยู่ในช่องต่างๆ ตอนนี้คือ <b>"ปริมาณที่แปลงเป็นต่อ 100 kcal แล้ว"</b><br>
+                หากท่านต้องการแก้ไขโดยอ้างอิงจากฉลากขนาดอื่น (เช่น 250 kcal) ให้แก้ช่องด้านล่างเป็น 250 <b><u>แล้วต้องพิมพ์เลขสารอาหารใหม่ทั้งหมดตามฉลากด้วย</u></b> (อย่านำค่า 100 kcal เดิมมาบันทึกหารซ้ำ)
+            </div>
             
             <!-- 🌟 ส่วนกรอก Kcal ตั้งต้นของ Admin -->
             <div style="background:#e0e7ff; border:1px solid #c7d2fe; padding:15px; border-radius:8px; margin-bottom:15px;">
