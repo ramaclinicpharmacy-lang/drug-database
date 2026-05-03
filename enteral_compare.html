@@ -212,6 +212,7 @@
             });
             html += `</tr></thead><tbody>`;
 
+            // Helper function สำหรับวาดกลุ่มสารอาหาร (พร้อมระบบไฮไลต์สี)
             const buildCategoryRows = (categoryKey, categoryName) => {
                 const allKeys = new Set();
                 drugsToCompare.forEach(d => {
@@ -228,24 +229,53 @@
                 Array.from(allKeys).sort().forEach(key => {
                     catHtml += `<tr><td class="row-header">${key}</td>`;
                     
+                    // 🌟 1. ดึงตัวเลขทั้งหมดในแถวนี้มาเทียบหาค่า Max / Min
+                    let numericValues = [];
+                    drugsToCompare.forEach(d => {
+                        const nutri = nutrientsData[d.drug_code];
+                        let val = (nutri && nutri[categoryKey] && nutri[categoryKey][key] !== undefined && nutri[categoryKey][key] !== "") ? nutri[categoryKey][key] : '-';
+                        if (val !== '-' && (typeof val === 'number' || (!isNaN(parseFloat(val)) && isFinite(val)))) {
+                            numericValues.push(parseFloat(val));
+                        }
+                    });
+
+                    let maxVal = null;
+                    let minVal = null;
+                    if (numericValues.length > 1) { // เทียบเฉพาะเมื่อมีตัวเลขตั้งแต่ 2 ค่าขึ้นไป
+                        maxVal = Math.max(...numericValues);
+                        minVal = Math.min(...numericValues);
+                    }
+
+                    // 🌟 2. วาดเซลล์ทีละช่องพร้อมกำหนดสี
                     drugsToCompare.forEach(d => {
                         const nutri = nutrientsData[d.drug_code];
                         let val = (nutri && nutri[categoryKey] && nutri[categoryKey][key] !== undefined && nutri[categoryKey][key] !== "") ? nutri[categoryKey][key] : '-';
                         
-                        // 🌟 จัดการรูปแบบตัวเลข: ทศนิยม 2 ตำแหน่ง / ค่าน้อยมาก / Text
+                        let tdStyle = "text-align: right; padding-right: 25px; transition: 0.3s;";
+                        
                         if (val !== '-') {
-                            // เช็กว่าเป็นตัวเลขที่สามารถคำนวณได้หรือไม่ (ไม่ใช่ text เช่น "<0.1" หรือ "Trace")
                             if (typeof val === 'number' || (!isNaN(parseFloat(val)) && isFinite(val))) {
                                 const num = parseFloat(val);
+                                
+                                // ไฮไลต์สีถ้าค่า Max กับ Min ไม่เท่ากัน
+                                if (maxVal !== null && minVal !== null && maxVal !== minVal) {
+                                    if (num === maxVal) {
+                                        tdStyle += " background-color: #ecfdf5; color: #047857; font-weight: bold;"; // 🟩 สีเขียว (มากสุด)
+                                    } else if (num === minVal) {
+                                        tdStyle += " background-color: #fff7ed; color: #c2410c; font-weight: bold;"; // 🟧 สีส้ม (น้อยสุด)
+                                    }
+                                }
+
+                                // แปลงทศนิยม
                                 if (num > 0 && num < 0.01) {
-                                    val = '< 0.01'; // ถ้าน้อยกว่า 0.01 ให้แสดงว่าค่าน้อยมาก
+                                    val = '< 0.01';
                                 } else {
-                                    val = num.toFixed(2); // ปรับเป็นทศนิยม 2 ตำแหน่ง (เช่น 1.5 -> 1.50)
+                                    val = num.toFixed(2);
                                 }
                             }
                         }
-                        // 🌟 จัดชิดขวา และเว้นระยะขอบให้สวยงาม เพื่อให้ดูทศนิยมง่าย
-                        catHtml += `<td style="text-align: right; padding-right: 25px;">${val}</td>`;
+                        
+                        catHtml += `<td style="${tdStyle}">${val}</td>`;
                     });
                     
                     catHtml += `</tr>`;
