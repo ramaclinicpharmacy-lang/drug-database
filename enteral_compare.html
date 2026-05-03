@@ -329,7 +329,6 @@
 
                 let catHtml = `<tr><td colspan="${drugsToCompare.length + 1}" class="category-header">${categoryName}</td></tr>`;
                 
-                // 🌟 ปรับระบบ Sort ให้เช็กเลข Rank ก่อน ถ้าเท่ากันค่อยเรียงตามอักษร
                 const sortedKeys = Array.from(allKeys).sort((a, b) => {
                     const rankA = rankData[a] !== undefined ? rankData[a] : 99;
                     const rankB = rankData[b] !== undefined ? rankData[b] : 99;
@@ -340,13 +339,15 @@
                 sortedKeys.forEach(key => {
                     catHtml += `<tr><td class="row-header">${key}</td>`;
                     
+                    // 🌟 หาค่ามากสุด-น้อยสุด 
                     let numericValues = [];
                     drugsToCompare.forEach(d => {
                         const nutri = nutrientsData[d.drug_code];
                         let rawVal = (nutri && nutri[categoryKey] && nutri[categoryKey][key] !== undefined && nutri[categoryKey][key] !== "") ? nutri[categoryKey][key] : '-';
                         let parsed = formatNutrientValue(rawVal, scaleFactor);
                         
-                        if (parsed.numForCompare !== null && !parsed.isOperator) {
+                        // 🌟 ปลดล็อก: เอาเงื่อนไข !parsed.isOperator ออก เพื่อให้เอาค่า < หรือ > มาร่วมคำนวณ Min/Max ด้วย
+                        if (parsed.numForCompare !== null) {
                             numericValues.push(parsed.numForCompare);
                         }
                     });
@@ -358,6 +359,7 @@
                         minVal = Math.min(...numericValues);
                     }
                     
+                    // 🌟 วาดเซลล์ทีละช่อง
                     drugsToCompare.forEach(d => {
                         const nutri = nutrientsData[d.drug_code];
                         let rawVal = (nutri && nutri[categoryKey] && nutri[categoryKey][key] !== undefined && nutri[categoryKey][key] !== "") ? nutri[categoryKey][key] : '-';
@@ -369,7 +371,8 @@
                             const parsed = formatNutrientValue(rawVal, scaleFactor);
                             displayVal = parsed.display;
                             
-                            if (maxVal !== null && minVal !== null && maxVal !== minVal && parsed.numForCompare !== null && !parsed.isOperator) {
+                            // 🌟 ปลดล็อก: เอาเงื่อนไข !parsed.isOperator ออกเช่นกัน
+                            if (maxVal !== null && minVal !== null && maxVal !== minVal && parsed.numForCompare !== null) {
                                 if (Math.abs(parsed.numForCompare - maxVal) < 0.0001) {
                                     tdStyle += " background-color: #ecfdf5; color: #047857; font-weight: bold;"; 
                                 } else if (Math.abs(parsed.numForCompare - minVal) < 0.0001) {
