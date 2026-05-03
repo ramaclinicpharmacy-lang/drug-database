@@ -420,7 +420,15 @@
                 const nutriConfig = Array.isArray(configData) ? configData[0] : configData; 
                 
                 const calcBtn = nutriConfig ? `<br><button class="btn btn-sm" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0; margin-top:5px; font-size:0.75rem; padding:4px 8px; border-radius:6px; font-weight:bold;" onclick="openNutriCalc('${d.drug_code}')">🍼 คำนวณชงอาหาร</button>` : '';
-                
+                // 🌟 สร้างโค้ด Tooltip ถ้ามียามีข้อมูล Remarks
+                // ใส่ border-bottom แบบเส้นประ (dashed) และเปลี่ยนเมาส์เป็นรูปเครื่องหมายคำถาม (help) เพื่อสื่อให้ User รู้ว่าชี้ได้
+                let tooltipStyle = `color:var(--primary); font-size:1.1rem;`;
+                let tooltipAttr = '';
+                if (d.remarks && d.remarks.trim() !== '') {
+                    const safeRemark = d.remarks.replace(/"/g, '&quot;');
+                    tooltipAttr = ` title="💊 ลักษณะ: ${safeRemark}"`;
+                    tooltipStyle += ` cursor:help; border-bottom:1px dashed var(--primary); display:inline-block; padding-bottom:2px;`;
+                }
                 // 🌟 จุดที่แก้: เติม ${calcBtn} เข้าไปในคำสั่งวาด HTML ด้านล่างนี้ครับ (พร้อมจัดให้อยู่ด้านบนด้วย vertical-align: top)
                 html += `<th style="vertical-align: top;"><b style="color:var(--primary); font-size:1.1rem;">${d.drug_name || 'ไม่ระบุชื่อ'}</b>${calcBtn}${adminBtn}</th>`;
             });
