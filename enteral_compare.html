@@ -36,6 +36,30 @@
         .json-group { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
         .json-item { display: flex; gap: 10px; margin-bottom: 10px; }
         .json-item input { flex: 1; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; }
+    
+        /* 📱 ปรับหน้าตาสำหรับหน้าจอมือถือ (Responsive Mobile) */
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .header-bar { padding: 12px; flex-direction: column; gap: 10px; text-align: center; }
+            .header-bar h2 { font-size: 1.1rem !important; }
+            .header-bar div { justify-content: center; width: 100%; flex-wrap: wrap; }
+            
+            /* ปรับขนาดหัวตาราง */
+            .compare-table th { padding: 8px !important; font-size: 0.8rem !important; }
+            .compare-table th b { font-size: 0.9rem !important; }
+            
+            /* หดคอลัมน์แรก (ชื่อสารอาหาร) ให้เล็กลง */
+            .compare-table th:first-child { width: 120px !important; min-width: 120px !important; }
+            .compare-table .row-header { font-size: 0.75rem !important; padding: 8px !important; line-height: 1.2; }
+            
+            /* ลด Padding และลดระยะชิดขวาของช่องตัวเลขสารอาหาร */
+            .compare-table td { padding: 8px 10px !important; font-size: 0.8rem !important; }
+            
+            .compare-table .category-header { font-size: 0.9rem !important; padding: 6px 10px !important; }
+            
+            .selector-box { padding: 15px; }
+            .chip-container label { font-size: 0.8rem; padding: 6px 12px; }
+        }
     </style>
 </head>
 <body>
