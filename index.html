@@ -2143,7 +2143,7 @@ async function fetchLogs() {
             const nutriBtn = nutriConfig 
                 ? `<button class="btn btn-sm" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0; padding:2px 8px; font-size:0.75rem; border-radius:20px; font-weight:bold; margin-left:5px;" onclick="event.stopPropagation(); openNutriCalc('${safeCode}')">🍼 คำนวณชงอาหาร</button>` 
                 : '';
-            // 🌟 แทรกโค้ดเช็กว่ามียาหรือ generic ไหนมีลิงก์บ้าง (สำหรับปุ่มหน้า User)
+                
             const drugLinks = drug.drug_links || [];
             let hasGenericLinks = false;
             (drug.drug_contents || []).forEach(c => {
@@ -2151,35 +2151,32 @@ async function fetchLogs() {
             });
             const hasLinks = drugLinks.length > 0 || hasGenericLinks;
 
-            // ปุ่มสำหรับ User
             const linkBtn = hasLinks 
                 ? `<button class="btn btn-sm" style="background:#e0e7ff; color:#3730a3; border:1px solid #c7d2fe; padding:2px 8px; font-size:0.75rem; border-radius:20px; font-weight:bold; margin-left:5px;" onclick="event.stopPropagation(); openLinkViewer('${safeCode}')">🔗 ข้อมูลอ้างอิง</button>` 
                 : '';
 
-            // ปุ่มสำหรับ Admin (จัดลิงก์เฉพาะ Drug Level)
             const adminLinkBtn = isAdmin 
                 ? `<button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:#4338ca; border-color:#4338ca;" onclick="event.stopPropagation(); openLinkAdmin('drug', '${safeCode}', '${safeName}')">🔗 ลิงก์ (ยาหลัก)</button>` 
                 : '';
+            
+            // 🌟 รวบตัวแปรเช็กความเสี่ยงมาไว้ที่เดียว ป้องกันการประกาศซ้ำ
             const isHighRisk = drug.is_high_error_risk;
-            // สร้างปุ่มเตือน 
+            const isHighAlert = (drug.drug_type || '').toLowerCase() === 'high alert drug';
+            
             const meBtn = isHighRisk || (drug.med_error_knowledge && drug.med_error_knowledge.length > 0)
                 ? `<button class="btn btn-sm me-btn-alert" style="padding:2px 10px; font-size:0.75rem; border-radius:20px; font-weight:bold; margin-left:5px;" onclick="event.stopPropagation(); openMeKnowledge('${safeCode}')">🚨 พบ ME บ่อยครั้ง!</button>` 
                 : '';
                 
-            // เตรียมปุ่มสำหรับ Admin เข้าจัดการ
             const adminMeBtn = isAdmin 
                 ? `<button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--danger); border-color:var(--danger);" onclick="event.stopPropagation(); openMeAdmin('${safeCode}', '${safeName}')">⚠️ จัดการ ME</button>` 
                 : '';
 
-            const isHighRisk = drug.is_high_error_risk;
-            const isHighAlert = (drug.drug_type || '').toLowerCase() === 'high alert drug';
-            
-            // เตรียม Class และไอคอนสำหรับเน้นชื่อยา
+            // 🌟 เตรียม Class ให้ชื่อยา (ถ้าเป็นยาเสี่ยงสูง จะมีสีแดงกะพริบและไอคอนป้ายหยุด)
             let nameCssClass = "";
             let alertIcon = "";
             if (isHighRisk || isHighAlert) {
                 nameCssClass = "text-alert-danger text-alert-pulse";
-                if (isHighAlert) alertIcon = " 🛑"; // แถมไอคอนป้ายหยุดเล็กๆ ให้เฉพาะ High Alert
+                if (isHighAlert) alertIcon = " 🛑"; 
             }
 
             const isEnteral = (drug.drug_type || '').toLowerCase() === 'enteral nutrition' || nutriConfig;
@@ -2250,7 +2247,6 @@ async function fetchLogs() {
                         ${adminHtml}
                     </div>
 
-                    <!-- 🌟 ส่วนที่เพิ่มเข้าไปใหม่: กล่องเปล่าซ่อนไว้รอรับข้อมูลตอนกด Lazy Load -->
                     ${needsAdj ? `<div id="inline-adj-container-${safeCode}" style="display:none; margin-top:15px; padding:15px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px;"></div>` : ''}
                 </div>
             </div>`;
