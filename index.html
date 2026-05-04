@@ -1571,6 +1571,7 @@ async function fetchLogs() {
     async function fetchMasterDataWithCache(tableName, orderCol, selectQuery = '*') {
         const cacheKey = `rama_cache_${tableName}`;
         
+        // 1. เช็ก Cache ก่อน (ถ้าไม่ใช่ Admin)
         if (!isAdmin) {
             const cachedStr = localStorage.getItem(cacheKey);
             if (cachedStr) {
@@ -1585,22 +1586,45 @@ async function fetchLogs() {
             }
         }
 
-        // 🌟 ใช้ selectQuery แทน '*' ธรรมดา
-        const { data, error } = await supabaseClient.from(tableName).select(selectQuery).order(orderCol);
-        
-        if (error) {
-            console.error(`Error fetching ${tableName}:`, error.message);
-            return [];
+        // 2. ถ้าไม่มี Cache ให้ดึงจาก Database ด้วย Loop (เพื่อแก้ปัญหาข้อมูลมาไม่ครบ 1000+)
+        let allData = [];
+        let isFetching = true;
+        let from = 0;
+        const step = 1000;
+
+        while (isFetching) {
+            const { data, error } = await supabaseClient
+                .from(tableName)
+                .select(selectQuery)
+                .order(orderCol)
+                .range(from, from + step - 1);
+            
+            if (error) {
+                console.error(`Error fetching ${tableName}:`, error.message);
+                return allData; // ถ้าพังกลางทาง ให้ return ข้อมูลเท่าที่ดึงมาได้ก่อน
+            }
+
+            if (data && data.length > 0) {
+                allData = allData.concat(data);
+                from += step;
+                // ถ้าข้อมูลที่ดึงมาได้น้อยกว่า step แปลว่าหมดก๊อกแล้ว
+                if (data.length < step) {
+                    isFetching = false;
+                }
+            } else {
+                isFetching = false;
+            }
         }
 
-        if (!isAdmin && data) {
+        // 3. บันทึกข้อมูลง Cache (ถ้าไม่ใช่ Admin)
+        if (!isAdmin && allData.length > 0) {
             localStorage.setItem(cacheKey, JSON.stringify({
                 time: Date.now(),
-                data: data
+                data: allData
             }));
         }
         
-        return data;
+        return allData;
     }
     
     // -------------------------------------------------------------
