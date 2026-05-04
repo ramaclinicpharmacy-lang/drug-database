@@ -2952,6 +2952,11 @@ async function fetchLogs() {
     function resetIngredientForm() { 
         editingIngredientCode = null; 
         document.getElementById('select-generic').disabled = false; 
+        
+        // 🌟 เคลียร์ช่องค้นหา เพื่อคืนค่าตัวเลือกทั้งหมดให้ Dropdown
+        document.getElementById('search-generic-input').value = '';
+        filterGenericOptions(); 
+        
         if(document.getElementById('select-generic').options.length > 0) document.getElementById('select-generic').selectedIndex = 0; 
         document.getElementById('input-amount').value = ''; 
         document.getElementById('input-unit').value = ''; 
@@ -3007,10 +3012,18 @@ async function fetchLogs() {
         const ing = currentIngredientsList.find(i => i.generic_code === genericCode);
         if(!ing) return;
         editingIngredientCode = genericCode;
+        
+        // 🌟 สำคัญ: ล้างช่องค้นหาก่อนเซ็ตค่า ป้องกันบั๊กหาตัวเลือกไม่เจอเพราะโดนซ่อนอยู่
+        document.getElementById('search-generic-input').value = '';
+        filterGenericOptions();
+
         document.getElementById('select-generic').value = ing.generic_code;
         document.getElementById('select-generic').disabled = true; 
-        document.getElementById('input-amount').value = ing.amount || '';
-        document.getElementById('input-unit').value = ing.unit || '';
+        
+        // 🌟 ดึงค่าตัวเลข ถ้าเป็น null ให้โชว์ช่องว่าง
+        document.getElementById('input-amount').value = ing.amount !== null ? ing.amount : ''; 
+        document.getElementById('input-unit').value = ing.unit || ''; 
+        
         document.getElementById('btn-save-ingredient').innerText = "💾 บันทึกแก้ไข";
         document.getElementById('btn-cancel-edit-ingredient').classList.remove('hidden');
     }
@@ -3018,15 +3031,27 @@ async function fetchLogs() {
     async function addIngredient() { 
         const drug_code = document.getElementById('target-drug-code').value; 
         const generic_code = document.getElementById('select-generic').value; 
-        const amount = document.getElementById('input-amount').value; 
-        const unit = document.getElementById('input-unit').value; 
+        const amtRaw = document.getElementById('input-amount').value; 
+        const unitRaw = document.getElementById('input-unit').value; 
         
+        if (!generic_code) return alert('กรุณาเลือกยาสามัญ');
+
+        // 🌟 ดักจับความปลอดภัย: แปลงค่าว่างให้เป็น null เพื่อไม่ให้ Database Error
+        const amount = amtRaw === '' ? null : parseFloat(amtRaw);
+        const unit = unitRaw.trim() === '' ? null : unitRaw.trim();
+
         if (editingIngredientCode && editingIngredientCode !== generic_code) {
             await supabaseClient.from('drug_contents').delete().match({ drug_code: drug_code, generic_code: editingIngredientCode });
         }
 
-        const {error} = await supabaseClient.from('drug_contents').upsert({ drug_code, generic_code, amount, unit }); 
-        if (error) return alert("เกิดข้อผิดพลาด: " + error.message);
+        const {error} = await supabaseClient.from('drug_contents').upsert({ 
+            drug_code: drug_code, 
+            generic_code: generic_code, 
+            amount: amount, 
+            unit: unit 
+        }); 
+        
+        if (error) return alert("เกิดข้อผิดพลาดในการบันทึก: " + error.message);
         
         resetIngredientForm();
         fetchCurrentIngredients(drug_code); 
