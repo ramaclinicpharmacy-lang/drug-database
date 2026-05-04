@@ -422,10 +422,16 @@
             <label style="font-size:0.85rem; font-weight:bold; display:block;">เลือกรูปแบบการให้ยา</label>
             <select id="calc-admin-select" onchange="runCalculation()" style="margin-bottom:10px; font-size: 0.85rem;"></select>
 
+            <!-- 🌟 เพิ่มกล่องแสดงสารน้ำที่ใช้ได้ตรงนี้ -->
+            <div id="calc-allowed-fluids" style="margin-bottom:10px; display:none; background:white; padding:8px 12px; border-radius:6px; border:1px solid #fcd34d;">
+                <span style="font-size:0.8rem; color:#b45309; font-weight:bold; display:block; margin-bottom:6px;">💧 สารน้ำที่สามารถใช้ได้:</span>
+                <div id="calc-fluid-list" style="display:flex; flex-wrap:wrap; gap:4px;"></div>
+            </div>
+
             <label style="font-size:0.85rem; font-weight:bold; display:block;">ขนาดยาที่ต้องการให้ (Dose)</label>
             <div style="display:flex; gap:10px; align-items:center;">
                 <input type="number" id="calc-dose-input" placeholder="ระบุขนาดยา" onkeyup="runCalculation()" onchange="runCalculation()" style="flex:1;">
-                <span id="calc-dose-unit" style="font-weight:bold; color:gray; width:40px;">mg</span>
+                <span id="calc-dose-unit" style="font-weight:bold; color:gray; width:25px;">mg</span>
             </div>
         </div>
         <div style="margin-top:15px; padding:15px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">
