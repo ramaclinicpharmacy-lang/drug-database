@@ -138,7 +138,7 @@
 
         .admin-actions { display: flex; gap: 5px; flex-wrap: wrap; }
         
-        .note-box { padding: 10px 15px; border-radius: 8px; margin-top: 10px; font-size: 0.9rem; line-height: 1.4; }
+        .note-box { padding: 10px 15px; border-radius: 8px; margin-top: 10px; font-size: 0.9rem; line-height: 1.4; white-space: pre-line; }
         .drug-note { background: #fffbeb; border-left: 4px solid var(--warning); color: #92400e; }
         .generic-note { background: #eff6ff; border-left: 4px solid var(--info); color: #1e40af; }
         .nlem-note { background: white; border-left: 4px solid var(--pink); color: #9d174d; }
@@ -2180,7 +2180,7 @@ async function fetchLogs() {
             const labelSection = labelsHtml ? `<div style="margin-top:10px; padding:10px; background:#f0f9ff; border:1px dashed #7dd3fc; border-radius:8px;"><strong>🏷️ ฉลากยา (Labels):</strong><br>${labelsHtml}</div>` : '';
 
             const adminHtml = (drug.drug_administrations || [])
-                .map(a => `<div style="background:white; padding:10px; border-radius:8px; margin-top:8px; border:1px solid #edf2f7; font-size:0.9rem;"><span class="badge badge-route">${a.routes?.route_name || 'Unknown'}</span> ${a.instructions || '-'} ${formatConc(a.min_conc, a.max_conc, a.conc_unit)} ${a.administration_fluids?.length > 0 ? `<div style="margin-top:5px;"><b>สารน้ำ:</b> ${a.administration_fluids.map(f => `<span class="badge badge-fluid">${f.fluid_short_name}</span>`).join('')}</div>` : ''}</div>`)
+                .map(a => `<div style="background:white; padding:10px; border-radius:8px; margin-top:8px; border:1px solid #edf2f7; font-size:0.9rem;"><span class="badge badge-route">${a.routes?.route_name || 'Unknown'}</span> <span style="white-space: pre-line;">${a.instructions || '-'}</span> ${formatConc(a.min_conc, a.max_conc, a.conc_unit)} ${a.administration_fluids?.length > 0 ? `<div style="margin-top:5px;"><b>สารน้ำ:</b> ${a.administration_fluids.map(f => `<span class="badge badge-fluid">${f.fluid_short_name}</span>`).join('')}</div>` : ''}</div>`)
                 .join('') || '<br>ไม่มีข้อมูล';
 
             return `
@@ -3243,7 +3243,7 @@ async function fetchLogs() {
                     return `
                     <tr class="${rowClass}" ${dataAttrs} style="transition: 0.3s;">
                         <td style="font-weight:bold; white-space:nowrap; padding:8px; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; text-align:center;">${rangeText}</td>
-                        <td style="padding:8px; border-bottom:1px solid #e2e8f0;">${item.recommendation} ${item.note ? `<br><small style="color:gray;"><i>* ${item.note}</i></small>` : ''}</td>
+                        <td style="padding:8px; border-bottom:1px solid #e2e8f0; background:white; white-space: pre-line;">${item.recommendation} ${item.note ? `<br><small style="color:gray;"><i>* ${item.note}</i></small>` : ''}</td>
                     </tr>`;
                 }).join('');
     
@@ -3409,7 +3409,7 @@ async function fetchLogs() {
                     const dataAttrs = isCrCl ? `data-min="${item.min_value !== null ? item.min_value : ''}" data-max="${item.max_value !== null ? item.max_value : ''}"` : '';
                     return `<tr class="${rowClass}" ${dataAttrs} style="transition:0.3s;">
                                 <td style="padding:8px; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; text-align:center; font-weight:bold; white-space:nowrap; background:white;">${rangeText}</td>
-                                <td style="padding:8px; border-bottom:1px solid #e2e8f0; background:white;">${item.recommendation} ${item.note ? `<br><small style="color:gray;"><i>* ${item.note}</i></small>` : ''}</td>
+                                <td style="padding:8px; border-bottom:1px solid #e2e8f0; background:white; white-space: pre-line;">${item.recommendation} ${item.note ? `<br><small style="color:gray;"><i>* ${item.note}</i></small>` : ''}</td>
                             </tr>`;
                 }).join('');
                 
