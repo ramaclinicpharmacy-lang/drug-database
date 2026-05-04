@@ -922,6 +922,13 @@
         <input type="hidden" id="me-admin-drug-code">
 
         <div class="section-box" style="background:#fef2f2; border-color:#fca5a5;">
+            
+            <!-- 🛑 กล่องคำเตือน Privacy & PDPA -->
+            <div style="background:white; border:1px solid #fca5a5; border-left:4px solid var(--danger); padding:10px 15px; margin-bottom:15px; border-radius:6px; font-size:0.85rem; color:#991b1b; box-shadow:0 1px 2px rgba(239, 68, 68, 0.1);">
+                <b style="color:var(--danger);">🛑 คำเตือนเรื่อง Privacy (PDPA):</b><br>
+                ห้ามระบุข้อมูลที่สามารถระบุตัวตนของผู้ป่วยได้ เช่น <b>ชื่อ, นามสกุล, HN, AN หรือเตียง</b> ลงในระบบนี้เด็ดขาด (ให้บันทึกเป็นลักษณะของเหตุการณ์/ความผิดพลาดทั่วไปแทน)
+            </div>
+
             <label style="font-size:0.85rem; font-weight:bold;">ประเภทความเสี่ยง (Error Type)</label>
             <input type="text" id="me-admin-type" placeholder="เช่น LASA, ผิดขนาด, เทคนิคบริหารยาผิด" list="me-type-list" style="margin-bottom:10px;">
             <datalist id="me-type-list">
