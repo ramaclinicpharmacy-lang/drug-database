@@ -419,10 +419,15 @@
         <h3 style="color:var(--warning); margin-top:0;">🧮 คำนวณปริมาณสารน้ำ</h3>
         <h4 id="calc-drug-name" style="margin-bottom: 10px;"></h4>
         <div class="section-box" style="background:#fffbeb; border-color:#fde68a;">
+            
+            <!-- 🌟 เพิ่มกล่องแจ้งเตือนตรงนี้ (ซ่อนไว้เป็นค่าเริ่มต้น) -->
+            <div id="calc-multi-warning" style="display:none; font-size:0.8rem; background:#fef08a; color:#a16207; padding:6px 10px; border-radius:6px; margin-bottom:10px; border:1px solid #facc15;">
+                💡 <b>หมายเหตุ:</b> ยานี้มีวิธีผสมหลายรูปแบบ (เช่น Central / Peripheral line) โปรดตรวจสอบและเลือกให้ตรงกับคำสั่งแพทย์
+            </div>
+
             <label style="font-size:0.85rem; font-weight:bold; display:block;">เลือกรูปแบบการให้ยา</label>
             <select id="calc-admin-select" onchange="runCalculation()" style="margin-bottom:10px; font-size: 0.85rem;"></select>
 
-            <!-- 🌟 เพิ่มกล่องแสดงสารน้ำที่ใช้ได้ตรงนี้ -->
             <div id="calc-allowed-fluids" style="margin-bottom:10px; display:none; background:white; padding:8px 12px; border-radius:6px; border:1px solid #fcd34d;">
                 <span style="font-size:0.8rem; color:#b45309; font-weight:bold; display:block; margin-bottom:6px;">💧 สารน้ำที่สามารถใช้ได้:</span>
                 <div id="calc-fluid-list" style="display:flex; flex-wrap:wrap; gap:4px;"></div>
@@ -430,7 +435,8 @@
 
             <label style="font-size:0.85rem; font-weight:bold; display:block;">ขนาดยาที่ต้องการให้ (Dose)</label>
             <div style="display:flex; gap:10px; align-items:center;">
-                <input type="number" id="calc-dose-input" placeholder="ระบุขนาดยา" onkeyup="runCalculation()" onchange="runCalculation()" style="width: 200px;">
+                <!-- ปรับ width เป็น 120px ตามที่แก้ไปครับ -->
+                <input type="number" id="calc-dose-input" placeholder="ระบุขนาดยา" onkeyup="runCalculation()" onchange="runCalculation()" style="width: 120px;">
                 <span id="calc-dose-unit" style="font-weight:bold; color:gray; width:25px;">mg</span>
             </div>
         </div>
@@ -1173,7 +1179,15 @@
         document.getElementById('calc-allowed-fluids').style.display = 'none'; // ซ่อนกล่องสารน้ำไว้ก่อน
         
         currentCalcAdmins = (drug.drug_administrations || []).filter(a => a.min_conc || a.max_conc);
-        
+        // 🌟 ถ้ายามีวิธีผสมมากกว่า 1 วิธี ให้โชว์กล่องเตือน
+        const warningEl = document.getElementById('calc-multi-warning');
+        if (warningEl) {
+            if (currentCalcAdmins.length > 1) {
+                warningEl.style.display = 'block';
+            } else {
+                warningEl.style.display = 'none';
+            }
+        }
         const selectEl = document.getElementById('calc-admin-select');
         if (currentCalcAdmins.length === 0) {
             selectEl.innerHTML = '<option value="">ไม่มีข้อมูลความเข้มข้น (Min/Max Conc)</option>';
