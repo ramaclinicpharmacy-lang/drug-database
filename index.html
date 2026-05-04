@@ -78,13 +78,20 @@
         .card-ed { border-left-color: var(--success); } 
         .card-ned { border-left-color: var(--danger); background-color: #fef2f2; } 
         .card-special { border-left-color: var(--purple); background-color: #faf5ff; } 
-        /* 🚨 เอฟเฟกต์เตือนยา High-Risk */
-        .card-high-risk {
-            border-left-color: var(--danger) !important;
-            border: 2px solid #fca5a5;
-            box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
-            animation: pulse-red 2.5s infinite;
+        /* 🚨 เอฟเฟกต์เน้นชื่อยา High Alert / High Risk */
+        .text-alert-danger {
+            color: var(--danger) !important;
+            font-weight: 900;
         }
+        .text-alert-pulse {
+            animation: text-pulse-red 2s infinite;
+        }
+        @keyframes text-pulse-red {
+            0% { text-shadow: 0 0 0 rgba(239, 68, 68, 0); }
+            50% { text-shadow: 0 0 12px rgba(239, 68, 68, 0.8); }
+            100% { text-shadow: 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        /* 🚨 เอฟเฟกต์เตือนยา High-Risk */
         @keyframes pulse-red {
             0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
             70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
@@ -690,6 +697,7 @@
     <label style="font-size:0.9rem; font-weight:bold; margin-top:10px; display:block;">หมวดหมู่รายการ (Drug Type)</label>
     <select id="form-drug-classification">
         <option value="drug">ยา (Drug)</option>
+        <option value="High Alert Drug">ยาความเสี่ยงสูง (High Alert Drug)</option> <!-- 🌟 เพิ่มบรรทัดนี้ -->
         <option value="vaccine">วัคซีน (Vaccine)</option>
         <option value="enteral nutrition">อาหารทางการแพทย์ (Enteral Nutrition)</option>
         <option value="supplement">อาหารเสริม (Supplement)</option>
@@ -2163,9 +2171,15 @@ async function fetchLogs() {
                 ? `<button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--danger); border-color:var(--danger);" onclick="event.stopPropagation(); openMeAdmin('${safeCode}', '${safeName}')">⚠️ จัดการ ME</button>` 
                 : '';
 
-            // ⚠️ ปรับ class Theme ของ Card หากเป็นยาเสี่ยงสูงให้ทับสีเดิม (NLEM/NED)
-            if (isHighRisk) {
-                cardThemeClass += ' card-high-risk'; // ต่อท้าย class NLEM เดิม
+            const isHighRisk = drug.is_high_error_risk;
+            const isHighAlert = (drug.drug_type || '').toLowerCase() === 'high alert drug';
+            
+            // เตรียม Class และไอคอนสำหรับเน้นชื่อยา
+            let nameCssClass = "";
+            let alertIcon = "";
+            if (isHighRisk || isHighAlert) {
+                nameCssClass = "text-alert-danger text-alert-pulse";
+                if (isHighAlert) alertIcon = " 🛑"; // แถมไอคอนป้ายหยุดเล็กๆ ให้เฉพาะ High Alert
             }
 
             const isEnteral = (drug.drug_type || '').toLowerCase() === 'enteral nutrition' || nutriConfig;
@@ -2190,7 +2204,7 @@ async function fetchLogs() {
                         <h2>
                             <span class="toggle-icon" id="icon-${safeCode}" style="transform: ${isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}">▶</span>
                             <span style="display:flex; align-items:center; flex-wrap:wrap; gap:8px; line-height: 1.4;">
-                                ${generateStandardDrugName(drug)} 
+                                <span class="${nameCssClass}">${generateStandardDrugName(drug)}${alertIcon}</span>
                                 ${calcBtn} ${adjBtn} ${nutriBtn} ${meBtn} ${linkBtn}
                             </span>
                         </h2>
