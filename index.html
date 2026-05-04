@@ -1170,6 +1170,7 @@
         document.getElementById('calc-dose-input').value = '';
         document.getElementById('calc-result-min-fluid').innerText = '-';
         document.getElementById('calc-result-max-fluid').innerText = '-';
+        document.getElementById('calc-allowed-fluids').style.display = 'none'; // ซ่อนกล่องสารน้ำไว้ก่อน
         
         currentCalcAdmins = (drug.drug_administrations || []).filter(a => a.min_conc || a.max_conc);
         
@@ -1188,28 +1189,48 @@
             }).join('');
             document.getElementById('calc-dose-input').disabled = false;
             
-            const unitBase = (currentCalcAdmins.conc_unit || 'mg/mL').split('/');
-            document.getElementById('calc-dose-unit').innerText = unitBase;
+            // สั่งให้รันการคำนวณและแสดงสารน้ำตั้งแต่ตอนเปิดหน้าต่างเลย (แม้ยังไม่ได้กรอกตัวเลข Dose)
+            runCalculation();
         }
         
         openModal('calc-modal');
     }
 
     function runCalculation() {
-        const dose = parseFloat(document.getElementById('calc-dose-input').value);
         const idx = document.getElementById('calc-admin-select').value;
+        const dose = parseFloat(document.getElementById('calc-dose-input').value);
         const resMin = document.getElementById('calc-result-min-fluid');
         const resMax = document.getElementById('calc-result-max-fluid');
         
         resMin.innerText = '-';
         resMax.innerText = '-';
         
-        if (isNaN(dose) || dose <= 0 || !idx || !currentCalcAdmins[idx]) return;
+        // 🌟 ดึงข้อมูลกล่องสารน้ำ
+        const fluidBox = document.getElementById('calc-allowed-fluids');
+        const fluidList = document.getElementById('calc-fluid-list');
+
+        if (!idx || !currentCalcAdmins[idx]) {
+            fluidBox.style.display = 'none';
+            return;
+        }
         
         const admin = currentCalcAdmins[idx];
         
+        // 🌟 อัปเดตรายชื่อสารน้ำที่ใช้ได้ตาม Route ที่เลือก
+        if (admin.administration_fluids && admin.administration_fluids.length > 0) {
+            fluidList.innerHTML = admin.administration_fluids.map(f => `<span class="badge badge-fluid">${f.fluid_short_name}</span>`).join('');
+            fluidBox.style.display = 'block';
+        } else {
+            fluidList.innerHTML = '<span style="font-size:0.8rem; color:gray; font-style:italic;">(ไม่ได้ระบุสารน้ำเฉพาะ)</span>';
+            fluidBox.style.display = 'block';
+        }
+
+        // 🌟 แก้ไขบั๊กหน่วย: แยกเอาเฉพาะตัวหน้า (เช่น mg จาก mg/mL) มาแสดงท้ายช่องกรอก Dose
         const unitBase = (admin.conc_unit || 'mg/mL').split('/');
-        document.getElementById('calc-dose-unit').innerText = unitBase;
+        document.getElementById('calc-dose-unit').innerText = unitBase[0] || 'mg';
+        
+        // ถ้าผู้ใช้ยังไม่ได้กรอก Dose ให้หยุดการทำงานแค่ตรงนี้ (แสดงแค่สารน้ำและเปลี่ยนหน่วยให้)
+        if (isNaN(dose) || dose <= 0) return;
         
         if (admin.max_conc) {
             const maxC = parseFloat(admin.max_conc);
