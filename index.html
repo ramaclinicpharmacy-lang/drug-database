@@ -235,12 +235,14 @@
                 <button class="btn btn-outline btn-sm" id="btn-toggle-all" onclick="toggleAllCards()" style="background:#f8fafc; border-color:#cbd5e1; color:#475569; white-space: nowrap; flex-shrink: 0;">🔽 ขยาย</button>
                 
             </div>
-            
-            <!-- 🌟 เปลี่ยนกล่องตรงนี้ เพื่อรวม 2 ปุ่มของ Admin ไว้ด้วยกัน -->
-            <div id="admin-quick-filters" class="hidden" style="display:flex; gap:8px; align-items:center; margin-left:auto;">
+            <div style="display: flex; gap: 8px; align-items: center;">
                 <button class="btn btn-sm" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; margin-left: auto; font-weight: bold; border-radius: 6px; padding: 6px 12px; cursor: pointer;" onclick="window.open('drug_compare.html', '_blank')">
                     💊 เปรียบเทียบยา
                 </button>
+            </div>
+            <!-- 🌟 เปลี่ยนกล่องตรงนี้ เพื่อรวม 2 ปุ่มของ Admin ไว้ด้วยกัน -->
+            <div id="admin-quick-filters" class="hidden" style="display:flex; gap:8px; align-items:center; margin-left:auto;">
+                
                 <button id="btn-filter-new" class="btn btn-sm" style="background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; font-weight:bold;" onclick="toggleFilterNew()">🆕 เฉพาะยาเปิดใหม่</button>
                 
                 <label style="font-size:0.85rem; color:var(--danger); font-weight:bold; cursor:pointer; background:#fee2e2; padding:4px 10px; border-radius:8px; display:inline-flex; align-items:center;">
