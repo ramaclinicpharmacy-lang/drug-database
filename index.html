@@ -214,6 +214,7 @@
             <button id="login-btn" class="btn btn-outline btn-sm" style="border-color:var(--indigo); color:var(--indigo);" onclick="openModal('auth-modal')">👤 Admin</button>
             <div id="user-info" class="hidden" style="display:flex; align-items:center; gap: 5px;">
                 <span id="user-email" style="font-size:0.75rem; color:gray; max-width: 100px; overflow: hidden; text-overflow: ellipsis; display:none;"></span>
+                <button class="btn btn-outline btn-sm" style="border-color:var(--indigo); color:var(--indigo);" onclick="openModal('change-pw-modal')">🔑 เปลี่ยนรหัส</button>
                 <button class="btn btn-danger btn-sm" onclick="handleLogout()">🚪 ออก</button>
             </div>
         </div>
@@ -498,7 +499,23 @@
         </div>
     </div>
 </div>
-
+<!-- 🔑 Modal: เปลี่ยนรหัสผ่าน -->
+<div id="change-pw-modal" class="modal">
+    <div class="modal-content" style="max-width: 400px; border-top: 8px solid var(--indigo);">
+        <h3 style="color:var(--indigo); margin-top:0; display:flex; align-items:center; gap:8px;">
+            🔑 เปลี่ยนรหัสผ่านของฉัน
+        </h3>
+        <p style="font-size:0.85rem; color:gray; margin-top:-5px;">ระบบจะทำการอัปเดตรหัสผ่านสำหรับบัญชีที่คุณกำลังล็อกอินอยู่</p>
+        
+        <label style="font-size:0.85rem; font-weight:bold;">รหัสผ่านใหม่ (ขั้นต่ำ 6 ตัวอักษร)</label>
+        <input type="password" id="new-pw-input" placeholder="พิมพ์รหัสผ่านใหม่..." style="margin-bottom: 15px;" onkeydown="if(event.key === 'Enter') executeChangePassword()">
+        
+        <div style="display:flex; gap:10px;">
+            <button class="btn btn-primary" id="btn-save-pw" style="flex:2; height:42px;" onclick="executeChangePassword()">💾 บันทึกรหัสใหม่</button>
+            <button class="btn btn-outline" style="flex:1; height:42px;" onclick="closeModal('change-pw-modal')">ยกเลิก</button>
+        </div>
+    </div>
+</div>
 <div id="line-qr-modal" class="modal"><div class="modal-content" style="text-align: center; max-width: 350px;"><h3 style="color:var(--line); margin-top:0;">📱 Line Compat Check</h3><p style="font-size:0.9rem; color:gray;">สแกน QR Code เพื่อใช้งานผ่านแอปพลิเคชัน LINE</p><img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://line.me/R/ti/p/@979wdeif" alt="LINE QR Code" style="margin:15px auto; border-radius: 10px; border: 1px solid #ddd; padding: 10px; display:block; max-width: 100%;"><p style="font-size:1.1rem; font-weight:bold; margin-bottom:0;">LINE ID: @979wdeif</p><button class="btn btn-outline" style="width:100%; margin-top:20px; height: 42px;" onclick="closeModal('line-qr-modal')">ปิดหน้าต่าง</button></div></div>
 <div id="auth-modal" class="modal"><div class="modal-content"><h3>เจ้าหน้าที่เข้าสู่ระบบ</h3><input type="email" id="auth-email" placeholder="Email" onkeydown="if(event.key === 'Enter') handleLogin()"><input type="password" id="auth-pw" placeholder="Password" onkeydown="if(event.key === 'Enter') handleLogin()"><button class="btn btn-primary" style="width:100%; height:45px;" onclick="handleLogin()">Login</button><button class="btn btn-outline" style="width:100%; margin-top:10px; height:45px;" onclick="closeModal('auth-modal')">ปิด</button></div></div>
 <div id="pharm-master-modal" class="modal">
@@ -4258,17 +4275,35 @@ async function fetchLogs() {
             btn.disabled = false;
         }
     }
-    async function changeMyPassword(newPassword) {
-    const { data, error } = await supabaseClient.auth.updateUser({
-        password: newPassword
-    });
+    // ฟังก์ชันเปลี่ยนรหัสผ่าน (User ทำรายการเอง)
+    async function executeChangePassword() {
+        const newPw = document.getElementById('new-pw-input').value.trim();
+        
+        if (!newPw || newPw.length < 6) {
+            return alert("❌ กรุณาตั้งรหัสผ่านใหม่อย่างน้อย 6 ตัวอักษร");
+        }
+        
+        if (!confirm('ยืนยันการเปลี่ยนรหัสผ่านใหม่?')) return;
 
-    if (error) {
-        alert("เกิดข้อผิดพลาด: " + error.message);
-    } else {
-        alert("✅ เปลี่ยนรหัสผ่านสำเร็จ!");
+        const btn = document.getElementById('btn-save-pw');
+        btn.innerText = "⏳ กำลังบันทึก...";
+        btn.disabled = true;
+
+        const { data, error } = await supabaseClient.auth.updateUser({
+            password: newPw
+        });
+
+        btn.innerText = "💾 บันทึกรหัสใหม่";
+        btn.disabled = false;
+
+        if (error) {
+            alert("เกิดข้อผิดพลาด: " + error.message);
+        } else {
+            alert("✅ เปลี่ยนรหัสผ่านสำเร็จ! กรุณาใช้รหัสผ่านใหม่ในการล็อกอินครั้งถัดไป");
+            document.getElementById('new-pw-input').value = ''; // ล้างช่อง
+            closeModal('change-pw-modal');
+        }
     }
-}
 </script>
 </body>
 </html>
