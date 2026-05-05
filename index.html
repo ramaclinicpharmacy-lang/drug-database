@@ -505,8 +505,11 @@
         <h3 style="color:var(--indigo); margin-top:0; display:flex; align-items:center; gap:8px;">
             🔑 เปลี่ยนรหัสผ่านของฉัน
         </h3>
-        <p style="font-size:0.85rem; color:gray; margin-top:-5px;">ระบบจะทำการอัปเดตรหัสผ่านสำหรับบัญชีที่คุณกำลังล็อกอินอยู่</p>
+        <p style="font-size:0.85rem; color:gray; margin-top:-5px;">กรุณายืนยันรหัสผ่านเดิมก่อนตั้งรหัสผ่านใหม่</p>
         
+        <label style="font-size:0.85rem; font-weight:bold;">รหัสผ่านเดิม (Current Password)</label>
+        <input type="password" id="old-pw-input" placeholder="พิมพ์รหัสผ่านเดิม..." style="margin-bottom: 10px;">
+
         <label style="font-size:0.85rem; font-weight:bold;">รหัสผ่านใหม่ (ขั้นต่ำ 6 ตัวอักษร)</label>
         <input type="password" id="new-pw-input" placeholder="พิมพ์รหัสผ่านใหม่..." style="margin-bottom: 15px;" onkeydown="if(event.key === 'Enter') executeChangePassword()">
         
@@ -4275,10 +4278,14 @@ async function fetchLogs() {
             btn.disabled = false;
         }
     }
-    // ฟังก์ชันเปลี่ยนรหัสผ่าน (User ทำรายการเอง)
+    // ฟังก์ชันเปลี่ยนรหัสผ่าน (User ทำรายการเอง + ยืนยันรหัสเดิม)
     async function executeChangePassword() {
+        const oldPw = document.getElementById('old-pw-input').value;
         const newPw = document.getElementById('new-pw-input').value.trim();
         
+        if (!oldPw) {
+            return alert("❌ กรุณาระบุรหัสผ่านเดิม");
+        }
         if (!newPw || newPw.length < 6) {
             return alert("❌ กรุณาตั้งรหัสผ่านใหม่อย่างน้อย 6 ตัวอักษร");
         }
@@ -4286,21 +4293,37 @@ async function fetchLogs() {
         if (!confirm('ยืนยันการเปลี่ยนรหัสผ่านใหม่?')) return;
 
         const btn = document.getElementById('btn-save-pw');
-        btn.innerText = "⏳ กำลังบันทึก...";
+        btn.innerText = "⏳ กำลังตรวจสอบ...";
         btn.disabled = true;
 
-        const { data, error } = await supabaseClient.auth.updateUser({
+        // 1. ตรวจสอบรหัสผ่านเดิม โดยลอง Login ซ้ำด้วยอีเมลปัจจุบัน
+        const { error: verifyError } = await supabaseClient.auth.signInWithPassword({
+            email: currentAdminEmail,
+            password: oldPw
+        });
+
+        if (verifyError) {
+            btn.innerText = "💾 บันทึกรหัสใหม่";
+            btn.disabled = false;
+            return alert("❌ รหัสผ่านเดิมไม่ถูกต้อง กรุณาลองใหม่");
+        }
+
+        // 2. ถ้ารหัสผ่านเดิมถูกต้อง ให้ทำการอัปเดตรหัสผ่านใหม่
+        btn.innerText = "⏳ กำลังบันทึก...";
+        const { error: updateError } = await supabaseClient.auth.updateUser({
             password: newPw
         });
 
         btn.innerText = "💾 บันทึกรหัสใหม่";
         btn.disabled = false;
 
-        if (error) {
-            alert("เกิดข้อผิดพลาด: " + error.message);
+        if (updateError) {
+            alert("เกิดข้อผิดพลาดในการเปลี่ยนรหัส: " + updateError.message);
         } else {
             alert("✅ เปลี่ยนรหัสผ่านสำเร็จ! กรุณาใช้รหัสผ่านใหม่ในการล็อกอินครั้งถัดไป");
-            document.getElementById('new-pw-input').value = ''; // ล้างช่อง
+            // ล้างค่าในช่องกรอกให้สะอาด
+            document.getElementById('old-pw-input').value = ''; 
+            document.getElementById('new-pw-input').value = ''; 
             closeModal('change-pw-modal');
         }
     }
