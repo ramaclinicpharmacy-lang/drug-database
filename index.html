@@ -4257,6 +4257,17 @@ async function fetchLogs() {
             btn.disabled = false;
         }
     }
+    async function changeMyPassword(newPassword) {
+    const { data, error } = await supabaseClient.auth.updateUser({
+        password: newPassword
+    });
+
+    if (error) {
+        alert("เกิดข้อผิดพลาด: " + error.message);
+    } else {
+        alert("✅ เปลี่ยนรหัสผ่านสำเร็จ!");
+    }
+}
 </script>
 </body>
 </html>
