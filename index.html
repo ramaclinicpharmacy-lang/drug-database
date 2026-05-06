@@ -1118,7 +1118,7 @@
     let currentIngredientsList = [];
     let editingIngredientCode = null;
     let currentPage = 1; let itemsPerPage = 25; let filteredDrugsList = []; 
-    let inactivityTimer; const TIMEOUT_MS = 30 * 60 * 1000; 
+    let inactivityTimer; const TIMEOUT_MS = 120 * 60 * 1000; 
     let activePharmTags = [];
 
     // ✨ ตัวแปรเก็บข้อมูล Admin ที่ใช้คำนวณได้ ✨
@@ -1186,7 +1186,7 @@
     }
 
     function resetTimer() { clearTimeout(inactivityTimer); if (isAdmin) { inactivityTimer = setTimeout(logoutDueToInactivity, TIMEOUT_MS); } }
-    async function logoutDueToInactivity() { alert("⚠️ เซสชันหมดอายุเนื่องจากไม่ได้ใช้งานเกิน 30 นาที\nระบบได้ออกจากระบบโดยอัตโนมัติ"); await handleLogout(); }
+    async function logoutDueToInactivity() { alert("⚠️ เซสชันหมดอายุเนื่องจากไม่ได้ใช้งานเกิน 120 นาที\nระบบได้ออกจากระบบโดยอัตโนมัติ"); await handleLogout(); }
     function setupSessionTimeout() { window.onload = resetTimer; document.onmousemove = resetTimer; document.onkeypress = resetTimer; document.onclick = resetTimer; document.onscroll = resetTimer; resetTimer(); }
 
     async function loadAllData() { 
