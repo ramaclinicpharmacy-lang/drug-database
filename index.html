@@ -2127,16 +2127,25 @@ async function fetchLogs() {
             return matchText && matchPharm && matchForm && matchNlem && matchRoute && matchDrugType && matchLabel; 
         });
 
-        // 🌟 กฎการจัดเรียงใหม่: Type > Generic > Name 🌟
-        filteredDrugsList.sort((a, b) => {
-            // 1. เรียงลำดับตามหมวดหมู่ (Drug Type)
-            const typeA = (a.drug_type || 'ZZZZ').toLowerCase(); // ถ้าไม่มี type ให้ไปหลังสุด
-            const typeB = (b.drug_type || 'ZZZZ').toLowerCase();
-            const typeCompare = typeA.localeCompare(typeB);
-            
-            if (typeCompare !== 0) return typeCompare;
+        // 🌟 กฎการจัดเรียงใหม่: Custom Type Priority > Generic > Name 🌟
+        const typePriority = {
+            'high alert drug': 1,
+            'drug': 2,
+            'vaccine': 3,
+            'enteral nutrition': 4,
+            'supplement': 5,
+            'fluid': 6,
+            'supply': 7
+        };
 
-            // 2. ถ้า Type เดียวกัน ให้เรียงตามชื่อยาสามัญ (Generic Name)
+        filteredDrugsList.sort((a, b) => {
+            // 1. เทียบตามคะแนน Priority ของ Drug Type
+            const scoreA = typePriority[(a.drug_type || '').toLowerCase()] || 8; // 8 คือกลุ่มไม่มีประเภท
+            const scoreB = typePriority[(b.drug_type || '').toLowerCase()] || 8;
+
+            if (scoreA !== scoreB) return scoreA - scoreB;
+
+            // 2. ถ้าอยู่หมวดเดียวกัน ให้เรียงตามชื่อยาสามัญ (Generic Name)
             let genA = [];
             (a.drug_contents || []).forEach(c => { if (c.generics?.generic_name) genA.push(c.generics.generic_name); });
             let genStrA = genA.join(' + ').toLowerCase();
@@ -2145,17 +2154,15 @@ async function fetchLogs() {
             (b.drug_contents || []).forEach(c => { if (c.generics?.generic_name) genB.push(c.generics.generic_name); });
             let genStrB = genB.join(' + ').toLowerCase();
 
-            // กฎรอง: ถ้าไม่มี Generic ทั้งคู่ ให้ดูชื่อยา
+            // ดันยาที่ไม่มี Generic ไปหลังสุดของหมวดนั้นๆ
             if (!genStrA && !genStrB) return (a.drug_name || '').localeCompare(b.drug_name || '');
-            // ถ้า a ไม่มี generic ให้ดีดลงล่างสุดในกลุ่ม type นั้น
             if (!genStrA) return 1;
-            // ถ้า b ไม่มี generic ให้ดีดลงล่างสุดในกลุ่ม type นั้น
             if (!genStrB) return -1;
 
             const genCompare = genStrA.localeCompare(genStrB);
             if (genCompare !== 0) return genCompare;
 
-            // 3. ถ้า Generic เหมือนกัน (เช่น ยี่ห้อต่างกัน) ให้เรียงตามชื่อยาหลัก/ชื่อการค้า
+            // 3. ถ้า Generic เหมือนกันเป๊ะ ให้เรียงตามชื่อยาหลัก/ชื่อการค้า
             return (a.drug_name || '').localeCompare(b.drug_name || '');
         });
 
