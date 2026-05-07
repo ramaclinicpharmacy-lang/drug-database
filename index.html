@@ -3077,7 +3077,7 @@ async function fetchLogs() {
             instructions: document.getElementById('input-instruction').value, 
             min_conc: document.getElementById('input-min-conc').value||null, 
             max_conc: document.getElementById('input-max-conc').value||null, 
-            conc_unit: document.getElementById('input-conc-unit').value||null 
+            conc_unit: document.getElementById('input-conc-unit').value||null,
             rank: editingAdminId ? undefined : 99 // 🌟 กำหนด 99 ไปต่อท้ายหากเพิ่มใหม่
         }; 
         let response = editingAdminId ? await supabaseClient.from('drug_administrations').update(payload).eq('id', editingAdminId).select().single() : await supabaseClient.from('drug_administrations').insert(payload).select().single(); 
