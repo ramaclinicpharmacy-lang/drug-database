@@ -1069,8 +1069,15 @@
                 alert(error.message); 
             } else { 
                 isAdmin = !!data.session;
-                // อัปเดต UI ในหน้านั้นๆ (เช่น แสดงปุ่มแก้ไข ถ้ามี)
-                checkAdminStatus(); 
+                
+                // 🌟 อัปเดต UI เปิดปุ่มแอดมินต่างๆ แทน checkAdminStatus()
+                if(isAdmin) {
+                    const btnRank = document.getElementById('btn-manage-rank');
+                    if(btnRank) btnRank.style.display = 'inline-block';
+                    
+                    // สั่งวาดตารางใหม่เพื่อให้ปุ่ม 🛠️ แก้ไขสารอาหาร โผล่ขึ้นมาบนหัวตาราง
+                    renderTable(); 
+                }
                 
                 closeModal('auth-modal');
                 alert("✅ ยืนยันสิทธิ์สำเร็จ! คุณสามารถทำการบันทึกข้อมูลต่อได้เลยครับ");
