@@ -285,6 +285,16 @@
     <datalist id="dl-minerals"></datalist>
     <datalist id="dl-specials"></datalist>
 
+    <div id="auth-modal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <h3>เจ้าหน้าที่เข้าสู่ระบบ</h3>
+            <input type="email" id="auth-email" placeholder="Email">
+            <input type="password" id="auth-pw" placeholder="Password">
+            <button class="btn btn-primary" style="width:100%; height:45px;" onclick="handleLogin()">Login</button>
+            <button class="btn btn-outline" style="width:100%; margin-top:10px; height:45px;" onclick="closeModal('auth-modal')">ปิด</button>
+        </div>
+    </div>
+
     <script>
         const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
@@ -700,6 +710,13 @@
             btn.disabled = false;
 
             if (error) {
+                // 🌟 ดักจับ Error กรณี Session หมดอายุ หรือติด RLS (ไม่มีสิทธิ์)
+                const msg = error.message.toLowerCase();
+                if (msg.includes('jwt') || msg.includes('rls') || msg.includes('policy') || error.code === '401' || error.code === '403') {
+                    promptRelogin(); // เรียกหน้าต่างล็อกอินซ้อนขึ้นมา
+                    return; // 🛑 หยุดการทำงานตรงนี้ ข้อมูลที่กรอกไว้จะไม่หาย!
+                }
+                // ถ้าเป็น Error อื่นๆ ทั่วไป ค่อยแจ้งเตือนปกติ
                 alert("❌ เกิดข้อผิดพลาด: " + error.message);
             } else {
                 nutrientsData[code] = payload; 
@@ -1029,7 +1046,44 @@
             document.getElementById('nutri-res-carb').innerText = activeNutriConfig.carb_per_serving ? (activeNutriConfig.carb_per_serving * multiplier).toFixed(1) : '-';
             document.getElementById('nutri-res-fat').innerText = activeNutriConfig.fat_per_serving ? (activeNutriConfig.fat_per_serving * multiplier).toFixed(1) : '-';
         }
-
+        // ฟังก์ชันจัดการล็อกอินแบบไม่ Refresh หน้า
+        async function handleLogin() { 
+            const email = document.getElementById('auth-email').value;
+            const pw = document.getElementById('auth-pw').value;
+            if (!email || !pw) return alert("กรุณากรอกอีเมลและรหัสผ่าน");
+    
+            const btn = document.querySelector('#auth-modal .btn-primary');
+            const originalText = btn.innerText;
+            btn.innerText = "⏳ กำลังเข้าสู่ระบบ...";
+            btn.disabled = true;
+    
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ 
+                email: email, 
+                password: pw 
+            }); 
+    
+            btn.innerText = originalText;
+            btn.disabled = false;
+    
+            if (error) {
+                alert(error.message); 
+            } else { 
+                isAdmin = !!data.session;
+                // อัปเดต UI ในหน้านั้นๆ (เช่น แสดงปุ่มแก้ไข ถ้ามี)
+                checkAdminStatus(); 
+                
+                closeModal('auth-modal');
+                alert("✅ ยืนยันสิทธิ์สำเร็จ! คุณสามารถทำการบันทึกข้อมูลต่อได้เลยครับ");
+            } 
+        }
+    
+        // ฟังก์ชันเรียกหน้าต่าง Login มาซ้อนทับ
+        function promptRelogin() {
+            alert("⚠️ เซสชันหมดอายุ หรือคุณยังไม่ได้เข้าสู่ระบบ\nกรุณาล็อกอินใหม่อีกครั้งเพื่อบันทึกข้อมูลครับ");
+            const authModal = document.getElementById('auth-modal');
+            authModal.style.zIndex = "9999"; // ให้มาอยู่บนสุด
+            openModal('auth-modal');
+        }
         init();
     </script>
 </body>
