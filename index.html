@@ -3622,7 +3622,6 @@ async function fetchLogs() {
             ⚠️ แนวทางการปรับขนาดยา (Dose Adjustment)
         </div>
         
-        <!-- 🧮 เครื่องคิดเลขที่ปรับปรุงใหม่ -->
         <div style="background:white; border:1px solid #e2e8f0; padding:12px; border-radius:8px; margin-bottom:15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
             <div style="font-size:0.85rem; font-weight:bold; color:var(--primary); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
                 <span>🧮 ประเมินการทำงานไต (Cockcroft-Gault & BSA)</span>
@@ -3650,7 +3649,6 @@ async function fetchLogs() {
         </div>
         `;
 
-        // Loop วาดตาราง (ส่วนนี้เพิ่ม class แยกประเภทแถว)
         drugContents.forEach(c => {
             if (!c.generics) return;
             const genCode = c.generics.generic_code;
@@ -3659,25 +3657,31 @@ async function fetchLogs() {
 
             html += `<div style="margin-bottom:15px; border-left:4px solid var(--danger); padding-left:10px;"><h4 style="margin:0 0 10px 0; color:var(--dark);">🧪 ตัวยา: <span style="color:var(--primary);">${c.generics.generic_name}</span></h4>`;
             
-            const crclData = genAdjs.filter(d => d.criterion_type === 'CrCl').sort((a,b) => (b.max_value || 999) - (a.max_value || 999));
-            const egfrData = genAdjs.filter(d => d.criterion_type === 'eGFR').sort((a,b) => (b.max_value || 999) - (a.max_value || 999));
-            const rrtData = genAdjs.filter(d => d.adj_type === 'renal' && !['CrCl', 'eGFR'].includes(d.criterion_type));
-            const hepaticData = genAdjs.filter(d => d.adj_type === 'hepatic');
-
-            const buildTable = (title, items, isCrCl, isRRT) => {
+            // 🌟 แก้ไขตรงนี้: ลบตัวแปร isRRT กับ type ทิ้ง แล้วใช้ชื่อ criterion_type กำหนด CSS Class แทน
+            const buildTable = (title, items) => {
                 if (items.length === 0) return '';
                 let rows = items.map(item => {
-                    let rangeText = isRRT ? item.criterion_type : ( (item.min_value !== null && item.max_value !== null) ? `${item.min_value} - ${item.max_value}` : (item.max_value !== null ? `≤ ${item.max_value}` : (item.min_value !== null ? `≥ ${item.min_value}` : 'All')));
+                    let rangeText = '';
                     
-                    // 🌟 ระบุ Class แยกประเภทแถวเพื่อทำ Highlight
+                    // ถ้าระบุว่าเป็น RRT (ไม่ใช่ eGFR หรือ CrCl) ให้เอาชื่อเกณฑ์มาโชว์ตรงๆ เช่น "HD", "CAPD"
+                    if (!['CrCl', 'eGFR', 'Child-Pugh'].includes(item.criterion_type)) {
+                        rangeText = item.criterion_type;
+                    } else {
+                        if (item.min_value !== null && item.max_value !== null) rangeText = `${item.min_value} - ${item.max_value}`;
+                        else if (item.max_value !== null) rangeText = `≤ ${item.max_value}`;
+                        else if (item.min_value !== null) rangeText = `≥ ${item.min_value}`;
+                        else rangeText = 'All';
+                    }
+
                     let rowClass = "";
-                    if(isCrCl) rowClass = `crcl-row-${drugCode}`;
-                    else if(item.criterion_type === 'eGFR') rowClass = `egfr-row-${drugCode}`;
+                    if (item.criterion_type === 'CrCl') rowClass = `crcl-row-${drugCode}`;
+                    else if (item.criterion_type === 'eGFR') rowClass = `egfr-row-${drugCode}`;
                     
                     const dataAttrs = `data-min="${item.min_value !== null ? item.min_value : ''}" data-max="${item.max_value !== null ? item.max_value : ''}"`;
+                    
                     return `<tr class="${rowClass}" ${dataAttrs} style="transition:0.3s;">
                                 <td style="padding:8px; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; text-align:center; font-weight:bold; white-space:nowrap; background:white;">${rangeText}</td>
-                                <td style="padding:8px; border-bottom:1px solid #e2e8f0; background:white; white-space: pre-line;">${item.recommendation}</td>
+                                <td style="padding:8px; border-bottom:1px solid #e2e8f0; background:white; white-space: pre-line;">${item.recommendation} ${item.note ? `<br><small style="color:gray;"><i>* ${item.note}</i></small>` : ''}</td>
                             </tr>`;
                 }).join('');
                 
@@ -3687,10 +3691,11 @@ async function fetchLogs() {
                         </div>`;
             };
 
-            html += buildTable('🛑 Renal Impairment (CrCl mL/min)', crclData, true, false);
-            html += buildTable('🛑 Renal Impairment (eGFR mL/min/1.73m²)', egfrData, false, false);
-            html += buildTable('🛑 Renal Replacement Therapy (RRT)', rrtData, false, true);
-            html += buildTable('🟡 Hepatic Impairment / Child-Pugh', hepaticData, false, false);
+            html += buildTable('🛑 Renal Impairment (CrCl mL/min)', genAdjs.filter(d => d.criterion_type === 'CrCl').sort((a,b) => (b.max_value || 999) - (a.max_value || 999)));
+            html += buildTable('🛑 Renal Impairment (eGFR mL/min/1.73m²)', genAdjs.filter(d => d.criterion_type === 'eGFR').sort((a,b) => (b.max_value || 999) - (a.max_value || 999)));
+            html += buildTable('🛑 Renal Replacement Therapy (RRT)', genAdjs.filter(d => d.adj_type === 'renal' && !['CrCl', 'eGFR'].includes(d.criterion_type)));
+            html += buildTable('🟡 Hepatic Impairment / Child-Pugh', genAdjs.filter(d => d.adj_type === 'hepatic'));
+            
             html += `</div>`;
         });
         return html;
