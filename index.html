@@ -989,14 +989,13 @@
             <label style="font-size:0.85rem; font-weight:bold;">วิธีการป้องกัน (Prevention Tip)</label>
             <textarea id="me-admin-prevent" placeholder="ข้อแนะนำเพื่อป้องกันความผิดพลาด..." style="height:60px; margin-bottom:10px;"></textarea>
 
+            <!-- 🌟 ปรับข้อความแนะนำให้ง่ายขึ้น -->
             <div style="font-size:0.75rem; background:#f8fafc; border:1px solid #cbd5e1; padding:8px; border-radius:6px; margin-bottom:8px; color:#475569; line-height:1.4;">
                 💡 <b>คำแนะนำสำหรับรูปจาก Google Drive:</b><br>
-                1. อย่าลืมตั้งค่าแชร์รูปใน Drive ให้เป็น <b>"ทุกคนที่มีลิงก์ (Anyone with the link)"</b><br>
-                2. ก๊อปปี้ <b>ID ของรูป</b> (ตัวอักษรยาวๆ) จากลิงก์ปกติ (เช่น .../file/d/<b>[ID_ของรูป]</b>/view)<br>
-                3. นำ ID มาต่อท้ายลิงก์นี้: <code style="color:var(--primary); font-weight:bold;">https://lh3.googleusercontent.com/d/</code> แล้วนำมาวางในช่องด้านล่าง
+                ก๊อปปี้ลิงก์แชร์ของ Google Drive มาวางได้เลย ระบบจะแปลงลิงก์อัตโนมัติ <i>(อย่าลืมตั้งค่ารูปเป็น <b>Anyone with the link</b>)</i>
             </div>
 
-            <input type="text" id="me-admin-image" placeholder="เช่น https://lh3.googleusercontent.com/d/1nCYaou-RqYIqjl-SC-V3GdjqOkmowPay" style="margin-bottom:10px;">
+            <input type="url" id="me-admin-image" placeholder="เช่น https://..." style="margin-bottom:10px;">
             <div style="display:flex; gap:10px; margin-top:10px;">
                 <button class="btn btn-danger" id="btn-save-me-rule" style="flex:2; height:42px;" onclick="saveMeKnowledge()">💾 บันทึกความเสี่ยง</button>
                 <button class="btn btn-outline hidden" id="btn-cancel-me-edit" style="flex:1; height:42px;" onclick="resetMeAdminForm()">ยกเลิกแก้</button>
@@ -2255,10 +2254,9 @@ async function fetchLogs() {
                 : '';
 
             const adminLinkBtn = isAdmin 
-                ? `<button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:#4338ca; border-color:#4338ca;" onclick="event.stopPropagation(); openLinkAdmin('drug', '${safeCode}', '${safeName}')">🔗 ลิงก์ (ยาหลัก)</button>` 
+                ? `<button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:#4338ca; border-color:#4338ca;" onclick="event.stopPropagation(); openLinkAdmin('drug', '${safeCode}', '${safeName}')">🔗 ลิงก์</button>` 
                 : '';
             
-            // 🌟 รวบตัวแปรเช็กความเสี่ยงมาไว้ที่เดียว ป้องกันการประกาศซ้ำ
             const isHighRisk = drug.is_high_error_risk;
             const isHighAlert = (drug.drug_type || '').toLowerCase() === 'high alert drug';
             
@@ -2270,7 +2268,6 @@ async function fetchLogs() {
                 ? `<button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--danger); border-color:var(--danger);" onclick="event.stopPropagation(); openMeAdmin('${safeCode}', '${safeName}')">⚠️ จัดการ ME</button>` 
                 : '';
 
-            // 🌟 เตรียม Class ให้ชื่อยา (ถ้าเป็นยาเสี่ยงสูง จะมีสีแดงกะพริบและไอคอนป้ายหยุด)
             let nameCssClass = "";
             let alertIcon = "";
             if (isHighRisk || isHighAlert) {
@@ -2290,34 +2287,56 @@ async function fetchLogs() {
             const labelSection = labelsHtml ? `<div style="margin-top:10px; padding:10px; background:#f0f9ff; border:1px dashed #7dd3fc; border-radius:8px;"><strong>🏷️ ฉลากยา (Labels):</strong><br>${labelsHtml}</div>` : '';
 
             const adminHtml = (drug.drug_administrations || [])
-                .sort((a, b) => (a.rank || 99) - (b.rank || 99)) // 🌟 แทรกบรรทัดนี้
+                .sort((a, b) => (a.rank || 99) - (b.rank || 99))
                 .map(a => `<div style="background:white; padding:10px; border-radius:8px; margin-top:8px; border:1px solid #edf2f7; font-size:0.9rem;"><span class="badge badge-route">${a.routes?.route_name || 'Unknown'}</span> <span style="white-space: pre-line;">${a.instructions || '-'}</span> ${formatConc(a.min_conc, a.max_conc, a.conc_unit)} ${a.administration_fluids?.length > 0 ? `<div style="margin-top:5px;"><b>สารน้ำ:</b> ${a.administration_fluids.map(f => `<span class="badge badge-fluid">${f.fluid_short_name}</span>`).join('')}</div>` : ''}</div>`)
                 .join('') || '<br>ไม่มีข้อมูล';
 
+            // 🌟 1. ดึงรูปลงมา และใช้ฟังก์ชันแปลง Google Drive Link
+            const img1 = formatDriveImg(drug.image_url_1);
+            const img2 = formatDriveImg(drug.image_url_2);
+            let imagesHtml = '';
+            if (img1 || img2) {
+                imagesHtml = `<div style="display:flex; gap:10px; flex-shrink:0; justify-content:flex-end;">`;
+                if (img1) imagesHtml += `<img src="${encodeHTML(img1)}" style="width:80px; height:80px; object-fit:cover; border-radius:8px; border:1px solid #cbd5e1; box-shadow:0 2px 4px rgba(0,0,0,0.1); cursor:pointer;" onclick="event.stopPropagation(); window.open('${encodeHTML(img1)}', '_blank')" title="คลิกเพื่อดูรูปใหญ่">`;
+                if (img2) imagesHtml += `<img src="${encodeHTML(img2)}" style="width:80px; height:80px; object-fit:cover; border-radius:8px; border:1px solid #cbd5e1; box-shadow:0 2px 4px rgba(0,0,0,0.1); cursor:pointer;" onclick="event.stopPropagation(); window.open('${encodeHTML(img2)}', '_blank')" title="คลิกเพื่อดูรูปใหญ่">`;
+                imagesHtml += `</div>`;
+            }
+
+            // 🌟 2. จัด Layout ให้รูปภาพอยู่ฝั่งขวาเสมอ
             return `
             <div class="drug-card ${cardThemeClass}" data-code="${safeCode}">
-                <div class="card-header-flex">
-                    <div class="clickable-header" onclick="toggleCard('${safeCode}')">
-                        <h2>
-                            <span class="toggle-icon" id="icon-${safeCode}" style="transform: ${isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}">▶</span>
-                            <span style="display:flex; align-items:center; flex-wrap:wrap; gap:8px; line-height: 1.4;">
-                                <span class="${nameCssClass}">${generateStandardDrugName(drug)}${alertIcon}</span>
-                                ${calcBtn} ${adjBtn} ${nutriBtn} ${meBtn} ${linkBtn}
-                            </span>
-                        </h2>
-                        <div style="margin-bottom:5px; padding-left: 28px;">${adminStatusBadge} ${nlemBadges} ${tagsHtml}</div>
-                        ${remarksHtml ? `<div style="padding-left: 28px;">${remarksHtml}</div>` : ''}
+                <div class="card-header-flex" style="flex-wrap: wrap; align-items: flex-start; gap: 15px;">
+                    <!-- ด้านซ้าย: ข้อมูลหลักและปุ่มแอดมิน -->
+                    <div style="flex: 1; min-width: 250px; display: flex; flex-direction: column;">
+                        <div class="clickable-header" onclick="toggleCard('${safeCode}')">
+                            <h2>
+                                <span class="toggle-icon" id="icon-${safeCode}" style="transform: ${isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}">▶</span>
+                                <span style="display:flex; align-items:center; flex-wrap:wrap; gap:8px; line-height: 1.4;">
+                                    <span class="${nameCssClass}">${generateStandardDrugName(drug)}${alertIcon}</span>
+                                    ${calcBtn} ${adjBtn} ${nutriBtn} ${meBtn} ${linkBtn}
+                                </span>
+                            </h2>
+                            <div style="margin-bottom:5px; padding-left: 28px;">${adminStatusBadge} ${nlemBadges} ${tagsHtml}</div>
+                            ${remarksHtml ? `<div style="padding-left: 28px;">${remarksHtml}</div>` : ''}
+                        </div>
+                        ${isAdmin ? `<div class="admin-actions" style="padding-left: 28px; margin-top: 5px;">
+                            ${adminNutriBtn} ${adminMeBtn} ${adminLinkBtn}
+                            <!-- 🌟 เพิ่มปุ่ม 🖼️ รูปยา ตรงนี้ -->
+                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:#0284c7; border-color:#0284c7;" onclick="event.stopPropagation(); openImageAdmin('${safeCode}', '${safeName}')">🖼️ รูปยา</button>
+                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--info); border-color:var(--info);" onclick="event.stopPropagation(); openLabelManager('${safeCode}', '${safeName}')">🏷️ ฉลาก</button>
+                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--pink); border-color:var(--pink);" onclick="event.stopPropagation(); openNlemManager('${safeCode}', '${safeName}')">📋 บัญชี</button>
+                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openAdminManager('${safeCode}', '${safeName}')">💉 วิธีใช้</button>
+                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openIngredientManager('${safeCode}', '${safeName}')">🧪 ส่วนผสม</button>
+                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openEditDrug('${safeCode}')">✏️</button>
+                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:red" onclick="event.stopPropagation(); deleteDrug('${safeCode}')">🗑️</button>
+                        </div>` : ''}
                     </div>
-                    ${isAdmin ? `<div class="admin-actions">
-                        ${adminNutriBtn} ${adminMeBtn} ${adminLinkBtn}
-                        <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--info); border-color:var(--info);" onclick="event.stopPropagation(); openLabelManager('${safeCode}', '${safeName}')">🏷️ ฉลาก</button>
-                        <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--pink); border-color:var(--pink);" onclick="event.stopPropagation(); openNlemManager('${safeCode}', '${safeName}')">📋 บัญชี</button>
-                        <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openAdminManager('${safeCode}', '${safeName}')">💉 วิธีใช้</button>
-                        <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openIngredientManager('${safeCode}', '${safeName}')">🧪 ส่วนผสม</button>
-                        <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openEditDrug('${safeCode}')">✏️</button>
-                        <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:red" onclick="event.stopPropagation(); deleteDrug('${safeCode}')">🗑️</button>
-                    </div>` : ''}
+                    
+                    <!-- ด้านขวา: แสดงรูปภาพ 2 กล่อง -->
+                    ${imagesHtml}
                 </div>
+
+                <!-- เนื้อหาแบบขยาย (Expanded Body) -->
                 <div id="body-${safeCode}" class="card-body ${isExpanded ? 'expanded' : ''}">
                     <small>ID: ${drug.drug_code} | ${safeName}</small>
                     <div style="margin-top:10px;">
@@ -4020,10 +4039,13 @@ async function fetchLogs() {
         const error_type = document.getElementById('me-admin-type').value.trim();
         const error_description = document.getElementById('me-admin-desc').value.trim();
         const prevention_tip = document.getElementById('me-admin-prevent').value.trim();
-        const image_url = document.getElementById('me-admin-image').value.trim();
-    
+        
+        // 🌟 ดึงค่าและแปลงลิงก์ Google Drive อัตโนมัติด้วย formatDriveImg
+        let image_url = document.getElementById('me-admin-image').value.trim();
+        image_url = formatDriveImg(image_url);
+
         if (!error_type || !error_description) return alert('กรุณาระบุประเภทและรายละเอียดให้ครบถ้วน');
-    
+
         const payload = {
             drug_code,
             error_type,
@@ -4031,7 +4053,12 @@ async function fetchLogs() {
             prevention_tip: prevention_tip || null,
             image_url: image_url || null
         };
-    
+
+        const btn = document.getElementById('btn-save-me-rule');
+        const oldText = btn.innerText;
+        btn.innerText = "⏳ กำลังบันทึก...";
+        btn.disabled = true;
+
         let error;
         if (editingMeId) {
             const res = await supabaseClient.from('med_error_knowledge').update(payload).eq('id', editingMeId);
@@ -4040,9 +4067,20 @@ async function fetchLogs() {
             const res = await supabaseClient.from('med_error_knowledge').insert(payload);
             error = res.error;
         }
-    
-        if (error) return alert("เกิดข้อผิดพลาด: " + error.message);
-    
+
+        btn.innerText = oldText;
+        btn.disabled = false;
+
+        if (error) {
+            // ดักจับ JWT/RLS timeout เพื่อให้หน้าเว็บเด้งล็อกอินซ้อนได้
+            const msg = error.message.toLowerCase();
+            if (msg.includes('jwt') || msg.includes('rls')) {
+                promptRelogin();
+                return;
+            }
+            return alert("เกิดข้อผิดพลาด: " + error.message);
+        }
+
         resetMeAdminForm();
         fetchCurrentMeRules(drug_code);
         fetchDrugs(); // อัปเดต Array เผื่อให้ปุ่มไฟกะพริบทำงานที่หน้าการ์ดยา
@@ -4476,6 +4514,61 @@ async function fetchLogs() {
             document.getElementById('new-pw-input').value = ''; 
             closeModal('change-pw-modal');
         }
+    }
+    // 🌟 ระบบแปลงลิงก์ Google Drive อัตโนมัติ
+    function formatDriveImg(url) {
+        if (!url) return '';
+        const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        // ถ้าเป็นลิงก์ Google Drive ให้จับเอาแค่ ID มาต่อท้ายลิงก์ตรงของ Google (lh3)
+        if (match && match[1] && url.includes('drive.google.com')) {
+            return `https://lh3.googleusercontent.com/d/${match[1]}`;
+        }
+        return url; // ถ้าเป็นลิงก์เว็บอื่น ก็ปล่อยผ่านเลย
+    }
+
+    function openImageAdmin(code, name) {
+        const drug = allDrugsRaw.find(d => d.drug_code === code);
+        if (!drug) return;
+
+        document.getElementById('image-admin-drug-code').value = code;
+        document.getElementById('image-admin-drug-name').innerText = name;
+        
+        // ดึงรูปล่าสุดมาโชว์ในกล่องข้อความ
+        document.getElementById('image-url-1').value = drug.image_url_1 || '';
+        document.getElementById('image-url-2').value = drug.image_url_2 || '';
+        
+        openModal('drug-image-modal');
+    }
+
+    async function saveDrugImages() {
+        const code = document.getElementById('image-admin-drug-code').value;
+        const url1 = document.getElementById('image-url-1').value.trim();
+        const url2 = document.getElementById('image-url-2').value.trim();
+
+        const btn = document.querySelector('#drug-image-modal .btn-primary');
+        btn.innerText = '⏳ กำลังบันทึก...';
+        btn.disabled = true;
+
+        const { error } = await supabaseClient.from('drugs').update({
+            image_url_1: url1 || null,
+            image_url_2: url2 || null
+        }).eq('drug_code', code);
+
+        btn.innerText = '💾 บันทึกรูปภาพ';
+        btn.disabled = false;
+
+        if (error) {
+            const msg = error.message.toLowerCase();
+            if (msg.includes('jwt') || msg.includes('rls')) {
+                promptRelogin(); // ถ้าระบบหลุด ล็อกอินซ้อนขึ้นมาทันที!
+                return;
+            }
+            return alert("เกิดข้อผิดพลาด: " + error.message);
+        }
+
+        alert('✅ บันทึกรูปภาพสำเร็จ!');
+        closeModal('drug-image-modal');
+        fetchDrugs(); // รีเฟรชข้อมูลยาให้โชว์รูปใหม่
     }
 </script>
 </body>
