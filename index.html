@@ -3671,22 +3671,23 @@ async function fetchLogs() {
                         else rangeText = 'All';
                     }
 
-                    // 🌟 แฝง Class และค่า Min-Max ไว้ในแถวเพื่อรอให้ระบบตรวจจับไป Highlight
                     let rowClass = "";
                     if (item.criterion_type === 'CrCl') rowClass = `crcl-row-${drugCode}`;
                     else if (item.criterion_type === 'eGFR') rowClass = `egfr-row-${drugCode}`;
                     
                     const dataAttrs = `data-min="${item.min_value !== null ? item.min_value : ''}" data-max="${item.max_value !== null ? item.max_value : ''}"`;
                     
+                    // 🌟 แก้ตรงนี้ เอา background:white ออกจาก <td> เพื่อไม่ให้มันบังสีไฮไลต์
                     return `<tr class="${rowClass}" ${dataAttrs} style="transition:0.3s;">
-                                <td style="padding:8px; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; text-align:center; font-weight:bold; white-space:nowrap; background:white;">${rangeText}</td>
-                                <td style="padding:8px; border-bottom:1px solid #e2e8f0; background:white; white-space: pre-line;">${item.recommendation} ${item.note ? `<br><small style="color:gray;"><i>* ${item.note}</i></small>` : ''}</td>
+                                <td style="padding:8px; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; text-align:center; font-weight:bold; white-space:nowrap;">${rangeText}</td>
+                                <td style="padding:8px; border-bottom:1px solid #e2e8f0; white-space: pre-line;">${item.recommendation} ${item.note ? `<br><small style="color:gray;"><i>* ${item.note}</i></small>` : ''}</td>
                             </tr>`;
                 }).join('');
                 
                 return `<div style="margin-bottom:12px;">
                             <div style="font-size:0.85rem; font-weight:bold; background:#e2e8f0; padding:6px 10px; border-radius:6px 6px 0 0; color:var(--dark);">${title}</div>
-                            <table style="width:100%; border-collapse:collapse; font-size:0.85rem; border:1px solid #e2e8f0;">${rows}</table>
+                            <!-- 🌟 ย้าย background:white มาใส่ที่ <table> แทน -->
+                            <table style="width:100%; border-collapse:collapse; font-size:0.85rem; border:1px solid #e2e8f0; background:white;">${rows}</table>
                         </div>`;
             };
 
