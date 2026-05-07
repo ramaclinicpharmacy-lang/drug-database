@@ -3657,13 +3657,11 @@ async function fetchLogs() {
 
             html += `<div style="margin-bottom:15px; border-left:4px solid var(--danger); padding-left:10px;"><h4 style="margin:0 0 10px 0; color:var(--dark);">🧪 ตัวยา: <span style="color:var(--primary);">${c.generics.generic_name}</span></h4>`;
             
-            // 🌟 แก้ไขตรงนี้: ลบตัวแปร isRRT กับ type ทิ้ง แล้วใช้ชื่อ criterion_type กำหนด CSS Class แทน
             const buildTable = (title, items) => {
                 if (items.length === 0) return '';
                 let rows = items.map(item => {
                     let rangeText = '';
                     
-                    // ถ้าระบุว่าเป็น RRT (ไม่ใช่ eGFR หรือ CrCl) ให้เอาชื่อเกณฑ์มาโชว์ตรงๆ เช่น "HD", "CAPD"
                     if (!['CrCl', 'eGFR', 'Child-Pugh'].includes(item.criterion_type)) {
                         rangeText = item.criterion_type;
                     } else {
@@ -3673,6 +3671,7 @@ async function fetchLogs() {
                         else rangeText = 'All';
                     }
 
+                    // 🌟 แฝง Class และค่า Min-Max ไว้ในแถวเพื่อรอให้ระบบตรวจจับไป Highlight
                     let rowClass = "";
                     if (item.criterion_type === 'CrCl') rowClass = `crcl-row-${drugCode}`;
                     else if (item.criterion_type === 'eGFR') rowClass = `egfr-row-${drugCode}`;
@@ -3711,7 +3710,6 @@ async function fetchLogs() {
         calculateInlineCrCl(drugCode);
     }
     
-    // 📌 คำนวณค่า CrCl เฉพาะ Card ที่เปิดอยู่
     function calculateInlineCrCl(drugCode) {
         const gender = document.getElementById(`calc-gender-${drugCode}`).value;
         const age = parseFloat(document.getElementById(`calc-age-${drugCode}`).value);
@@ -3728,7 +3726,6 @@ async function fetchLogs() {
         let bsa = null;
         let normalizedeGFR = null;
 
-        // 1. คำนวณ BSA (Mosteller Formula)
         if (wt > 0 && ht > 0) {
             bsa = Math.sqrt((ht * wt) / 3600);
             resBSA.innerText = bsa.toFixed(2);
@@ -3736,13 +3733,11 @@ async function fetchLogs() {
             resBSA.innerText = '-';
         }
 
-        // 2. คำนวณ CrCl (Cockcroft-Gault)
         if (age > 0 && wt > 0 && scr > 0) {
             crcl = ((140 - age) * wt) / (72 * scr);
             if (gender === 'F') crcl *= 0.85;
             resCrCl.innerText = crcl.toFixed(1);
             
-            // 3. คำนวณ Normalized eGFR (CrCl * 1.73 / BSA)
             if (bsa > 0) {
                 normalizedeGFR = crcl * (1.73 / bsa);
                 resNormeGFR.innerText = normalizedeGFR.toFixed(1);
@@ -3755,26 +3750,26 @@ async function fetchLogs() {
             normBox.style.display = 'none';
         }
 
-        // 4. Highlight แถว CrCl (ใช้ค่า mL/min)
-        document.querySelectorAll(`.crcl-row-${drugCode}`).forEach(row => {
-            row.style.backgroundColor = 'white';
-            if (crcl !== null) {
-                const min = row.dataset.min !== '' ? parseFloat(row.dataset.min) : -Infinity;
-                const max = row.dataset.max !== '' ? parseFloat(row.dataset.max) : Infinity;
-                if (crcl >= min && crcl <= max) row.style.backgroundColor = '#fef08a';
-            }
-        });
+        // 🌟 ฟังก์ชันย่อยสำหรับเช็กเงื่อนไขและ Highlight
+        const applyHighlight = (rowClass, val, highlightColor) => {
+            document.querySelectorAll('.' + rowClass).forEach(row => {
+                row.style.backgroundColor = 'white'; // ล้างสีเก่าก่อนเสมอ
+                if (val !== null) {
+                    const min = row.dataset.min !== '' ? parseFloat(row.dataset.min) : -Infinity;
+                    const max = row.dataset.max !== '' ? parseFloat(row.dataset.max) : Infinity;
+                    
+                    if (val >= min && val <= max) {
+                        row.style.backgroundColor = highlightColor;
+                    }
+                }
+            });
+        };
 
-        // 5. Highlight แถว eGFR (ใช้ค่าที่ Normalized แล้ว)
-        document.querySelectorAll(`.egfr-row-${drugCode}`).forEach(row => {
-            row.style.backgroundColor = 'white';
-            if (normalizedeGFR !== null) {
-                const min = row.dataset.min !== '' ? parseFloat(row.dataset.min) : -Infinity;
-                const max = row.dataset.max !== '' ? parseFloat(row.dataset.max) : Infinity;
-                if (normalizedeGFR >= min && normalizedeGFR <= max) row.style.backgroundColor = '#dcfce7'; // ใช้สีเขียวอ่อน
-            }
-        });
+        // สั่ง Highlight ทันที! (เหลือง=CrCl, เขียวอ่อน=eGFR)
+        applyHighlight(`crcl-row-${drugCode}`, crcl, '#fef08a');
+        applyHighlight(`egfr-row-${drugCode}`, normalizedeGFR, '#dcfce7');
     }
+    
     // -------------------------------------------------------------
     // 🍼 ฝั่ง Admin: จัดการข้อมูล Nutrition Config
     // -------------------------------------------------------------
