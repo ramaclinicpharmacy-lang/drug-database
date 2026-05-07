@@ -3624,21 +3624,31 @@ async function fetchLogs() {
         
         <!-- Smart Calculator ประจำ Card -->
         <div style="background:white; border:1px solid #e2e8f0; padding:12px; border-radius:8px; margin-bottom:15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-            <div style="font-size:0.85rem; font-weight:bold; color:var(--primary); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
-                <span>🧮 เครื่องคิดเลขประเมินการทำงานไต (Cockcroft-Gault)</span>
-                <button class="btn btn-outline btn-sm" onclick="clearInlineCrCl('${drugCode}')" style="font-size:0.75rem; padding:2px 8px; height:auto; min-height:24px;">ล้างค่า</button>
+        <div style="font-size:0.85rem; font-weight:bold; color:var(--primary); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+            <span>🧮 เครื่องคิดเลขประเมินการทำงานไต (Cockcroft-Gault & BSA)</span>
+            <button class="btn btn-outline btn-sm" onclick="clearInlineCrCl('${drugCode}')" style="font-size:0.75rem; padding:2px 8px; height:auto; min-height:24px;">ล้างค่า</button>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px;">
+            <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">เพศ</label><select id="calc-gender-${drugCode}" onchange="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"><option value="M">ชาย</option><option value="F">หญิง</option></select></div>
+            <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">อายุ (ปี)</label><input type="number" id="calc-age-${drugCode}" placeholder="ปี" oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
+            <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">น้ำหนัก (kg)</label><input type="number" id="calc-wt-${drugCode}" placeholder="กก." oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
+            <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">ส่วนสูง (cm)</label><input type="number" id="calc-ht-${drugCode}" placeholder="ซม." oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
+            <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">SCr (mg/dL)</label><input type="number" id="calc-scr-${drugCode}" placeholder="มก./ดล." oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
+        </div>
+        
+        <div style="margin-top:12px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+            <div style="background:#f1f5f9; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
+                👉 CrCl (mL/min): <b id="result-crcl-${drugCode}" style="color:var(--danger); font-size:1.1rem;">-</b>
             </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px;">
-                <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">เพศ</label><select id="calc-gender-${drugCode}" onchange="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"><option value="M">ชาย</option><option value="F">หญิง</option></select></div>
-                <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">อายุ (ปี)</label><input type="number" id="calc-age-${drugCode}" placeholder="ปี" oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
-                <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">น้ำหนัก (kg)</label><input type="number" id="calc-wt-${drugCode}" placeholder="กก." oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
-                <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">SCr (mg/dL)</label><input type="number" id="calc-scr-${drugCode}" placeholder="มก./ดล." oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
-            </div>
-            <div style="margin-top:12px; background:#f1f5f9; padding:8px 12px; border-radius:6px; font-size:0.85rem; display:flex; align-items:center; gap:8px;">
-                👉 Estimated CrCl: <b id="result-crcl-${drugCode}" style="color:var(--danger); font-size:1.2rem;">-</b> <span style="color:gray; font-weight:bold;">mL/min</span>
+            <div style="background:#f1f5f9; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
+                👉 BSA (m²): <b id="result-bsa-${drugCode}" style="color:var(--primary); font-size:1.1rem;">-</b>
             </div>
         </div>
-        `;
+        <div id="normalized-egfr-box-${drugCode}" style="display:none; margin-top:8px; background:#eff6ff; padding:8px 12px; border-radius:6px; font-size:0.85rem; border:1px dashed #bfdbfe; color:#1e40af;">
+            💡 ค่าเทียบเคียงสำหรับตาราง eGFR: <b id="result-normalized-egfr-${drugCode}">-</b> <small>mL/min/1.73m²</small>
+        </div>
+    </div>
+    `;
     
         // Loop วาดตารางตามส่วนประกอบ (Generic)
         drugContents.forEach(c => {
@@ -3657,18 +3667,17 @@ async function fetchLogs() {
             const buildTable = (title, items, isCrCl, isRRT) => {
                 if (items.length === 0) return '';
                 let rows = items.map(item => {
-                    let rangeText = isRRT ? item.criterion_type : '';
-                    if (!isRRT) {
-                        if (item.min_value !== null && item.max_value !== null) rangeText = `${item.min_value} - ${item.max_value}`;
-                        else if (item.max_value !== null) rangeText = `≤ ${item.max_value}`;
-                        else if (item.min_value !== null) rangeText = `≥ ${item.min_value}`;
-                        else rangeText = 'All';
-                    }
-                    const rowClass = isCrCl ? `crcl-row-${drugCode}` : '';
-                    const dataAttrs = isCrCl ? `data-min="${item.min_value !== null ? item.min_value : ''}" data-max="${item.max_value !== null ? item.max_value : ''}"` : '';
+                    // ... (โค้ด rangeText เหมือนเดิม)
+                    
+                    // 🌟 เพิ่มการระบุ Class แยกประเภทแถว
+                    let rowClass = "";
+                    if(isCrCl) rowClass = `crcl-row-${drugCode}`;
+                    else if(item.criterion_type === 'eGFR') rowClass = `egfr-row-${drugCode}`; // 👈 เพิ่มตรงนี้
+                    
+                    const dataAttrs = `data-min="${item.min_value !== null ? item.min_value : ''}" data-max="${item.max_value !== null ? item.max_value : ''}"`;
                     return `<tr class="${rowClass}" ${dataAttrs} style="transition:0.3s;">
                                 <td style="padding:8px; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; text-align:center; font-weight:bold; white-space:nowrap; background:white;">${rangeText}</td>
-                                <td style="padding:8px; border-bottom:1px solid #e2e8f0; background:white; white-space: pre-line;">${item.recommendation} ${item.note ? `<br><small style="color:gray;"><i>* ${item.note}</i></small>` : ''}</td>
+                                <td style="padding:8px; border-bottom:1px solid #e2e8f0; background:white; white-space: pre-line;">${item.recommendation}</td>
                             </tr>`;
                 }).join('');
                 
@@ -3702,31 +3711,62 @@ async function fetchLogs() {
         const gender = document.getElementById(`calc-gender-${drugCode}`).value;
         const age = parseFloat(document.getElementById(`calc-age-${drugCode}`).value);
         const wt = parseFloat(document.getElementById(`calc-wt-${drugCode}`).value);
+        const ht = parseFloat(document.getElementById(`calc-ht-${drugCode}`).value); // 🌟 เพิ่ม Height
         const scr = parseFloat(document.getElementById(`calc-scr-${drugCode}`).value);
-        const resultEl = document.getElementById(`result-crcl-${drugCode}`);
-    
+        
+        const resCrCl = document.getElementById(`result-crcl-${drugCode}`);
+        const resBSA = document.getElementById(`result-bsa-${drugCode}`);
+        const normBox = document.getElementById(`normalized-egfr-box-${drugCode}`);
+        const resNormeGFR = document.getElementById(`result-normalized-egfr-${drugCode}`);
+
         let crcl = null;
+        let bsa = null;
+        let normalizedeGFR = null;
+
+        // 1. คำนวณ BSA (Mosteller Formula)
+        if (wt > 0 && ht > 0) {
+            bsa = Math.sqrt((ht * wt) / 3600);
+            resBSA.innerText = bsa.toFixed(2);
+        } else {
+            resBSA.innerText = '-';
+        }
+
+        // 2. คำนวณ CrCl (Cockcroft-Gault)
         if (age > 0 && wt > 0 && scr > 0) {
             crcl = ((140 - age) * wt) / (72 * scr);
             if (gender === 'F') crcl *= 0.85;
-            resultEl.innerText = crcl.toFixed(1);
+            resCrCl.innerText = crcl.toFixed(1);
+            
+            // 3. คำนวณ Normalized eGFR (CrCl * 1.73 / BSA)
+            if (bsa > 0) {
+                normalizedeGFR = crcl * (1.73 / bsa);
+                resNormeGFR.innerText = normalizedeGFR.toFixed(1);
+                normBox.style.display = 'block';
+            } else {
+                normBox.style.display = 'none';
+            }
         } else {
-            resultEl.innerText = '-';
+            resCrCl.innerText = '-';
+            normBox.style.display = 'none';
         }
-    
-        // Auto-Highlight แถวของตาราง CrCl ใน Card นี้
-        const rows = document.querySelectorAll(`.crcl-row-${drugCode}`);
-        rows.forEach(row => {
-            row.style.backgroundColor = 'white'; // ล้างสีเก่า
+
+        // 4. Highlight แถว CrCl
+        document.querySelectorAll(`.crcl-row-${drugCode}`).forEach(row => {
+            row.style.backgroundColor = 'white';
             if (crcl !== null) {
-                const min = row.dataset.min !== '' ? parseFloat(row.dataset.min) : null;
-                const max = row.dataset.max !== '' ? parseFloat(row.dataset.max) : null;
-                let isMatch = true;
-                
-                if (min !== null && crcl < min) isMatch = false;
-                if (max !== null && crcl > max) isMatch = false;
-                
-                if (isMatch) row.style.backgroundColor = '#fef08a'; // ไฮไลต์สีเหลือง
+                const min = row.dataset.min !== '' ? parseFloat(row.dataset.min) : -Infinity;
+                const max = row.dataset.max !== '' ? parseFloat(row.dataset.max) : Infinity;
+                if (crcl >= min && crcl <= max) row.style.backgroundColor = '#fef08a';
+            }
+        });
+
+        // 5. Highlight แถว eGFR (ใช้ค่าที่ Normalized แล้ว)
+        document.querySelectorAll(`.egfr-row-${drugCode}`).forEach(row => {
+            row.style.backgroundColor = 'white';
+            if (normalizedeGFR !== null) {
+                const min = row.dataset.min !== '' ? parseFloat(row.dataset.min) : -Infinity;
+                const max = row.dataset.max !== '' ? parseFloat(row.dataset.max) : Infinity;
+                if (normalizedeGFR >= min && normalizedeGFR <= max) row.style.backgroundColor = '#dcfce7'; // ใช้สีเขียวอ่อนแยกความต่าง
             }
         });
     }
