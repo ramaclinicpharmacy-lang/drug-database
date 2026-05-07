@@ -1096,6 +1096,33 @@
         <button class="btn btn-outline" style="width:100%; margin-top:15px; height:42px;" onclick="closeModal('changelog-admin-modal')">ปิดหน้าต่าง</button>
     </div>
 </div>
+
+<!-- 🖼️ Modal: จัดการรูปภาพยา (Admin) -->
+<div id="drug-image-modal" class="modal">
+    <div class="modal-content" style="max-width: 500px; border-top: 8px solid var(--primary);">
+        <h3 style="color:var(--primary); margin-top:0;">🖼️ จัดการรูปภาพ</h3>
+        <h4 id="image-admin-drug-name" style="margin-bottom: 15px; color:var(--dark);"></h4>
+        <input type="hidden" id="image-admin-drug-code">
+
+        <div class="section-box" style="background:#f8fafc; border-color:#cbd5e1;">
+            <div style="font-size:0.8rem; background:#e0f2fe; border:1px solid #bae6fd; padding:10px; border-radius:6px; margin-bottom:15px; color:#0369a1; line-height:1.5;">
+                💡 <b>เทคนิค (Google Drive):</b><br>
+                ก๊อปปี้ลิงก์แชร์ของ Google Drive มาวางได้เลย ระบบจะแปลงลิงก์เพื่อใช้แสดงผลบนเว็บให้อัตโนมัติ <i>(อย่าลืมตั้งค่ารูปเป็น <b>Anyone with the link</b>)</i>
+            </div>
+
+            <label style="font-size:0.85rem; font-weight:bold;">รูปภาพที่ 1 (URL)</label>
+            <input type="url" id="image-url-1" placeholder="https://..." style="margin-bottom:10px;">
+
+            <label style="font-size:0.85rem; font-weight:bold;">รูปภาพที่ 2 (URL)</label>
+            <input type="url" id="image-url-2" placeholder="https://..." style="margin-bottom:15px;">
+
+            <div style="display:flex; gap:10px;">
+                <button class="btn btn-primary" style="flex:2; height:42px;" onclick="saveDrugImages()">💾 บันทึกรูปภาพ</button>
+                <button class="btn btn-outline" style="flex:1; height:42px;" onclick="closeModal('drug-image-modal')">ยกเลิก</button>
+            </div>
+        </div>
+    </div>
+</div>
     
 <script>
     const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
