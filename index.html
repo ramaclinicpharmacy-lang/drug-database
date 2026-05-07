@@ -2126,7 +2126,39 @@ async function fetchLogs() {
             }
             return matchText && matchPharm && matchForm && matchNlem && matchRoute && matchDrugType && matchLabel; 
         });
-        
+
+        // 🌟 เพิ่มกฎการจัดเรียง (Sorting) ตรงนี้ 🌟
+        filteredDrugsList.sort((a, b) => {
+            // ดึงชื่อ Generic ทั้งหมดของยา A มาต่อกัน
+            let genA = [];
+            (a.drug_contents || []).forEach(c => { if (c.generics?.generic_name) genA.push(c.generics.generic_name); });
+            let genStrA = genA.join(' + ').toLowerCase();
+
+            // ดึงชื่อ Generic ทั้งหมดของยา B มาต่อกัน
+            let genB = [];
+            (b.drug_contents || []).forEach(c => { if (c.generics?.generic_name) genB.push(c.generics.generic_name); });
+            let genStrB = genB.join(' + ').toLowerCase();
+
+            // กฎ 1: ถ้าไม่มียาสามัญทั้งคู่ ให้เรียงตามชื่อการค้า/ชื่อหลัก
+            if (!genStrA && !genStrB) return (a.drug_name || '').localeCompare(b.drug_name || '');
+            
+            // กฎ 2: ถ้ายา A ไม่มี Generic ให้ดีดไปอยู่หลังสุด
+            if (!genStrA) return 1;
+            
+            // กฎ 3: ถ้ายา B ไม่มี Generic ให้ดีดไปอยู่หลังสุด
+            if (!genStrB) return -1;
+
+            // กฎ 4: เทียบตามตัวอักษรของชื่อ Generic
+            const comp = genStrA.localeCompare(genStrB);
+            
+            // กฎ 5: ถ้าชื่อ Generic เหมือนกันเป๊ะ (เช่น พาราคนละยี่ห้อ) ให้เรียงซ้อนด้วยชื่อการค้า
+            if (comp === 0) {
+                return (a.drug_name || '').localeCompare(b.drug_name || '');
+            }
+            
+            return comp;
+        });
+
         const adminBypassEl = document.getElementById('admin-view-all-cb');
         const adminBypass = isAdmin && adminBypassEl && adminBypassEl.checked;
         const isFiltering = q || selectedPharmFilters.length > 0 || selectedFormFilters.length > 0 || selectedNlemFilters.length > 0 || selectedRouteFilters.length > 0 || selectedDrugTypeFilters.length > 0 || selectedLabelFilters.length > 0 || (!adminBypass && globalVisibleStatuses.length > 0);
