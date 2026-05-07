@@ -2351,10 +2351,17 @@ async function fetchLogs() {
         }, { onConflict: 'drug_code' });
 
         if (error) {
+            // 🌟 เพิ่มการดักจับ RLS / JWT เหมือนหน้าเทียบอาหาร
+            const msg = error.message.toLowerCase();
+            if (msg.includes('jwt') || msg.includes('rls') || msg.includes('policy') || error.code === '401' || error.code === '403') {
+                promptRelogin(); // เรียกหน้าล็อกอินขึ้นมาซ้อนทับ
+                return; // หยุดทำงาน ข้อมูลในฟอร์มจะไม่หาย
+            }
             alert("❌ เกิดข้อผิดพลาดในการบันทึกยา: " + error.message);
             return;
         }
 
+        // เซฟ Tags ต่อ
         await supabaseClient.from('drug_tag_mapping').delete().eq('drug_code', drug_code); 
         const selectedTags = Array.from(document.querySelectorAll('input[name="drug-tags"]:checked')).map(cb => ({ drug_code, tag_name: cb.value })); 
         if (selectedTags.length > 0) await supabaseClient.from('drug_tag_mapping').insert(selectedTags); 
