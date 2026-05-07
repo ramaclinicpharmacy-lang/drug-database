@@ -1212,7 +1212,9 @@
         document.getElementById('calc-allowed-fluids').style.display = 'none'; 
         document.getElementById('calc-admin-instruction').style.display = 'none'; // 🌟 ซ่อนกล่องวิธีใช้ไว้ก่อน
         
-        currentCalcAdmins = (drug.drug_administrations || []).filter(a => a.min_conc || a.max_conc);
+        currentCalcAdmins = (drug.drug_administrations || [])
+            .filter(a => a.min_conc || a.max_conc)
+            .sort((a, b) => (a.rank || 99) - (b.rank || 99)); // 🌟 แทรกบรรทัดนี้
         
         const warningEl = document.getElementById('calc-multi-warning');
         if (warningEl) {
@@ -2261,6 +2263,7 @@ async function fetchLogs() {
             const labelSection = labelsHtml ? `<div style="margin-top:10px; padding:10px; background:#f0f9ff; border:1px dashed #7dd3fc; border-radius:8px;"><strong>🏷️ ฉลากยา (Labels):</strong><br>${labelsHtml}</div>` : '';
 
             const adminHtml = (drug.drug_administrations || [])
+                .sort((a, b) => (a.rank || 99) - (b.rank || 99)) // 🌟 แทรกบรรทัดนี้
                 .map(a => `<div style="background:white; padding:10px; border-radius:8px; margin-top:8px; border:1px solid #edf2f7; font-size:0.9rem;"><span class="badge badge-route">${a.routes?.route_name || 'Unknown'}</span> <span style="white-space: pre-line;">${a.instructions || '-'}</span> ${formatConc(a.min_conc, a.max_conc, a.conc_unit)} ${a.administration_fluids?.length > 0 ? `<div style="margin-top:5px;"><b>สารน้ำ:</b> ${a.administration_fluids.map(f => `<span class="badge badge-fluid">${f.fluid_short_name}</span>`).join('')}</div>` : ''}</div>`)
                 .join('') || '<br>ไม่มีข้อมูล';
 
@@ -2985,9 +2988,72 @@ async function fetchLogs() {
     async function openAdminManager(c, n) { document.getElementById('target-admin-drug-code').value = c; document.getElementById('target-admin-drug-name').innerText = n; resetAdminForm(); await fetchCurrentAdmins(c); openModal('admin-manager-modal'); }
     
     async function fetchCurrentAdmins(c) { 
-        const {data} = await supabaseClient.from('drug_administrations').select('*, routes(route_name)').eq('drug_code', c); 
+        // 🌟 ดึงข้อมูลโดยเรียงตาม rank
+        const {data} = await supabaseClient.from('drug_administrations')
+            .select('*, routes(route_name)')
+            .eq('drug_code', c)
+            .order('rank', { ascending: true })
+            .order('id', { ascending: true }); 
+            
         currentAdminsList = data || []; 
-        document.getElementById('current-admin-list').innerHTML = currentAdminsList.map(a => `<div class="list-item" style="flex-wrap:wrap; gap:10px; border-left:3px solid var(--primary);"><div style="flex:1; min-width:200px;"><b>${a.routes?.route_name || 'Unknown'}:</b> ${a.instructions?.substring(0,40) || ''}...</div><div style="display:flex; gap:5px; flex-wrap:wrap;"><button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--primary);" onclick="prepareAdminForm(${a.id}, false)">✏️</button><button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--success);" onclick="prepareAdminForm(${a.id}, true)">📋</button><button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--purple); border-color:var(--purple);" onclick="openBulkCopyAdmin(${a.id}, '${c}')">🔁 ก๊อปปี้</button><button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--danger);" onclick="removeAdmin(${a.id}, '${c}')">🗑️</button></div></div>`).join(''); 
+
+        // จัดการ rank ที่ยังว่างให้มีตัวเลขเริ่มต้น
+        currentAdminsList.forEach((a, idx) => {
+            if (a.rank == null) a.rank = idx + 1;
+        });
+
+        document.getElementById('current-admin-list').innerHTML = currentAdminsList.map((a, index) => {
+            const isFirst = index === 0;
+            const isLast = index === currentAdminsList.length - 1;
+            
+            return `<div class="list-item" style="flex-wrap:wrap; gap:10px; border-left:3px solid var(--primary); align-items:center;">
+                <!-- 🌟 เพิ่มปุ่มขึ้นลง -->
+                <div style="display:flex; flex-direction:column; gap:2px; margin-right:5px;">
+                    <button class="btn btn-outline" style="padding:2px 6px; font-size:0.6rem; color:gray; ${isFirst ? 'visibility:hidden;' : ''}" onclick="moveAdminRank(${a.id}, -1, '${c}')">🔼</button>
+                    <button class="btn btn-outline" style="padding:2px 6px; font-size:0.6rem; color:gray; ${isLast ? 'visibility:hidden;' : ''}" onclick="moveAdminRank(${a.id}, 1, '${c}')">🔽</button>
+                </div>
+                
+                <div style="flex:1; min-width:180px;">
+                    <b>${a.routes?.route_name || 'Unknown'}:</b> <span style="font-size:0.85rem; color:gray;">${a.instructions?.substring(0,40) || ''}...</span>
+                </div>
+                <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                    <button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--primary);" onclick="prepareAdminForm(${a.id}, false)">✏️</button>
+                    <button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--success);" onclick="prepareAdminForm(${a.id}, true)">📋</button>
+                    <button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--purple); border-color:var(--purple);" onclick="openBulkCopyAdmin(${a.id}, '${c}')">🔁</button>
+                    <button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--danger);" onclick="removeAdmin(${a.id}, '${c}')">🗑️</button>
+                </div>
+            </div>`;
+        }).join(''); 
+    }
+
+    // 🌟 ฟังก์ชันสลับลำดับ
+    async function moveAdminRank(id, direction, drugCode) {
+        const currentIndex = currentAdminsList.findIndex(a => a.id === id);
+        if (currentIndex < 0) return;
+        
+        const targetIndex = currentIndex + direction;
+        if (targetIndex < 0 || targetIndex >= currentAdminsList.length) return; 
+
+        const currentItem = currentAdminsList[currentIndex];
+        const targetItem = currentAdminsList[targetIndex];
+
+        // สลับเลข
+        const tempRank = currentItem.rank;
+        currentItem.rank = targetItem.rank;
+        targetItem.rank = tempRank;
+
+        const listEl = document.getElementById('current-admin-list');
+        listEl.style.opacity = '0.5'; listEl.style.pointerEvents = 'none';
+
+        // บันทึกลงฐานข้อมูล
+        await supabaseClient.from('drug_administrations').update({ rank: currentItem.rank }).eq('id', currentItem.id);
+        await supabaseClient.from('drug_administrations').update({ rank: targetItem.rank }).eq('id', targetItem.id);
+
+        // ดึงข้อมูลมาแสดงใหม่
+        await fetchCurrentAdmins(drugCode);
+        listEl.style.opacity = '1'; listEl.style.pointerEvents = 'auto';
+        
+        fetchDrugs(); // อัปเดตหน้าบ้านด้วย
     }
 
     async function prepareAdminForm(adminId, isCopy) { 
@@ -3012,6 +3078,7 @@ async function fetchLogs() {
             min_conc: document.getElementById('input-min-conc').value||null, 
             max_conc: document.getElementById('input-max-conc').value||null, 
             conc_unit: document.getElementById('input-conc-unit').value||null 
+            rank: editingAdminId ? undefined : 99 // 🌟 กำหนด 99 ไปต่อท้ายหากเพิ่มใหม่
         }; 
         let response = editingAdminId ? await supabaseClient.from('drug_administrations').update(payload).eq('id', editingAdminId).select().single() : await supabaseClient.from('drug_administrations').insert(payload).select().single(); 
         if (response.error) return alert("Error: " + response.error.message); 
