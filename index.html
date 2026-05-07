@@ -1467,7 +1467,54 @@ async function fetchLogs() {
     }
 
     function encodeHTML(str) { return !str ? '' : str.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
-    async function handleLogin() { const {error} = await supabaseClient.auth.signInWithPassword({ email: document.getElementById('auth-email').value, password: document.getElementById('auth-pw').value }); if(error) alert(error.message); else location.reload(); }
+    async function handleLogin() { 
+        const email = document.getElementById('auth-email').value;
+        const pw = document.getElementById('auth-pw').value;
+        if (!email || !pw) return alert("กรุณากรอกอีเมลและรหัสผ่าน");
+
+        const btn = document.querySelector('#auth-modal .btn-primary');
+        const originalText = btn.innerText;
+        btn.innerText = "⏳ กำลังเข้าสู่ระบบ...";
+        btn.disabled = true;
+
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ 
+            email: email, 
+            password: pw 
+        }); 
+
+        btn.innerText = originalText;
+        btn.disabled = false;
+
+        if (error) {
+            alert(error.message); 
+        } else { 
+            // 🌟 1. ลบคำสั่ง location.reload() ออก แล้วเปลี่ยนเป็นการเซ็ต UI แทน
+            isAdmin = !!data.session;
+            if (isAdmin) {
+                currentAdminEmail = data.user.email;
+                document.getElementById('user-info').classList.remove('hidden');
+                document.getElementById('user-email').innerText = currentAdminEmail;
+                document.getElementById('user-email').style.display = 'inline-block';
+                document.getElementById('login-btn').classList.add('hidden');
+                const adminToolbar = document.getElementById('admin-toolbar');
+                if (adminToolbar) adminToolbar.classList.remove('hidden');
+                const adminQuickFilters = document.getElementById('admin-quick-filters');
+                if (adminQuickFilters) adminQuickFilters.classList.remove('hidden');
+                
+                setupSessionTimeout(); // รีเซ็ตตัวจับเวลาใหม่
+            }
+            
+            closeModal('auth-modal');
+            alert("✅ ยืนยันสิทธิ์สำเร็จ! คุณสามารถกด 'บันทึก' ข้อมูลในหน้าต่างเดิมต่อได้เลยครับ");
+        } 
+    }
+    function promptRelogin() {
+        alert("⚠️ เซสชันของคุณหมดอายุ หรือถูกปฏิเสธสิทธิ์ (RLS)\nกรุณาล็อกอินยืนยันตัวตนอีกครั้งเพื่อบันทึกข้อมูลต่อครับ");
+        const authModal = document.getElementById('auth-modal');
+        // 🌟 ดันหน้าต่างล็อกอินให้อยู่ชั้นบนสุด (ทับหน้าต่าง Edit ปัจจุบัน)
+        authModal.style.zIndex = "9999"; 
+        openModal('auth-modal');
+    }
     async function handleLogout() { await supabaseClient.auth.signOut(); location.reload(); }
     function openModal(id) { document.getElementById(id).style.display = 'block'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
