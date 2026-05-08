@@ -3623,7 +3623,7 @@ async function fetchLogs() {
         
         <div style="background:white; border:1px solid #e2e8f0; padding:12px; border-radius:8px; margin-bottom:15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
             <div style="font-size:0.85rem; font-weight:bold; color:var(--primary); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
-                <span>🧮 เครื่องคิดเลขประเมินการทำงานไต (CG & CKD-EPI)</span>
+                <span>🧮 ประเมินการทำงานไต (CG & CKD-EPI 2021)</span>
                 <button class="btn btn-outline btn-sm" onclick="clearInlineCrCl('${drugCode}')" style="font-size:0.75rem; padding:2px 8px; height:auto; min-height:24px;">ล้างค่า</button>
             </div>
             
@@ -3640,12 +3640,13 @@ async function fetchLogs() {
                 <input type="number" id="manual-egfr-${drugCode}" placeholder="mL/min/1.73m²" oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px; border-color:var(--indigo); flex:1;">
             </div>
 
+            <!-- แสดงผล 4 ค่า -->
             <div style="margin-top:12px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                 <div style="background:#fef08a; border:1px solid #facc15; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
                     🟡 <b>CrCl (Cockcroft-Gault):</b><br><b id="result-crcl-${drugCode}" style="color:#92400e; font-size:1.1rem;">-</b> <small>mL/min</small>
                 </div>
                 <div style="background:#dcfce7; border:1px solid #bbf7d0; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
-                    🟢 <b>eGFR (Normalized CKD-EPI 2021):</b><br><b id="result-egfr-${drugCode}" style="color:#166534; font-size:1.1rem;">-</b> <small>mL/min/1.73m²</small>
+                    🟢 <b>eGFR (Normalized):</b><br><b id="result-egfr-${drugCode}" style="color:#166534; font-size:1.1rem;">-</b> <small>mL/min/1.73m²</small>
                 </div>
                 <div style="background:#f1f5f9; border:1px solid #cbd5e1; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
                     📐 <b>BSA (Mosteller):</b><br><b id="result-bsa-${drugCode}" style="color:#334155; font-size:1.1rem;">-</b> <small>m²</small>
@@ -3655,20 +3656,18 @@ async function fetchLogs() {
                 </div>
             </div>
 
+            <!-- 🌟 Dynamic Alert (เตือนเมื่อใช้ค่าที่ไม่ตรงกับ Ref) -->
             <div id="dynamic-warning-${drugCode}" style="display:none; margin-top:10px; background:#fff7ed; border:1px solid #fdba74; padding:10px 12px; border-radius:6px; font-size:0.85rem; color:#c2410c; line-height:1.5;"></div>
             
+            <!-- 🚩 Disclaimer Section อัปเกรดใหม่ 100% -->
             <div style="margin-top:10px; background:#fef2f2; border:1px solid #fee2e2; padding:10px 12px; border-radius:6px; font-size:0.75rem; color:#991b1b; line-height:1.5;">
-                <b style="font-size:0.8rem;">⚠️ ข้อจำกัดและความเสี่ยงทางคลินิก (SCr-based equations):</b>
+                <b style="font-size:0.8rem;">⚠️ ข้อจำกัดทางคลินิก (SCr-based equations):</b>
                 <ul style="margin: 5px 0 0 0; padding-left: 15px;">
-                    <li><b>AKI & Unstable Cr:</b> ห้ามใช้ในภาวะ AKI หรือค่า SCr ไม่คงที่</li>
-                    <li><b>Extreme Body Size:</b> คลาดเคลื่อนสูงในผู้ป่วย Cachexia, ตัดอวัยวะ (Amputation), ทานมังสวิรัติ หรือโรคอ้วน (ควรพิจารณา TDM)</li>
-                    <li><b>Interference:</b> ยา (เช่น Trimethoprim, Cimetidine) หรืออาหาร (Creatine) อาจทำให้ SCr สูงปลอม</li>
+                    <li><b>AKI & Unstable Cr:</b> ห้ามใช้ในภาวะ Acute Kidney Injury หรือ SCr ไม่คงที่ (Non-steady state)</li>
+                    <li><b>Extreme Body Size:</b> คลาดเคลื่อนสูงในผู้ป่วย Cachexia, ตัดอวัยวะ (Amputation), ทานมังสวิรัติ หรือผู้ป่วยโรคอ้วน (อาจต้องพิจารณา IBW/AdjBW หรือ TDM)</li>
+                    <li><b>Interference:</b> ยาบางชนิด (เช่น <i>Trimethoprim, Cimetidine, Cobicistat</i>) หรืออาหาร (<i>Creatine</i>) อาจทำให้ SCr สูงปลอม</li>
+                    <li><b>Reference Mismatch:</b> การสลับใช้ค่าข้ามเกณฑ์ (eGFR แทน CrCl หรือในทางกลับกัน) อาจทำให้เกิด Over/Under-dosing โดยเฉพาะในยา Narrow Therapeutic Index</li>
                 </ul>
-                <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #fca5a5;">
-                    💡 <b>เงื่อนไขระบบไฮไลต์อัตโนมัติ (Fallback Logic):</b><br>
-                    • <b>ตารางอิง CrCl:</b> หากไม่มีค่า CrCl ➡️ ระบบจะใช้ eGFR แปลงกลับเป็น Absolute GFR ➡️ หากแปลงไม่ได้ จะนำ eGFR มาใช้แทนชั่วคราว<br>
-                    • <b>ตารางอิง eGFR:</b> หากไม่มีค่า eGFR ➡️ ระบบจะนำ CrCl มาใช้แทนชั่วคราว
-                </div>
             </div>
         </div>
         `;
@@ -3753,7 +3752,7 @@ async function fetchLogs() {
             resCrCl.innerText = '-';
         }
 
-        // 3. ตรวจสอบ eGFR (ใช้ค่าจาก Lab ก่อน ถ้าไม่มีค่อยคำนวณ CKD-EPI)
+        // 3. ตรวจสอบ eGFR (CKD-EPI หรือ Manual)
         if (!isNaN(manualeGFR) && manualeGFR > 0) {
             egfrNorm = manualeGFR;
         } else if (age > 0 && scr > 0) {
@@ -3772,78 +3771,79 @@ async function fetchLogs() {
             resAbsoluteGFR.innerText = '-';
         }
 
-        // 🌟 5. เงื่อนไข Fallback (เลือกค่าที่จะใช้ไฮไลต์ และเก็บ Status เพื่อไปโชว์ Alert)
+        // 🌟 5. การสลับค่า (Fallback Logic)
         let valForCrClRow = null;
-        let crclStatus = 'none'; // 'ideal', 'fallback_abs', 'fallback_egfr'
+        let crclStatus = 'none';
 
-        if (crcl !== null) {
+        if (crcl !== null && crcl > 0) {
             valForCrClRow = crcl;
-            crclStatus = 'ideal';
-        } else if (absGFR !== null) {
+            crclStatus = 'ideal'; // ✅ มีข้อมูลครบ ใช้ CG ได้ตรงตัว
+        } else if (absGFR !== null && absGFR > 0) {
             valForCrClRow = absGFR;
-            crclStatus = 'fallback_abs';
-        } else if (egfrNorm !== null) {
+            crclStatus = 'fallback_abs'; // ⚠️ ใช้การแปลง (มี eGFR + BSA)
+        } else if (egfrNorm !== null && egfrNorm > 0) {
             valForCrClRow = egfrNorm;
-            crclStatus = 'fallback_egfr';
+            crclStatus = 'fallback_egfr_direct'; // 🚨 อันตราย! มี eGFR แต่ไม่มี BSA เอา eGFR มาเทียบดื้อๆ เลย
         }
 
         let valForEgfrRow = null;
-        let egfrStatus = 'none'; // 'ideal', 'fallback_crcl'
+        let egfrStatus = 'none';
 
-        if (egfrNorm !== null) {
+        if (egfrNorm !== null && egfrNorm > 0) {
             valForEgfrRow = egfrNorm;
-            egfrStatus = 'ideal';
-        } else if (crcl !== null) {
+            egfrStatus = 'ideal'; // ✅ ใช้ eGFR ตรงตัว
+        } else if (crcl !== null && crcl > 0) {
             valForEgfrRow = crcl;
-            egfrStatus = 'fallback_crcl';
+            egfrStatus = 'fallback_crcl_direct'; // 🚨 อันตราย! มี CrCl แต่เอาไปเทียบตาราง eGFR ดื้อๆ
         }
 
-        // Apply Highlight
+        // ไฮไลต์สีลงตาราง
         const applyHighlight = (selector, val, color) => {
             document.querySelectorAll(selector).forEach(row => {
                 row.style.backgroundColor = 'white';
                 if (val !== null) {
                     const min = row.dataset.min !== '' ? parseFloat(row.dataset.min) : -Infinity;
                     const max = row.dataset.max !== '' ? parseFloat(row.dataset.max) : Infinity;
-                    if (val >= min && val <= max) {
-                        row.style.backgroundColor = color;
-                    }
+                    if (val >= min && val <= max) row.style.backgroundColor = color;
                 }
             });
         };
 
-        applyHighlight(`.crcl-row-${drugCode}`, valForCrClRow, '#fef08a'); 
-        applyHighlight(`.egfr-row-${drugCode}`, valForEgfrRow, '#dcfce7'); 
+        applyHighlight(`.crcl-row-${drugCode}`, valForCrClRow, '#fef08a'); // เหลือง
+        applyHighlight(`.egfr-row-${drugCode}`, valForEgfrRow, '#dcfce7'); // เขียวอ่อน
 
-        // 🌟 6. Dynamic Warning Logic
+        // 🌟 6. Dynamic Warning Logic (เช็กว่ากำลังดูตารางไหนอยู่ แล้วดึงค่ามั่วมาหรือเปล่า)
         let warnings = [];
         const hasCrClTable = document.querySelectorAll(`.crcl-row-${drugCode}`).length > 0;
         const hasEgfrTable = document.querySelectorAll(`.egfr-row-${drugCode}`).length > 0;
 
         if (hasCrClTable) {
             if (crclStatus === 'fallback_abs') {
-                warnings.push('⚠️ <b>ตารางอ้างอิง CrCl:</b> กำลังไฮไลต์โดยใช้ค่า <b>Absolute GFR</b> (แปลงจาก eGFR) เนื่องจากขาดข้อมูลเพื่อคำนวณ CG');
-            } else if (crclStatus === 'fallback_egfr') {
-                warnings.push('🚨 <b>ตารางอ้างอิง CrCl:</b> กำลังไฮไลต์โดยใช้ค่า <b>eGFR ที่ยังไม่ได้แปลง</b> (เนื่องจากไม่สามารถคำนวณ BSA ได้) โปรดระวังความคลาดเคลื่อนในผู้ป่วยที่รูปร่างผิดปกติ');
+                warnings.push('⚠️ <b>ตารางอ้างอิง CrCl:</b> ระบบใช้ <b>Absolute GFR</b> (แปลงจาก eGFR) แทน เนื่องจากขาดข้อมูลน้ำหนักเพื่อคำนวณ Cockcroft-Gault');
+            } else if (crclStatus === 'fallback_egfr_direct') {
+                warnings.push('🚨 <b>ตารางอ้างอิง CrCl:</b> ระบบใช้ <b>eGFR ที่ยังไม่ได้แปลงค่า (Normalized)</b> มาเทียบโดยตรง เนื่องจากหา BSA ไม่ได้! <u>โปรดระวังการประเมินผิดพลาดอย่างหนักในผู้ป่วยที่มีรูปร่างผิดปกติ</u>');
             }
         }
 
         if (hasEgfrTable) {
-            if (egfrStatus === 'fallback_crcl') {
-                warnings.push('⚠️ <b>ตารางอ้างอิง eGFR:</b> กำลังไฮไลต์โดยใช้ค่า <b>CrCl</b> โดยตรง (เนื่องจากไม่มีข้อมูล eGFR)');
+            if (egfrStatus === 'fallback_crcl_direct') {
+                warnings.push('🚨 <b>ตารางอ้างอิง eGFR:</b> ระบบดึงค่า <b>CrCl (Absolute)</b> มาเทียบตาราง eGFR โดยตรง! (ไม่ตรงกับ Reference ยา) <u>อาจเสี่ยง Over/Under-dose</u>');
             }
         }
 
+        // แสดงกล่องเตือน
         const warningBox = document.getElementById(`dynamic-warning-${drugCode}`);
         if (warnings.length > 0) {
-            warningBox.innerHTML = warnings.join('<br>');
+            warningBox.innerHTML = warnings.join('<br><br>');
             warningBox.style.display = 'block';
-            // ถ้ามีการใช้ eGFR แทนที่ไม่ได้แปลง (อันตรายสุด) ให้กล่องเป็นสีแดงเตือนแรงๆ
+            
+            // ถ้ามีการใช้ค่าตรงๆ ไม่ตรง Ref ให้กล่องเป็นสีแดงเข้ม
             if (warnings.some(w => w.includes('🚨'))) {
                 warningBox.style.background = '#fef2f2';
                 warningBox.style.borderColor = '#fca5a5';
                 warningBox.style.color = '#b91c1c';
             } else {
+                // ถ้าแค่แปลงค่าเฉยๆ ให้เตือนสีส้ม
                 warningBox.style.background = '#fff7ed';
                 warningBox.style.borderColor = '#fdba74';
                 warningBox.style.color = '#c2410c';
