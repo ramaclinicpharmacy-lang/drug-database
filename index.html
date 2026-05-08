@@ -3615,18 +3615,18 @@ async function fetchLogs() {
         container.dataset.loaded = 'true';
     }
     
-    // 📌 ฟังก์ชันสร้าง UI และตารางแยกตาม Generic
     function buildInlineAdjHTML(drugCode, adjData, drugContents) {
         let html = `
         <div style="font-weight:bold; color:var(--danger); margin-bottom:10px; display:flex; align-items:center; gap:8px; font-size: 1.1rem;">
-            ⚠️ แนวทางการปรับขนาดยา (Dose Adjustment)
+            ⚠️ แนวทางการปรับขนาดยา (Clinical Kidney Function)
         </div>
         
         <div style="background:white; border:1px solid #e2e8f0; padding:12px; border-radius:8px; margin-bottom:15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
             <div style="font-size:0.85rem; font-weight:bold; color:var(--primary); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
-                <span>🧮 ประเมินการทำงานไต (Cockcroft-Gault & BSA)</span>
+                <span>🧮 เครื่องคิดเลขประเมินการทำงานไต (CG & CKD-EPI)</span>
                 <button class="btn btn-outline btn-sm" onclick="clearInlineCrCl('${drugCode}')" style="font-size:0.75rem; padding:2px 8px; height:auto; min-height:24px;">ล้างค่า</button>
             </div>
+            
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px;">
                 <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">เพศ</label><select id="calc-gender-${drugCode}" onchange="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"><option value="M">ชาย</option><option value="F">หญิง</option></select></div>
                 <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">อายุ (ปี)</label><input type="number" id="calc-age-${drugCode}" placeholder="ปี" oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
@@ -3635,16 +3635,40 @@ async function fetchLogs() {
                 <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">SCr (mg/dL)</label><input type="number" id="calc-scr-${drugCode}" placeholder="SCr" oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
             </div>
             
+            <div style="margin-top:12px; padding:10px; border-radius:8px; border:1px dashed #cbd5e1; background:#f8fafc; display:flex; align-items:center; gap:10px;">
+                <label style="font-size:0.75rem; font-weight:bold; color:#475569; margin:0;">หรือระบุ eGFR จาก Lab โดยตรง:</label>
+                <input type="number" id="manual-egfr-${drugCode}" placeholder="mL/min/1.73m²" oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px; border-color:var(--indigo); flex:1;">
+            </div>
+
             <div style="margin-top:12px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                <div style="background:#f1f5f9; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
-                    👉 CrCl (mL/min): <b id="result-crcl-${drugCode}" style="color:var(--danger); font-size:1.1rem;">-</b>
+                <div style="background:#fef08a; border:1px solid #facc15; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
+                    🟡 <b>CrCl (Cockcroft-Gault):</b><br><b id="result-crcl-${drugCode}" style="color:#92400e; font-size:1.1rem;">-</b> <small>mL/min</small>
                 </div>
-                <div style="background:#f1f5f9; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
-                    👉 BSA (m²): <b id="result-bsa-${drugCode}" style="color:var(--primary); font-size:1.1rem;">-</b>
+                <div style="background:#dcfce7; border:1px solid #bbf7d0; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
+                    🟢 <b>eGFR (Normalized):</b><br><b id="result-egfr-${drugCode}" style="color:#166534; font-size:1.1rem;">-</b> <small>mL/min/1.73m²</small>
+                </div>
+                <div style="background:#f1f5f9; border:1px solid #cbd5e1; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
+                    📐 <b>BSA (Mosteller):</b><br><b id="result-bsa-${drugCode}" style="color:#334155; font-size:1.1rem;">-</b> <small>m²</small>
+                </div>
+                <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
+                    🔄 <b>Absolute GFR:</b><br><b id="result-abs-gfr-${drugCode}" style="color:#1e40af; font-size:1.1rem;">-</b> <small>mL/min</small>
                 </div>
             </div>
-            <div id="normalized-egfr-box-${drugCode}" style="display:none; margin-top:8px; background:#eff6ff; padding:8px 12px; border-radius:6px; font-size:0.85rem; border:1px dashed #bfdbfe; color:#1e40af;">
-                💡 Normalized eGFR (เพื่อเทียบตาราง): <b id="result-normalized-egfr-${drugCode}">-</b> <small>mL/min/1.73m²</small>
+
+            <div id="dynamic-warning-${drugCode}" style="display:none; margin-top:10px; background:#fff7ed; border:1px solid #fdba74; padding:10px 12px; border-radius:6px; font-size:0.85rem; color:#c2410c; line-height:1.5;"></div>
+            
+            <div style="margin-top:10px; background:#fef2f2; border:1px solid #fee2e2; padding:10px 12px; border-radius:6px; font-size:0.75rem; color:#991b1b; line-height:1.5;">
+                <b style="font-size:0.8rem;">⚠️ ข้อจำกัดและความเสี่ยงทางคลินิก (SCr-based equations):</b>
+                <ul style="margin: 5px 0 0 0; padding-left: 15px;">
+                    <li><b>AKI & Unstable Cr:</b> ห้ามใช้ในภาวะ AKI หรือค่า SCr ไม่คงที่</li>
+                    <li><b>Extreme Body Size:</b> คลาดเคลื่อนสูงในผู้ป่วย Cachexia, ตัดอวัยวะ (Amputation), ทานมังสวิรัติ หรือโรคอ้วน (ควรพิจารณา TDM)</li>
+                    <li><b>Interference:</b> ยา (เช่น Trimethoprim, Cimetidine) หรืออาหาร (Creatine) อาจทำให้ SCr สูงปลอม</li>
+                </ul>
+                <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #fca5a5;">
+                    💡 <b>เงื่อนไขระบบไฮไลต์อัตโนมัติ (Fallback Logic):</b><br>
+                    • <b>ตารางอิง CrCl:</b> หากไม่มีค่า CrCl ➡️ ระบบจะใช้ eGFR แปลงกลับเป็น Absolute GFR ➡️ หากแปลงไม่ได้ จะนำ eGFR มาใช้แทนชั่วคราว<br>
+                    • <b>ตารางอิง eGFR:</b> หากไม่มีค่า eGFR ➡️ ระบบจะนำ CrCl มาใช้แทนชั่วคราว
+                </div>
             </div>
         </div>
         `;
@@ -3660,42 +3684,24 @@ async function fetchLogs() {
             const buildTable = (title, items) => {
                 if (items.length === 0) return '';
                 let rows = items.map(item => {
-                    let rangeText = '';
-                    
-                    if (!['CrCl', 'eGFR', 'Child-Pugh'].includes(item.criterion_type)) {
-                        rangeText = item.criterion_type;
-                    } else {
-                        if (item.min_value !== null && item.max_value !== null) rangeText = `${item.min_value} - ${item.max_value}`;
-                        else if (item.max_value !== null) rangeText = `≤ ${item.max_value}`;
-                        else if (item.min_value !== null) rangeText = `≥ ${item.min_value}`;
-                        else rangeText = 'All';
-                    }
+                    let rangeText = ['CrCl', 'eGFR', 'Child-Pugh'].includes(item.criterion_type) 
+                        ? ((item.min_value !== null && item.max_value !== null) ? `${item.min_value} - ${item.max_value}` : (item.max_value !== null ? `≤ ${item.max_value}` : (item.min_value !== null ? `≥ ${item.min_value}` : 'All')))
+                        : item.criterion_type;
 
                     let rowClass = "";
                     if (item.criterion_type === 'CrCl') rowClass = `crcl-row-${drugCode}`;
                     else if (item.criterion_type === 'eGFR') rowClass = `egfr-row-${drugCode}`;
                     
                     const dataAttrs = `data-min="${item.min_value !== null ? item.min_value : ''}" data-max="${item.max_value !== null ? item.max_value : ''}"`;
-                    
-                    // 🌟 แก้ตรงนี้ เอา background:white ออกจาก <td> เพื่อไม่ให้มันบังสีไฮไลต์
-                    return `<tr class="${rowClass}" ${dataAttrs} style="transition:0.3s;">
-                                <td style="padding:8px; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; text-align:center; font-weight:bold; white-space:nowrap;">${rangeText}</td>
-                                <td style="padding:8px; border-bottom:1px solid #e2e8f0; white-space: pre-line;">${item.recommendation} ${item.note ? `<br><small style="color:gray;"><i>* ${item.note}</i></small>` : ''}</td>
-                            </tr>`;
+                    return `<tr class="${rowClass}" ${dataAttrs} style="transition:0.3s;"><td style="padding:8px; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; text-align:center; font-weight:bold; white-space:nowrap;">${rangeText}</td><td style="padding:8px; border-bottom:1px solid #e2e8f0; white-space: pre-line;">${item.recommendation} ${item.note ? `<br><small style="color:gray;"><i>* ${item.note}</i></small>` : ''}</td></tr>`;
                 }).join('');
-                
-                return `<div style="margin-bottom:12px;">
-                            <div style="font-size:0.85rem; font-weight:bold; background:#e2e8f0; padding:6px 10px; border-radius:6px 6px 0 0; color:var(--dark);">${title}</div>
-                            <!-- 🌟 ย้าย background:white มาใส่ที่ <table> แทน -->
-                            <table style="width:100%; border-collapse:collapse; font-size:0.85rem; border:1px solid #e2e8f0; background:white;">${rows}</table>
-                        </div>`;
+                return `<div style="margin-bottom:12px;"><div style="font-size:0.85rem; font-weight:bold; background:#e2e8f0; padding:6px 10px; border-radius:6px 6px 0 0; color:var(--dark);">${title}</div><table style="width:100%; border-collapse:collapse; font-size:0.85rem; border:1px solid #e2e8f0; background:white;">${rows}</table></div>`;
             };
 
             html += buildTable('🛑 Renal Impairment (CrCl mL/min)', genAdjs.filter(d => d.criterion_type === 'CrCl').sort((a,b) => (b.max_value || 999) - (a.max_value || 999)));
             html += buildTable('🛑 Renal Impairment (eGFR mL/min/1.73m²)', genAdjs.filter(d => d.criterion_type === 'eGFR').sort((a,b) => (b.max_value || 999) - (a.max_value || 999)));
-            html += buildTable('🛑 Renal Replacement Therapy (RRT)', genAdjs.filter(d => d.adj_type === 'renal' && !['CrCl', 'eGFR'].includes(d.criterion_type)));
+            html += buildTable('🛑 RRT (HD, CAPD, CRRT)', genAdjs.filter(d => d.adj_type === 'renal' && !['CrCl', 'eGFR'].includes(d.criterion_type)));
             html += buildTable('🟡 Hepatic Impairment / Child-Pugh', genAdjs.filter(d => d.adj_type === 'hepatic'));
-            
             html += `</div>`;
         });
         return html;
@@ -3708,6 +3714,7 @@ async function fetchLogs() {
         document.getElementById(`calc-wt-${drugCode}`).value = '';
         document.getElementById(`calc-ht-${drugCode}`).value = '';
         document.getElementById(`calc-scr-${drugCode}`).value = '';
+        document.getElementById(`manual-egfr-${drugCode}`).value = '';
         calculateInlineCrCl(drugCode);
     }
     
@@ -3717,16 +3724,19 @@ async function fetchLogs() {
         const wt = parseFloat(document.getElementById(`calc-wt-${drugCode}`).value);
         const ht = parseFloat(document.getElementById(`calc-ht-${drugCode}`).value);
         const scr = parseFloat(document.getElementById(`calc-scr-${drugCode}`).value);
-        
+        const manualeGFR = parseFloat(document.getElementById(`manual-egfr-${drugCode}`).value);
+
         const resCrCl = document.getElementById(`result-crcl-${drugCode}`);
+        const resNormalizedeGFR = document.getElementById(`result-egfr-${drugCode}`);
+        const resAbsoluteGFR = document.getElementById(`result-abs-gfr-${drugCode}`);
         const resBSA = document.getElementById(`result-bsa-${drugCode}`);
-        const normBox = document.getElementById(`normalized-egfr-box-${drugCode}`);
-        const resNormeGFR = document.getElementById(`result-normalized-egfr-${drugCode}`);
 
         let crcl = null;
         let bsa = null;
-        let normalizedeGFR = null;
+        let egfrNorm = null;
+        let absGFR = null;
 
+        // 1. คำนวณ BSA
         if (wt > 0 && ht > 0) {
             bsa = Math.sqrt((ht * wt) / 3600);
             resBSA.innerText = bsa.toFixed(2);
@@ -3734,41 +3744,114 @@ async function fetchLogs() {
             resBSA.innerText = '-';
         }
 
+        // 2. คำนวณ CrCl (Cockcroft-Gault)
         if (age > 0 && wt > 0 && scr > 0) {
             crcl = ((140 - age) * wt) / (72 * scr);
             if (gender === 'F') crcl *= 0.85;
             resCrCl.innerText = crcl.toFixed(1);
-            
-            if (bsa > 0) {
-                normalizedeGFR = crcl * (1.73 / bsa);
-                resNormeGFR.innerText = normalizedeGFR.toFixed(1);
-                normBox.style.display = 'block';
-            } else {
-                normBox.style.display = 'none';
-            }
         } else {
             resCrCl.innerText = '-';
-            normBox.style.display = 'none';
         }
 
-        // 🌟 ฟังก์ชันย่อยสำหรับเช็กเงื่อนไขและ Highlight
-        const applyHighlight = (rowClass, val, highlightColor) => {
-            document.querySelectorAll('.' + rowClass).forEach(row => {
-                row.style.backgroundColor = 'white'; // ล้างสีเก่าก่อนเสมอ
+        // 3. ตรวจสอบ eGFR (ใช้ค่าจาก Lab ก่อน ถ้าไม่มีค่อยคำนวณ CKD-EPI)
+        if (!isNaN(manualeGFR) && manualeGFR > 0) {
+            egfrNorm = manualeGFR;
+        } else if (age > 0 && scr > 0) {
+            const kappa = (gender === 'F') ? 0.7 : 0.9;
+            const alpha = (gender === 'F') ? -0.241 : -0.302;
+            const femaleConstant = (gender === 'F') ? 1.012 : 1.0;
+            egfrNorm = 142 * Math.pow(Math.min(scr / kappa, 1), alpha) * Math.pow(Math.max(scr / kappa, 1), -1.200) * Math.pow(0.9938, age) * femaleConstant;
+        }
+        resNormalizedeGFR.innerText = egfrNorm ? egfrNorm.toFixed(1) : '-';
+
+        // 4. คำนวณ Absolute GFR
+        if (egfrNorm > 0 && bsa > 0) {
+            absGFR = egfrNorm * (bsa / 1.73);
+            resAbsoluteGFR.innerText = absGFR.toFixed(1);
+        } else {
+            resAbsoluteGFR.innerText = '-';
+        }
+
+        // 🌟 5. เงื่อนไข Fallback (เลือกค่าที่จะใช้ไฮไลต์ และเก็บ Status เพื่อไปโชว์ Alert)
+        let valForCrClRow = null;
+        let crclStatus = 'none'; // 'ideal', 'fallback_abs', 'fallback_egfr'
+
+        if (crcl !== null) {
+            valForCrClRow = crcl;
+            crclStatus = 'ideal';
+        } else if (absGFR !== null) {
+            valForCrClRow = absGFR;
+            crclStatus = 'fallback_abs';
+        } else if (egfrNorm !== null) {
+            valForCrClRow = egfrNorm;
+            crclStatus = 'fallback_egfr';
+        }
+
+        let valForEgfrRow = null;
+        let egfrStatus = 'none'; // 'ideal', 'fallback_crcl'
+
+        if (egfrNorm !== null) {
+            valForEgfrRow = egfrNorm;
+            egfrStatus = 'ideal';
+        } else if (crcl !== null) {
+            valForEgfrRow = crcl;
+            egfrStatus = 'fallback_crcl';
+        }
+
+        // Apply Highlight
+        const applyHighlight = (selector, val, color) => {
+            document.querySelectorAll(selector).forEach(row => {
+                row.style.backgroundColor = 'white';
                 if (val !== null) {
                     const min = row.dataset.min !== '' ? parseFloat(row.dataset.min) : -Infinity;
                     const max = row.dataset.max !== '' ? parseFloat(row.dataset.max) : Infinity;
-                    
                     if (val >= min && val <= max) {
-                        row.style.backgroundColor = highlightColor;
+                        row.style.backgroundColor = color;
                     }
                 }
             });
         };
 
-        // สั่ง Highlight ทันที! (เหลือง=CrCl, เขียวอ่อน=eGFR)
-        applyHighlight(`crcl-row-${drugCode}`, crcl, '#fef08a');
-        applyHighlight(`egfr-row-${drugCode}`, normalizedeGFR, '#dcfce7');
+        applyHighlight(`.crcl-row-${drugCode}`, valForCrClRow, '#fef08a'); 
+        applyHighlight(`.egfr-row-${drugCode}`, valForEgfrRow, '#dcfce7'); 
+
+        // 🌟 6. Dynamic Warning Logic
+        let warnings = [];
+        const hasCrClTable = document.querySelectorAll(`.crcl-row-${drugCode}`).length > 0;
+        const hasEgfrTable = document.querySelectorAll(`.egfr-row-${drugCode}`).length > 0;
+
+        if (hasCrClTable) {
+            if (crclStatus === 'fallback_abs') {
+                warnings.push('⚠️ <b>ตารางอ้างอิง CrCl:</b> กำลังไฮไลต์โดยใช้ค่า <b>Absolute GFR</b> (แปลงจาก eGFR) เนื่องจากขาดข้อมูลเพื่อคำนวณ CG');
+            } else if (crclStatus === 'fallback_egfr') {
+                warnings.push('🚨 <b>ตารางอ้างอิง CrCl:</b> กำลังไฮไลต์โดยใช้ค่า <b>eGFR ที่ยังไม่ได้แปลง</b> (เนื่องจากไม่สามารถคำนวณ BSA ได้) โปรดระวังความคลาดเคลื่อนในผู้ป่วยที่รูปร่างผิดปกติ');
+            }
+        }
+
+        if (hasEgfrTable) {
+            if (egfrStatus === 'fallback_crcl') {
+                warnings.push('⚠️ <b>ตารางอ้างอิง eGFR:</b> กำลังไฮไลต์โดยใช้ค่า <b>CrCl</b> โดยตรง (เนื่องจากไม่มีข้อมูล eGFR)');
+            }
+        }
+
+        const warningBox = document.getElementById(`dynamic-warning-${drugCode}`);
+        if (warnings.length > 0) {
+            warningBox.innerHTML = warnings.join('<br>');
+            warningBox.style.display = 'block';
+            // ถ้ามีการใช้ eGFR แทนที่ไม่ได้แปลง (อันตรายสุด) ให้กล่องเป็นสีแดงเตือนแรงๆ
+            if (warnings.some(w => w.includes('🚨'))) {
+                warningBox.style.background = '#fef2f2';
+                warningBox.style.borderColor = '#fca5a5';
+                warningBox.style.color = '#b91c1c';
+            } else {
+                warningBox.style.background = '#fff7ed';
+                warningBox.style.borderColor = '#fdba74';
+                warningBox.style.color = '#c2410c';
+            }
+        } else {
+            warningBox.style.display = 'none';
+            warningBox.innerHTML = '';
+        }
     }
     
     // -------------------------------------------------------------
