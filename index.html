@@ -762,7 +762,37 @@
     </div>
 </div>
 
-<div id="ingredient-modal" class="modal"><div class="modal-content"><h3>ส่วนประกอบ: <span id="target-drug-name"></span></h3><input type="hidden" id="target-drug-code"><div class="section-box"><input type="text" id="search-generic-input" placeholder="🔍 ค้นหาชื่อยาสามัญ..." onkeyup="filterGenericOptions()" style="margin-bottom:10px;"><select id="select-generic" style="margin-bottom:10px;"></select><div style="display:flex; gap:5px;"><input type="number" id="input-amount" placeholder="ปริมาณ" style="flex:1;"><input type="text" id="input-unit" placeholder="หน่วย" style="flex:1;"></div><div style="display:flex; gap:10px; margin-top:10px;"><button class="btn btn-primary" id="btn-save-ingredient" style="flex:1; height:42px;" onclick="addIngredient()">+ เพิ่ม</button><button class="btn btn-outline hidden" id="btn-cancel-edit-ingredient" style="flex:1; height:42px;" onclick="resetIngredientForm()">ยกเลิก</button></div></div><div id="current-ingredients-list" style="max-height:200px; overflow-y:auto;"></div><button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal('ingredient-modal')">ปิด</button></div></div>
+<div id="ingredient-modal" class="modal">
+    <div class="modal-content">
+        <h3>ส่วนประกอบ: <span id="target-drug-name"></span></h3>
+        <input type="hidden" id="target-drug-code">
+        
+        <div class="section-box">
+            <input type="text" id="search-generic-input" placeholder="🔍 ค้นหาชื่อยาสามัญ..." onkeyup="filterGenericOptions()" style="margin-bottom:10px;">
+            <select id="select-generic" style="margin-bottom:10px;"></select>
+            <div style="display:flex; gap:5px;">
+                <input type="number" id="input-amount" placeholder="ปริมาณ" style="flex:1;">
+                <input type="text" id="input-unit" placeholder="หน่วย" style="flex:1;">
+            </div>
+            
+            <div style="display:flex; gap:10px; margin-top:10px;">
+                <button class="btn btn-primary" id="btn-save-ingredient" style="flex:2; height:42px;" onclick="addIngredient()">+ เพิ่ม</button>
+                
+                <!-- 🌟 ปุ่มล้างฟอร์มที่เพิ่มเข้ามา -->
+                <button class="btn btn-outline" id="btn-clear-ingredient-form" style="flex:1; height:42px; color:#475569; border-color:#cbd5e1;" onclick="resetIngredientForm()">🧹 ล้างฟอร์ม</button>
+                
+                <button class="btn btn-outline hidden" id="btn-cancel-edit-ingredient" style="flex:1; height:42px; color:var(--danger); border-color:var(--danger);" onclick="resetIngredientForm()">❌ ยกเลิกแก้</button>
+            </div>
+        </div>
+
+        <div id="current-ingredients-list" style="max-height:200px; overflow-y:auto; margin-bottom:10px;"></div>
+        
+        <!-- 🌟 ปุ่มลบส่วนผสมทั้งหมด (เคลียร์ลิสต์รวดเดียว) -->
+        <button class="btn btn-outline btn-sm" style="color:var(--danger); border-color:var(--danger); width:100%; margin-bottom:15px; height: 36px;" onclick="removeAllIngredients()">🗑️ ลบส่วนประกอบทั้งหมดของยานี้</button>
+
+        <button class="btn btn-outline" style="width:100%; height:42px;" onclick="closeModal('ingredient-modal')">ปิดหน้าต่าง</button>
+    </div>
+</div>
 <div id="bulk-copy-modal" class="modal"><div class="modal-content"><h3 style="color:var(--purple); margin-top:0;">🔁 คัดลอกวิธีใช้ไปยาอื่น <br><small style="color:gray; font-size:0.9rem;">(เฉพาะยาที่มี Generic เดียวกัน)</small></h3><div class="section-box" style="background: #f8fafc; border-color: #cbd5e1; padding:10px;"><strong style="font-size:0.85rem;">ต้นฉบับ:</strong> <br><span id="bulk-copy-source-desc" style="font-size:0.9rem; color:var(--dark);"></span></div><input type="hidden" id="bulk-copy-admin-id"><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">เลือกยาปลายทาง:</label><div id="bulk-copy-target-list" style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 8px; margin-bottom: 15px; background: white;"></div><div style="display:flex; gap:10px;"><button class="btn" style="background:var(--purple); color:white; flex:1; height:45px;" onclick="executeBulkCopyAdmin()">✅ ยืนยันการคัดลอก</button><button class="btn btn-outline" style="flex:1; height:45px;" onclick="closeModal('bulk-copy-modal')">ยกเลิก</button></div></div></div>
 <!-- 🔗 1. Modal: User ดูลิงก์ (Link Viewer) -->
 <div id="link-viewer-modal" class="modal">
@@ -3296,15 +3326,19 @@ async function fetchLogs() {
         editingIngredientCode = null; 
         document.getElementById('select-generic').disabled = false; 
         
-        // 🌟 เคลียร์ช่องค้นหา เพื่อคืนค่าตัวเลือกทั้งหมดให้ Dropdown
+        // เคลียร์ช่องค้นหา เพื่อคืนค่าตัวเลือกทั้งหมดให้ Dropdown
         document.getElementById('search-generic-input').value = '';
         filterGenericOptions(); 
         
         if(document.getElementById('select-generic').options.length > 0) document.getElementById('select-generic').selectedIndex = 0; 
         document.getElementById('input-amount').value = ''; 
         document.getElementById('input-unit').value = ''; 
+        
+        // สลับปุ่ม
         document.getElementById('btn-save-ingredient').innerText = "+ เพิ่ม"; 
         document.getElementById('btn-cancel-edit-ingredient').classList.add('hidden'); 
+        const clearBtn = document.getElementById('btn-clear-ingredient-form');
+        if (clearBtn) clearBtn.classList.remove('hidden');
     }
 
     async function openIngredientManager(c, n) { 
@@ -3356,19 +3390,47 @@ async function fetchLogs() {
         if(!ing) return;
         editingIngredientCode = genericCode;
         
-        // 🌟 สำคัญ: ล้างช่องค้นหาก่อนเซ็ตค่า ป้องกันบั๊กหาตัวเลือกไม่เจอเพราะโดนซ่อนอยู่
+        // ล้างช่องค้นหาก่อนเซ็ตค่า ป้องกันบั๊กหาตัวเลือกไม่เจอเพราะโดนซ่อนอยู่
         document.getElementById('search-generic-input').value = '';
         filterGenericOptions();
 
         document.getElementById('select-generic').value = ing.generic_code;
         document.getElementById('select-generic').disabled = true; 
         
-        // 🌟 ดึงค่าตัวเลข ถ้าเป็น null ให้โชว์ช่องว่าง
         document.getElementById('input-amount').value = ing.amount !== null ? ing.amount : ''; 
         document.getElementById('input-unit').value = ing.unit || ''; 
         
+        // สลับปุ่มโหมดแก้ไข
         document.getElementById('btn-save-ingredient').innerText = "💾 บันทึกแก้ไข";
         document.getElementById('btn-cancel-edit-ingredient').classList.remove('hidden');
+        const clearBtn = document.getElementById('btn-clear-ingredient-form');
+        if (clearBtn) clearBtn.classList.add('hidden');
+    }
+
+    // 🌟 ฟังก์ชันใหม่สำหรับล้างส่วนประกอบทั้งหมดรวดเดียว
+    async function removeAllIngredients() {
+        const drug_code = document.getElementById('target-drug-code').value;
+        if (currentIngredientsList.length === 0) {
+            return alert('ไม่มียาสามัญในรายการให้ลบครับ');
+        }
+        
+        if(confirm('⚠️ คำเตือน: คุณต้องการ "ลบส่วนประกอบทั้งหมด" ของยานี้ออกจากระบบใช่หรือไม่?')) {
+            const { error } = await supabaseClient.from('drug_contents').delete().eq('drug_code', drug_code); 
+            
+            if (error) {
+                // ดักจับ JWT/RLS timeout
+                const msg = error.message.toLowerCase();
+                if (msg.includes('jwt') || msg.includes('rls')) {
+                    promptRelogin();
+                    return;
+                }
+                return alert("เกิดข้อผิดพลาดในการลบ: " + error.message);
+            }
+            
+            fetchCurrentIngredients(drug_code); 
+            fetchDrugs(); 
+            alert('🗑️ ล้างส่วนประกอบทั้งหมดเรียบร้อยแล้ว');
+        }
     }
 
     async function addIngredient() { 
