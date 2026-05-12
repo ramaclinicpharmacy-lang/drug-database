@@ -4556,7 +4556,7 @@ async function fetchLogs() {
         }
     }
     // -------------------------------------------------------------
-    // 📥 ระบบ Export CSV Audit Logs
+    // 📥 ระบบ Export CSV Audit Logs (อัปเกรดให้อ่านง่าย)
     // -------------------------------------------------------------
     async function exportLogsCSV() {
         const start = document.getElementById('log-export-start').value;
@@ -4588,7 +4588,26 @@ async function fetchLogs() {
         if (error) return alert("Error: " + error.message);
         if (!data || data.length === 0) return alert("❌ ไม่พบประวัติการแก้ไขในกรอบเวลาที่เลือก");
     
-        // สร้างเนื้อหา CSV พร้อม BOM (\uFEFF) ป้องกันภาษาไทยเพี้ยนใน Excel
+        // 🌟 ฟังก์ชันช่วยแปลง JSON ให้เป็นข้อความแบบอ่านง่าย
+        const formatLogDataForCSV = (dataObj) => {
+            if (!dataObj || typeof dataObj !== 'object') return '';
+            let result = [];
+            for (let key in dataObj) {
+                let val = dataObj[key];
+                
+                // แปลงค่า Null หรือ Boolean ให้อ่านง่ายขึ้น
+                if (val === null) val = '-';
+                else if (val === true) val = 'Yes';
+                else if (val === false) val = 'No';
+                else if (typeof val === 'object') val = JSON.stringify(val); // กันเหนียวกรณีเป็น Array
+                
+                result.push(`${key}: ${val}`);
+            }
+            // ใช้ \n เพื่อให้ขึ้นบรรทัดใหม่ภายในเซลล์เดียวกันของ Excel
+            return result.join('\n'); 
+        };
+
+        // สร้างเนื้อหา CSV พร้อม BOM (\uFEFF) ป้องกันภาษาไทยเพี้ยน
         let csvContent = '\uFEFF'; 
         csvContent += "Date,Time,Changed_By,Source,Action,Table,Record_ID,Old_Data,New_Data\n";
         
@@ -4603,11 +4622,12 @@ async function fetchLogs() {
             const table = log.table_name;
             const record_id = log.record_id;
             
-            // แปลง JSON และจัดการกับ Double Quotes ใน CSV
-            const oldData = log.old_data ? JSON.stringify(log.old_data).replace(/"/g, '""') : '';
-            const newData = log.new_data ? JSON.stringify(log.new_data).replace(/"/g, '""') : '';
+            // 🌟 แปลง JSON เป็นข้อความอ่านง่าย และแทนที่ Double Quotes เพื่อไม่ให้ CSV พัง
+            const oldDataText = formatLogDataForCSV(log.old_data).replace(/"/g, '""');
+            const newDataText = formatLogDataForCSV(log.new_data).replace(/"/g, '""');
             
-            csvContent += `"${dateStr}","${timeStr}","${rawUser}","${source}","${action}","${table}","${record_id}","${oldData}","${newData}"\n`;
+            // ใช้เครื่องหมาย " ครอบแต่ละคอลัมน์ เพื่อรองรับการขึ้นบรรทัดใหม่ (\n) ภายในเซลล์
+            csvContent += `"${dateStr}","${timeStr}","${rawUser}","${source}","${action}","${table}","${record_id}","${oldDataText}","${newDataText}"\n`;
         });
     
         // สร้างไฟล์และสั่งดาวน์โหลด
