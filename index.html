@@ -2265,7 +2265,8 @@ async function fetchLogs() {
         let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; 
         while (hasMore) { 
             const { data, error } = await supabaseClient.from('drugs')
-                .select(`*, drug_tag_mapping(tag_name), drug_label_mapping(label_code, labels(label_name)), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, generic_type, special_note, needs_renal_adj, needs_hepatic_adj, generic_pharm_mapping(class_name), generic_links(id, link_title, url))), drug_administrations(id, instructions, min_conc, max_conc, conc_unit, routes(route_name, route_code), administration_fluids(fluid_short_name)), nutrition_configs(product_type, grams_per_scoop, scoops_per_serving, serving_volume_ml, serving_kcal, protein_per_serving, carb_per_serving, fat_per_serving, preparation_note), med_error_knowledge(*), drug_links(id, link_title, url)`)
+                // 🌟 เพิ่ม generic_gene_lab เข้าไปในบรรทัด select ด้านล่างนี้ครับ
+                .select(`*, drug_tag_mapping(tag_name), drug_label_mapping(label_code, labels(label_name)), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, generic_type, special_note, needs_renal_adj, needs_hepatic_adj, generic_pharm_mapping(class_name), generic_gene_lab(test_name, description), generic_links(id, link_title, url))), drug_administrations(id, instructions, min_conc, max_conc, conc_unit, routes(route_name, route_code), administration_fluids(fluid_short_name)), nutrition_configs(product_type, grams_per_scoop, scoops_per_serving, serving_volume_ml, serving_kcal, protein_per_serving, carb_per_serving, fat_per_serving, preparation_note), med_error_knowledge(*), drug_links(id, link_title, url)`)
                 .eq('is_active', true) 
                 .order('drug_name')
                 .range(from, from + step - 1); 
@@ -2435,22 +2436,40 @@ async function fetchLogs() {
                 .map(a => `<div style="background:white; padding:10px; border-radius:8px; margin-top:8px; border:1px solid #edf2f7; font-size:0.9rem;"><span class="badge badge-route">${a.routes?.route_name || 'Unknown'}</span> <span style="white-space: pre-line;">${a.instructions || '-'}</span> ${formatConc(a.min_conc, a.max_conc, a.conc_unit)} ${a.administration_fluids?.length > 0 ? `<div style="margin-top:5px;"><b>สารน้ำ:</b> ${a.administration_fluids.map(f => `<span class="badge badge-fluid">${f.fluid_short_name}</span>`).join('')}</div>` : ''}</div>`)
                 .join('') || '<br>ไม่มีข้อมูล';
 
-            // 🌟 1. ดึงรูปลงมา และใช้ฟังก์ชันแปลง Google Drive Link
             const img1 = formatDriveImg(drug.image_url_1);
             const img2 = formatDriveImg(drug.image_url_2);
             let imagesHtml = '';
             if (img1 || img2) {
                 imagesHtml = `<div style="display:flex; gap:10px; flex-shrink:0; justify-content:flex-end;">`;
-                
-                // เปลี่ยน window.open เป็น openImageViewer
                 if (img1) imagesHtml += `<img src="${encodeHTML(img1)}" onerror="this.onerror=null; this.src='https://placehold.co/80x80/fee2e2/ef4444?text=Error';" style="width:80px; height:80px; object-fit:cover; border-radius:8px; border:1px solid #cbd5e1; box-shadow:0 2px 4px rgba(0,0,0,0.1); cursor:pointer;" onclick="event.stopPropagation(); openImageViewer('${encodeHTML(img1)}')" title="คลิกเพื่อดูรูปขยาย">`;
-                
                 if (img2) imagesHtml += `<img src="${encodeHTML(img2)}" onerror="this.onerror=null; this.src='https://placehold.co/80x80/fee2e2/ef4444?text=Error';" style="width:80px; height:80px; object-fit:cover; border-radius:8px; border:1px solid #cbd5e1; box-shadow:0 2px 4px rgba(0,0,0,0.1); cursor:pointer;" onclick="event.stopPropagation(); openImageViewer('${encodeHTML(img2)}')" title="คลิกเพื่อดูรูปขยาย">`;
-                
                 imagesHtml += `</div>`;
             }
 
-            // 🌟 2. จัด Layout ให้รูปภาพอยู่ฝั่งขวาเสมอ
+            // 🌟 สร้าง HTML กล่องข้อความ Gene/Lab
+            let geneLabHtml = '';
+            const allGeneLabs = [];
+            (drug.drug_contents || []).forEach(c => {
+                if (c.generics && c.generics.generic_gene_lab && c.generics.generic_gene_lab.length > 0) {
+                    c.generics.generic_gene_lab.forEach(gl => {
+                        allGeneLabs.push({
+                            test_name: gl.test_name,
+                            description: gl.description,
+                            generic_name: c.generics.generic_name
+                        });
+                    });
+                }
+            });
+
+            if (allGeneLabs.length > 0) {
+                geneLabHtml = `<div class="note-box" style="background:#ecfdf5; border-left:4px solid #059669; color:#065f46; margin-top:10px;">
+                    <b style="color:#047857; font-size: 0.95rem;">🧬 ข้อแนะนำการตรวจยีน/Lab (Pharmacogenomics):</b>
+                    <ul style="margin: 5px 0 0 0; padding-left: 20px;">
+                        ${allGeneLabs.map(gl => `<li><b>${encodeHTML(gl.test_name)}</b> ${gl.description ? `<br><span style="color:#065f46;">${encodeHTML(gl.description)}</span>` : ''}</li>`).join('')}
+                    </ul>
+                </div>`;
+            }
+
             return `
             <div class="drug-card ${cardThemeClass}" data-code="${safeCode}">
                 <div class="card-header-flex" style="flex-wrap: wrap; align-items: flex-start; gap: 15px;">
@@ -2469,7 +2488,6 @@ async function fetchLogs() {
                         </div>
                         ${isAdmin ? `<div class="admin-actions" style="padding-left: 28px; margin-top: 5px;">
                             ${adminNutriBtn} ${adminMeBtn} ${adminLinkBtn}
-                            <!-- 🌟 เพิ่มปุ่ม 🖼️ รูปยา ตรงนี้ -->
                             <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:#0284c7; border-color:#0284c7;" onclick="event.stopPropagation(); openImageAdmin('${safeCode}', '${safeName}')">🖼️ รูปยา</button>
                             <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--info); border-color:var(--info);" onclick="event.stopPropagation(); openLabelManager('${safeCode}', '${safeName}')">🏷️ ฉลาก</button>
                             <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--pink); border-color:var(--pink);" onclick="event.stopPropagation(); openNlemManager('${safeCode}', '${safeName}')">📋 บัญชี</button>
@@ -2509,6 +2527,10 @@ async function fetchLogs() {
                          return `<span class="badge" style="background:${bg}; color:${col}; border:${bdr};">${c.generics?.generic_name || 'Unknown'} ${c.amount || ''} ${c.unit || ''}</span>`;
                     }).join('') || '-'}</div>
                     ${nlemNotes} ${drug.special_note ? `<div class="note-box drug-note"><b>💡 Note:</b> ${drug.special_note}</div>` : ''} ${genericNotes}
+                    
+                    <!-- 🌟 แทรกกล่อง Gene/Lab ตรงนี้เลยครับ -->
+                    ${geneLabHtml}
+                    
                     ${labelSection}
                     <div style="margin-top:10px;"><strong>💉 วิธีบริหารยา:</strong>
                         ${adminHtml}
