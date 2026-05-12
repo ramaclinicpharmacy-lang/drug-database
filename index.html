@@ -1173,6 +1173,30 @@
         <img id="full-size-image" src="" alt="Drug Image" style="max-width: 100%; max-height: 85vh; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); object-fit: contain; background: white; padding: 5px;">
     </div>
 </div>
+<!-- 🧬 Modal: จัดการ Gene / Lab -->
+<div id="gene-lab-modal" class="modal">
+    <div class="modal-content" style="max-width: 650px; border-top: 8px solid #059669;">
+        <h3 style="color:#059669; margin-top:0;">🧬 จัดการ Gene / Lab</h3>
+        <h4 id="gl-gen-name" style="margin-bottom: 15px; color:var(--dark);"></h4>
+        <input type="hidden" id="gl-gen-code">
+
+        <div class="section-box" style="background:#ecfdf5; border-color:#a7f3d0;">
+            <label style="font-size:0.85rem; font-weight:bold;">ชื่อ Gene หรือ Lab (เช่น HLA-B*1502)</label>
+            <input type="text" id="gl-test-name" placeholder="ระบุชื่อ Gene / Lab..." style="margin-bottom:10px;">
+            
+            <label style="font-size:0.85rem; font-weight:bold;">คำอธิบาย / ข้อแนะนำ</label>
+            <textarea id="gl-description" placeholder="เช่น หากผลเป็น Positive ห้ามใช้ยานี้เด็ดขาด..." style="height:60px; margin-bottom:10px;"></textarea>
+
+            <div style="display:flex; gap:10px; margin-top:10px;">
+                <button class="btn" style="background:#059669; color:white; flex:2; height:42px;" id="btn-save-gl" onclick="saveGeneLab()">💾 บันทึกข้อมูล</button>
+                <button class="btn btn-outline hidden" id="btn-cancel-gl" style="flex:1; height:42px;" onclick="resetGeneLabForm()">ยกเลิกแก้</button>
+            </div>
+        </div>
+
+        <div id="gl-list" style="max-height: 250px; overflow-y: auto; margin-top: 15px;"></div>
+        <button class="btn btn-outline" style="width:100%; margin-top:15px; height: 42px;" onclick="closeModal('gene-lab-modal')">ปิดหน้าต่าง</button>
+    </div>
+</div>
     
 <script>
     const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
@@ -2679,6 +2703,7 @@ async function fetchLogs() {
                             </small>
                         </div> 
                         <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                            <button class="btn btn-outline" style="color:#059669; border-color:#059669; padding:2px 6px;" onclick="openGeneLabManager('${sCode}', '${sName}')">🧬 Gene/Lab</button>
                             <button class="btn btn-outline" style="color:var(--danger); border-color:var(--danger); padding:2px 6px;" onclick="openAdjManager('${sCode}', '${sName}')">⚖️ กฎปรับโดส</button>
                             <button class="btn btn-outline" style="color:#4338ca; border-color:#4338ca; padding:2px 6px;" onclick="openLinkAdmin('generic', '${sCode}', '${sName}')">🔗 เลือกลิงก์</button>
                             <button class="btn btn-outline" style="color:var(--primary); padding:2px 6px;" onclick="openEditGeneric('${sCode}')">✏️</button> 
@@ -4819,6 +4844,102 @@ async function fetchLogs() {
     function openImageViewer(url) {
         document.getElementById('full-size-image').src = url; // โหลดรูปเข้ากล่อง
         openModal('image-viewer-modal'); // สั่งให้กล่องลอยขึ้นมา
+    }
+    let currentGeneLabList = [];
+    let editingGeneLabId = null;
+
+    function resetGeneLabForm() {
+        editingGeneLabId = null;
+        document.getElementById('gl-test-name').value = '';
+        document.getElementById('gl-description').value = '';
+        document.getElementById('btn-save-gl').innerText = "💾 บันทึกข้อมูล";
+        document.getElementById('btn-cancel-gl').classList.add('hidden');
+    }
+
+    async function openGeneLabManager(code, name) {
+        document.getElementById('gl-gen-code').value = code;
+        document.getElementById('gl-gen-name').innerText = "🧪 " + name;
+        resetGeneLabForm();
+        await fetchGeneLabs(code);
+        openModal('gene-lab-modal');
+    }
+
+    async function fetchGeneLabs(code) {
+        const listEl = document.getElementById('gl-list');
+        listEl.innerHTML = '<div style="color:gray; text-align:center;">กำลังโหลด...</div>';
+        
+        const { data, error } = await supabaseClient.from('generic_gene_lab').select('*').eq('generic_code', code).order('created_at', { ascending: false });
+        currentGeneLabList = data || [];
+
+        if (error || currentGeneLabList.length === 0) {
+            listEl.innerHTML = '<div style="color:gray; text-align:center; padding:10px; border:1px dashed #cbd5e1; border-radius:8px;">ยังไม่มีข้อมูล Gene / Lab</div>';
+            return;
+        }
+
+        listEl.innerHTML = currentGeneLabList.map(gl => `
+            <div class="list-item" style="border-left: 3px solid #059669; align-items:flex-start;">
+                <div style="flex:1;">
+                    <b style="color:#059669;">${gl.test_name}</b>
+                    <div style="margin-top:4px; font-size:0.85rem; color:#475569; white-space:pre-line;">${gl.description || '-'}</div>
+                </div>
+                <div style="display:flex; gap:5px;">
+                    <button class="btn btn-outline btn-sm" style="color:var(--primary);" onclick="prepareEditGeneLab(${gl.id})">✏️</button>
+                    <button class="btn btn-outline btn-sm" style="color:red;" onclick="deleteGeneLab(${gl.id}, '${code}')">🗑️</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function prepareEditGeneLab(id) {
+        const gl = currentGeneLabList.find(item => item.id === id);
+        if (!gl) return;
+        editingGeneLabId = id;
+        document.getElementById('gl-test-name').value = gl.test_name;
+        document.getElementById('gl-description').value = gl.description || '';
+        document.getElementById('btn-save-gl').innerText = "💾 ยืนยันแก้ไข";
+        document.getElementById('btn-cancel-gl').classList.remove('hidden');
+    }
+
+    async function saveGeneLab() {
+        const generic_code = document.getElementById('gl-gen-code').value;
+        const test_name = document.getElementById('gl-test-name').value.trim();
+        const description = document.getElementById('gl-description').value.trim();
+
+        if (!test_name) return alert("กรุณาระบุชื่อ Gene หรือ Lab");
+
+        const payload = { generic_code, test_name, description: description || null };
+        const btn = document.getElementById('btn-save-gl');
+        btn.innerText = "⏳ กำลังบันทึก...";
+        btn.disabled = true;
+
+        let error;
+        if (editingGeneLabId) {
+            const res = await supabaseClient.from('generic_gene_lab').update(payload).eq('id', editingGeneLabId);
+            error = res.error;
+        } else {
+            const res = await supabaseClient.from('generic_gene_lab').insert(payload);
+            error = res.error;
+        }
+
+        btn.disabled = false;
+
+        if (error) {
+            const msg = error.message.toLowerCase();
+            if (msg.includes('jwt') || msg.includes('rls')) return promptRelogin();
+            return alert("เกิดข้อผิดพลาด: " + error.message);
+        }
+
+        resetGeneLabForm();
+        fetchGeneLabs(generic_code);
+        fetchDrugs(); // อัปเดตข้อมูลหน้าบัตรยาด้วย
+    }
+
+    async function deleteGeneLab(id, code) {
+        if (confirm("ยืนยันลบข้อมูล Gene / Lab นี้?")) {
+            await supabaseClient.from('generic_gene_lab').delete().eq('id', id);
+            fetchGeneLabs(code);
+            fetchDrugs();
+        }
     }
 </script>
 </body>
