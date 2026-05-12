@@ -2463,7 +2463,7 @@ async function fetchLogs() {
 
             if (allGeneLabs.length > 0) {
                 geneLabHtml = `<div class="note-box" style="background:#ecfdf5; border-left:4px solid #059669; color:#065f46; margin-top:10px;">
-                    <b style="color:#047857; font-size: 0.95rem;">🧬 ข้อแนะนำการตรวจยีน/Lab (Pharmacogenomics):</b>
+                    <b style="color:#047857; font-size: 0.95rem;">🧬 ข้อแนะนำการตรวจยีน/Lab:</b>
                     <ul style="margin: 5px 0 0 0; padding-left: 20px;">
                         ${allGeneLabs.map(gl => `<li><b>${encodeHTML(gl.test_name)}</b> ${gl.description ? `<br><span style="color:#065f46;">${encodeHTML(gl.description)}</span>` : ''}</li>`).join('')}
                     </ul>
