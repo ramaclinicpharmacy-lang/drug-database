@@ -1208,7 +1208,8 @@
         
         <div class="section-box" style="background: #ecfdf5; border-color: #a7f3d0;">
             <label style="font-size:0.9rem; font-weight:bold; display:block;">ชื่อ Gene หรือ Lab</label>
-            <input type="text" id="bulk-gl-test-name" list="bulk-gl-test-name-list" placeholder="พิมพ์หรือเลือกชื่อ Gene / Lab..." style="margin-bottom:10px; border-color:#10b981;">
+            <!-- 🌟 เพิ่ม onchange="onBulkGeneLabNameChange()" -->
+            <input type="text" id="bulk-gl-test-name" list="bulk-gl-test-name-list" placeholder="พิมพ์หรือเลือกชื่อ Gene / Lab..." style="margin-bottom:10px; border-color:#10b981;" onchange="onBulkGeneLabNameChange()">
             <datalist id="bulk-gl-test-name-list" class="gl-shared-datalist"></datalist>
 
             <label style="font-size:0.9rem; font-weight:bold; display:block;">คำอธิบาย / ข้อแนะนำ (ใช้ร่วมกัน)</label>
@@ -1910,8 +1911,8 @@ async function fetchLogs() {
     }
 
     async function fetchGenerics() {
-        // ดึงแค่ข้อมูลกลุ่มยา ส่วนจำนวนยาเดี๋ยวเราไปนับสดๆ จากหน้าเว็บแทน
-        allGenerics = await fetchMasterDataWithCache('generics', 'generic_name', '*, generic_pharm_mapping(class_name)');
+        // 🌟 แก้ไข: เพิ่ม generic_gene_lab เข้าไปใน Query
+        allGenerics = await fetchMasterDataWithCache('generics', 'generic_name', '*, generic_pharm_mapping(class_name), generic_gene_lab(test_name, description)');
         if (typeof filterMasterGenericList === 'function') filterMasterGenericList();
     }
 
@@ -5056,6 +5057,32 @@ async function fetchLogs() {
         openModal('bulk-genelab-modal');
     }
 
+    // 🌟 ฟังก์ชันใหม่: ดักจับเมื่อผู้ใช้พิมพ์หรือเลือกชื่อ Gene/Lab
+    function onBulkGeneLabNameChange() {
+        const selectedTestName = document.getElementById('bulk-gl-test-name').value.trim();
+        bulkGeneLabSelectedGenerics.clear();
+        document.getElementById('bulk-gl-desc').value = ''; // เคลียร์คำอธิบายเดิมก่อน
+
+        if (selectedTestName) {
+            let foundDesc = '';
+            // วนลูปหาว่ามียาสามัญตัวไหนที่ผูกกับชื่อนี้ไว้บ้าง
+            allGenerics.forEach(g => {
+                const glArray = g.generic_gene_lab || [];
+                const matched = glArray.find(gl => gl.test_name === selectedTestName);
+                if (matched) {
+                    bulkGeneLabSelectedGenerics.add(g.generic_code); // ติ๊กถูกยาตัวนั้น
+                    if (matched.description && !foundDesc) {
+                        foundDesc = matched.description; // ดึงคำอธิบายมาใส่กล่องให้อัตโนมัติ
+                    }
+                }
+            });
+            if (foundDesc) {
+                document.getElementById('bulk-gl-desc').value = foundDesc;
+            }
+        }
+        renderBulkGeneLabGenerics();
+    }
+
     function renderBulkGeneLabGenerics() {
         const q = document.getElementById('search-bulk-gl-gen').value.toLowerCase();
         const listEl = document.getElementById('bulk-gl-gen-list');
@@ -5122,7 +5149,19 @@ async function fetchLogs() {
         const description = document.getElementById('bulk-gl-desc').value.trim();
 
         if (!test_name) return alert("กรุณาระบุชื่อ Gene หรือ Lab ก่อนครับ");
-        if (bulkGeneLabSelectedGenerics.size === 0) return alert("กรุณาติ๊กเลือกยาสามัญอย่างน้อย 1 รายการ");
+        
+        // 🌟 สำคัญ: ลบข้อมูลของเก่าที่ผูกกับชื่อนี้ออกก่อน เพื่อเคลียร์รายการที่เรา "เอาติ๊กถูกออก"
+        const { error: delError } = await supabaseClient.from('generic_gene_lab').delete().eq('test_name', test_name);
+        if (delError) return alert("เกิดข้อผิดพลาดในการเคลียร์ข้อมูลเก่า: " + delError.message);
+
+        // ถ้าไม่มีอะไรถูกเลือกเลย ให้จบการทำงานแค่นี้ (เท่ากับลบทั้งหมด)
+        if (bulkGeneLabSelectedGenerics.size === 0) {
+            alert(`✅ ลบการผูก ${test_name} ออกจากยาสามัญทั้งหมดเรียบร้อยแล้ว`);
+            closeModal('bulk-genelab-modal');
+            fetchAllGeneLabNames();
+            fetchGenerics();
+            return fetchDrugs();
+        }
 
         const payload = Array.from(bulkGeneLabSelectedGenerics).map(code => ({ 
             generic_code: code, 
@@ -5141,8 +5180,8 @@ async function fetchLogs() {
         alert(`✅ ผูก ${test_name} เข้ากับยาสำเร็จ! (รวม ${payload.length} รายการ)`);
         closeModal('bulk-genelab-modal');
         
-        fetchAllGeneLabNames(); // อัปเดต Datalist
-        fetchGenerics();
+        fetchAllGeneLabNames(); 
+        fetchGenerics(); // สั่งให้ดึงข้อมูลใหม่มาลง allGenerics
         fetchDrugs();
     }
 </script>
