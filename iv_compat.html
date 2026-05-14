@@ -105,38 +105,84 @@
     let ivSelectedDrugs = []; // Array of {code, name}
     let pendingIvSelection = null;
 
+    // 🌟 1. ฟังก์ชันช่วยดึงข้อมูลแบบ Loop ทะลุข้อจำกัด 1,000 แถว
+    async function fetchAllWithPagination(tableName, selectQuery, condition = null) {
+        let allData = [];
+        let isFetching = true;
+        let from = 0;
+        const step = 1000;
+
+        while (isFetching) {
+            let query = supabaseClient.from(tableName)
+                .select(selectQuery)
+                .range(from, from + step - 1);
+            
+            if (condition) {
+                query = query.eq(condition.key, condition.value);
+            }
+
+            const { data, error } = await query;
+            
+            if (error) {
+                console.error(`Error fetching ${tableName}:`, error.message);
+                break;
+            }
+
+            if (data && data.length > 0) {
+                allData = allData.concat(data);
+                from += step;
+                if (data.length < step) isFetching = false;
+            } else {
+                isFetching = false;
+            }
+        }
+        return allData;
+    }
+
     // 🚀 Init Data
     async function init() {
-        document.getElementById('iv-search-input').placeholder = "⏳ กำลังโหลดฐานข้อมูลยา...";
+        document.getElementById('iv-search-input').placeholder = "⏳ กำลังโหลดและคัดกรองฐานข้อมูลยา...";
+        document.getElementById('iv-search-input').disabled = true; // ป้องกัน User พิมพ์ก่อนโหลดเสร็จ
         
-        // 🌟 เปลี่ยนมาดึงข้อมูลจากตาราง drugs แทน
-        const [drugRes, aliasRes] = await Promise.all([
-            supabaseClient.from('drugs').select('drug_code, drug_name, trade_name').eq('is_active', true),
-            supabaseClient.from('drug_aliases').select('drug_code, alias_name')
+        // 🌟 2. ดึงข้อมูลด้วย Loop และเพิ่มการดึง drug_administrations > routes มาใช้ตรวจสอบ
+        const [drugData, aliasData] = await Promise.all([
+            fetchAllWithPagination('drugs', 'drug_code, drug_name, trade_name, drug_administrations(routes(route_code, route_name))', {key: 'is_active', value: true}),
+            fetchAllWithPagination('drug_aliases', 'drug_code, alias_name')
         ]);
 
-        let allDrugs = drugRes.data || [];
         let dict = [];
         
-        allDrugs.forEach(d => {
-            // ใส่ชื่อยาหลัก
-            dict.push({ code: d.drug_code, name: d.drug_name, type: 'drug' });
-            // ถ้ามีชื่อการค้า (Trade Name) ให้เอามาเป็นคำค้นหาได้ด้วย
-            if (d.trade_name) {
-                dict.push({ code: d.drug_code, name: d.trade_name, type: 'trade', ref_name: d.drug_name });
+        drugData.forEach(d => {
+            // 🌟 3. กรองเฉพาะยาที่มีวิธีบริหารแบบ IV (ตรวจสอบจากตัวย่อหรือชื่อเต็ม)
+            const hasIvRoute = (d.drug_administrations || []).some(a => {
+                const rCode = (a.routes?.route_code || '').toUpperCase();
+                const rName = (a.routes?.route_name || '').toUpperCase();
+                return rCode.includes('IV') || rName.includes('IV') || rName.includes('INTRAVENOUS');
+            });
+
+            if (hasIvRoute) {
+                // ใส่ชื่อยาหลัก
+                dict.push({ code: d.drug_code, name: d.drug_name, type: 'drug' });
+                // ถ้ามีชื่อการค้า (Trade Name)
+                if (d.trade_name) {
+                    dict.push({ code: d.drug_code, name: d.trade_name, type: 'trade', ref_name: d.drug_name });
+                }
             }
         });
         
-        // โหลดข้อมูล Alias (ชื่อพ้อง)
-        if (aliasRes.data) {
-            aliasRes.data.forEach(a => {
-                const drug = allDrugs.find(d => d.drug_code === a.drug_code);
-                if (drug) dict.push({ code: a.drug_code, name: a.alias_name, type: 'alias', ref_name: drug.drug_name });
+        // 🌟 4. โหลดข้อมูล Alias เฉพาะยาที่ผ่านการกรอง IV แล้วเท่านั้น
+        if (aliasData) {
+            aliasData.forEach(a => {
+                const validDrug = dict.find(d => d.code === a.drug_code && d.type === 'drug');
+                if (validDrug) {
+                    dict.push({ code: a.drug_code, name: a.alias_name, type: 'alias', ref_name: validDrug.name });
+                }
             });
         }
         
         ivAliasDict = dict;
         document.getElementById('iv-search-input').placeholder = "พิมพ์ชื่อยาหลัก, Trade Name หรือ Alias...";
+        document.getElementById('iv-search-input').disabled = false;
     }
 
     // 🔍 Autocomplete
@@ -149,13 +195,15 @@
         const filtered = ivAliasDict.filter(item => item.name.toLowerCase().includes(q) || item.code.toLowerCase().includes(q)).slice(0, 15);
         
         if (filtered.length === 0) {
-            suggestionsBox.innerHTML = '<div class="suggestion-item" style="color:gray;">ไม่พบข้อมูลยาในระบบ</div>';
+            // ปรับข้อความแจ้งเตือนให้ชัดเจนขึ้น
+            suggestionsBox.innerHTML = '<div class="suggestion-item" style="color:gray;">ไม่พบยา (หรือยานี้ไม่มีวิธีใช้ทาง IV ในระบบ)</div>';
         } else {
             suggestionsBox.innerHTML = filtered.map(item => {
-                const display = item.type === 'alias' ? `${item.name} <small style="color:gray;">(อ้างอิง: ${item.ref_name})</small>` : item.name;
-                // ส่งชื่อที่ User เห็นกลับไปโชว์ ไม่ใช่ชื่อ Generic ล้วน
-                const displayName = item.type === 'alias' ? `${item.name} (${item.ref_name})` : item.name;
-                return `<div class="suggestion-item" onclick="selectIvDrug('${item.code}', '${displayName}')">${display}</div>`;
+                // โชว์วงเล็บชื่ออ้างอิงให้ทุกแบบที่ไม่ใช่ยาหลัก
+                const display = item.type !== 'drug' ? `${item.name} <small style="color:gray;">(อ้างอิง: ${item.ref_name})</small>` : item.name;
+                const displayName = item.type !== 'drug' ? `${item.name} (${item.ref_name})` : item.name;
+                
+                return `<div class="suggestion-item" onclick="selectIvDrug('${item.code}', '${encodeHTML(displayName)}')">${display}</div>`;
             }).join('');
         }
         suggestionsBox.style.display = 'block';
@@ -180,10 +228,9 @@
     // ➕ Add to List
     function addDrugToIvList() {
         if (!pendingIvSelection) {
-            // ถ้ายูสเซอร์พิมพ์แล้วกด Enter โดยไม่คลิก ให้หาตัวที่ตรงเป๊ะ
             const val = document.getElementById('iv-search-input').value.trim().toLowerCase();
             const match = ivAliasDict.find(d => d.name.toLowerCase() === val);
-            if(match) pendingIvSelection = { code: match.code, name: match.type === 'alias' ? `${match.name} (${match.ref_name})` : match.name };
+            if(match) pendingIvSelection = { code: match.code, name: match.type !== 'drug' ? `${match.name} (${match.ref_name})` : match.name };
             else return alert("กรุณาเลือกยาจากรายการแนะนำที่เด้งขึ้นมาครับ");
         }
 
@@ -198,7 +245,6 @@
         document.getElementById('iv-search-input').value = '';
         renderIvSelectedList();
         
-        // ซ่อนผลลัพธ์เก่าเพื่อบังคับให้กดปุ่มวิเคราะห์ใหม่
         document.getElementById('iv-result-section').style.display = 'none';
     }
 
@@ -250,7 +296,6 @@
         
         const compatData = data || [];
 
-        // Helper function หาสถานะความเข้ากันได้
         const checkCompat = (code1, code2) => {
             const pair = compatData.find(d => 
                 (d.drug_a === code1 && d.drug_b === code2) || 
@@ -291,7 +336,6 @@
                     break;
                 }
             }
-            // ถ้าเข้าสายไหนไม่ได้เลย เปิดสายใหม่
             if (!placed) {
                 lines.push([drug]);
             }
@@ -311,7 +355,6 @@
 
         // --- วาด UI: รายละเอียดคู่ยา (Pairwise) ---
         let pairsHtml = '';
-        // ลูปจับคู่ทุกแบบ n(n-1)/2
         for (let i = 0; i < ivSelectedDrugs.length; i++) {
             for (let j = i + 1; j < ivSelectedDrugs.length; j++) {
                 let d1 = ivSelectedDrugs[i];
@@ -346,15 +389,11 @@
         }
         
         document.getElementById('iv-pairs-container').innerHTML = pairsHtml;
-        
-        // Show result section
         document.getElementById('iv-result-section').style.display = 'block';
     }
 
-    // Escape HTML Helper
     function encodeHTML(str) { return !str ? '' : str.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
 
-    // Start App
     init();
 </script>
 
