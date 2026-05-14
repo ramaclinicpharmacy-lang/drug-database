@@ -110,28 +110,34 @@
     async function init() {
         document.getElementById('iv-search-input').placeholder = "⏳ กำลังโหลดฐานข้อมูลยา...";
         
-        // โหลด Generics และ Aliases เพื่อทำ Autocomplete
-        const [genRes, aliasRes] = await Promise.all([
-            supabaseClient.from('generics').select('generic_code, generic_name'),
-            supabaseClient.from('drug_aliases').select('generic_code, alias_name')
+        // 🌟 เปลี่ยนมาดึงข้อมูลจากตาราง drugs แทน
+        const [drugRes, aliasRes] = await Promise.all([
+            supabaseClient.from('drugs').select('drug_code, drug_name, trade_name').eq('is_active', true),
+            supabaseClient.from('drug_aliases').select('drug_code, alias_name')
         ]);
 
-        if(genRes.data) allGenerics = genRes.data;
-        
+        let allDrugs = drugRes.data || [];
         let dict = [];
-        allGenerics.forEach(g => {
-            dict.push({ code: g.generic_code, name: g.generic_name, type: 'generic' });
+        
+        allDrugs.forEach(d => {
+            // ใส่ชื่อยาหลัก
+            dict.push({ code: d.drug_code, name: d.drug_name, type: 'drug' });
+            // ถ้ามีชื่อการค้า (Trade Name) ให้เอามาเป็นคำค้นหาได้ด้วย
+            if (d.trade_name) {
+                dict.push({ code: d.drug_code, name: d.trade_name, type: 'trade', ref_name: d.drug_name });
+            }
         });
         
+        // โหลดข้อมูล Alias (ชื่อพ้อง)
         if (aliasRes.data) {
             aliasRes.data.forEach(a => {
-                const gen = allGenerics.find(g => g.generic_code === a.generic_code);
-                if (gen) dict.push({ code: a.generic_code, name: a.alias_name, type: 'alias', ref_name: gen.generic_name });
+                const drug = allDrugs.find(d => d.drug_code === a.drug_code);
+                if (drug) dict.push({ code: a.drug_code, name: a.alias_name, type: 'alias', ref_name: drug.drug_name });
             });
         }
         
         ivAliasDict = dict;
-        document.getElementById('iv-search-input').placeholder = "พิมพ์ชื่อยา, Generic, หรือชื่อการค้า...";
+        document.getElementById('iv-search-input').placeholder = "พิมพ์ชื่อยาหลัก, Trade Name หรือ Alias...";
     }
 
     // 🔍 Autocomplete
