@@ -195,13 +195,19 @@
         const filtered = ivAliasDict.filter(item => item.name.toLowerCase().includes(q) || item.code.toLowerCase().includes(q)).slice(0, 15);
         
         if (filtered.length === 0) {
-            // ปรับข้อความแจ้งเตือนให้ชัดเจนขึ้น
             suggestionsBox.innerHTML = '<div class="suggestion-item" style="color:gray;">ไม่พบยา (หรือยานี้ไม่มีวิธีใช้ทาง IV ในระบบ)</div>';
         } else {
             suggestionsBox.innerHTML = filtered.map(item => {
-                // โชว์วงเล็บชื่ออ้างอิงให้ทุกแบบที่ไม่ใช่ยาหลัก
-                const display = item.type !== 'drug' ? `${item.name} <small style="color:gray;">(อ้างอิง: ${item.ref_name})</small>` : item.name;
-                const displayName = item.type !== 'drug' ? `${item.name} (${item.ref_name})` : item.name;
+                // 🌟 ดักจับ: ถ้าชื่อ Alias/Trade ตรงกับชื่อหลักเป๊ะๆ ไม่ต้องวงเล็บซ้ำ
+                const isSameName = item.ref_name && item.name.toLowerCase().trim() === item.ref_name.toLowerCase().trim();
+                
+                const display = (item.type !== 'drug' && !isSameName) 
+                    ? `${item.name} <small style="color:gray;">(อ้างอิง: ${item.ref_name})</small>` 
+                    : item.name;
+                    
+                const displayName = (item.type !== 'drug' && !isSameName) 
+                    ? `${item.name} (${item.ref_name})` 
+                    : item.name;
                 
                 return `<div class="suggestion-item" onclick="selectIvDrug('${item.code}', '${encodeHTML(displayName)}')">${display}</div>`;
             }).join('');
@@ -230,8 +236,16 @@
         if (!pendingIvSelection) {
             const val = document.getElementById('iv-search-input').value.trim().toLowerCase();
             const match = ivAliasDict.find(d => d.name.toLowerCase() === val);
-            if(match) pendingIvSelection = { code: match.code, name: match.type !== 'drug' ? `${match.name} (${match.ref_name})` : match.name };
-            else return alert("กรุณาเลือกยาจากรายการแนะนำที่เด้งขึ้นมาครับ");
+            
+            if(match) {
+                // 🌟 ดักจับตอนพิมพ์แล้วกด Enter ด้วยเช่นกัน
+                const isSameName = match.ref_name && match.name.toLowerCase().trim() === match.ref_name.toLowerCase().trim();
+                const finalName = (match.type !== 'drug' && !isSameName) ? `${match.name} (${match.ref_name})` : match.name;
+                
+                pendingIvSelection = { code: match.code, name: finalName };
+            } else {
+                return alert("กรุณาเลือกยาจากรายการแนะนำที่เด้งขึ้นมาครับ");
+            }
         }
 
         if (ivSelectedDrugs.some(d => d.code === pendingIvSelection.code)) {
