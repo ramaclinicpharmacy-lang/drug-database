@@ -69,7 +69,7 @@
     <div class="search-box">
         <label style="font-weight:bold; color:var(--dark); margin-bottom:8px; display:block;">🔍 ค้นหาและเลือกยาที่ต้องการให้พร้อมกัน (Y-Site):</label>
         <div class="input-group">
-            <input type="text" id="iv-search-input" class="search-input" placeholder="พิมพ์ชื่อยา, Generic, หรือ Alias..." onkeyup="handleIvSearch(event)" onfocus="showIvSuggestions()">
+            <input type="text" id="iv-search-input" class="search-input" placeholder="พิมพ์ชื่อยา หรือ ชื่อพ้อง (Alias)..." onkeyup="handleIvSearch(event)" onfocus="showIvSuggestions()">
             <button class="btn btn-purple" onclick="addDrugToIvList()">➕ เพิ่มยา</button>
         </div>
         <div id="iv-suggestions" class="suggestions-dropdown"></div>
@@ -106,22 +106,16 @@
     let pendingIvSelection = null;
 
     // 🌟 1. ฟังก์ชันช่วยดึงข้อมูลแบบ Loop ทะลุข้อจำกัด 1,000 แถว
-    async function fetchAllWithPagination(tableName, selectQuery, condition = null) {
+    async function fetchAllWithPagination(tableName, selectQuery) {
         let allData = [];
         let isFetching = true;
         let from = 0;
         const step = 1000;
 
         while (isFetching) {
-            let query = supabaseClient.from(tableName)
+            const { data, error } = await supabaseClient.from(tableName)
                 .select(selectQuery)
                 .range(from, from + step - 1);
-            
-            if (condition) {
-                query = query.eq(condition.key, condition.value);
-            }
-
-            const { data, error } = await query;
             
             if (error) {
                 console.error(`Error fetching ${tableName}:`, error.message);
@@ -139,49 +133,31 @@
         return allData;
     }
 
-    // 🚀 Init Data
+    // 🚀 Init Data (เปลี่ยนมาดึงจากตาราง drug_for_iv_compat)
     async function init() {
-        document.getElementById('iv-search-input').placeholder = "⏳ กำลังโหลดและคัดกรองฐานข้อมูลยา...";
-        document.getElementById('iv-search-input').disabled = true; // ป้องกัน User พิมพ์ก่อนโหลดเสร็จ
+        document.getElementById('iv-search-input').placeholder = "⏳ กำลังโหลดฐานข้อมูลยา IV...";
+        document.getElementById('iv-search-input').disabled = true; 
         
-        // 🌟 2. ดึงข้อมูลด้วย Loop และเพิ่มการดึง drug_administrations > routes มาใช้ตรวจสอบ
-        const [drugData, aliasData] = await Promise.all([
-            fetchAllWithPagination('drugs', 'drug_code, drug_name, trade_name, drug_administrations(routes(route_code, route_name))', {key: 'is_active', value: true}),
-            fetchAllWithPagination('drug_aliases', 'drug_code, alias_name')
-        ]);
+        // ดึงข้อมูลทั้งหมดจากตารางใหม่
+        const ivData = await fetchAllWithPagination('drug_for_iv_compat', '*');
 
         let dict = [];
         
-        drugData.forEach(d => {
-            // 🌟 3. กรองเฉพาะยาที่มีวิธีบริหารแบบ IV (ตรวจสอบจากตัวย่อหรือชื่อเต็ม)
-            const hasIvRoute = (d.drug_administrations || []).some(a => {
-                const rCode = (a.routes?.route_code || '').toUpperCase();
-                const rName = (a.routes?.route_name || '').toUpperCase();
-                return rCode.includes('IV') || rName.includes('IV') || rName.includes('INTRAVENOUS');
-            });
-
-            if (hasIvRoute) {
-                // ใส่ชื่อยาหลัก
-                dict.push({ code: d.drug_code, name: d.drug_name, type: 'drug' });
-                // ถ้ามีชื่อการค้า (Trade Name)
-                if (d.trade_name) {
-                    dict.push({ code: d.drug_code, name: d.trade_name, type: 'trade', ref_name: d.drug_name });
-                }
+        ivData.forEach(d => {
+            // ใส่ชื่อยาหลัก
+            dict.push({ code: d.drug_name, name: d.drug_name, type: 'drug' });
+            
+            // ถ้ายานี้มีชื่อพ้อง (Aliases) ให้หั่นด้วยลูกน้ำ (,) แล้วนำมาเก็บไว้ให้ค้นหาเจอ
+            if (d.aliases) {
+                const aliasList = d.aliases.split(',').map(s => s.trim()).filter(s => s);
+                aliasList.forEach(a => {
+                    dict.push({ code: d.drug_name, name: a, type: 'alias', ref_name: d.drug_name });
+                });
             }
         });
         
-        // 🌟 4. โหลดข้อมูล Alias เฉพาะยาที่ผ่านการกรอง IV แล้วเท่านั้น
-        if (aliasData) {
-            aliasData.forEach(a => {
-                const validDrug = dict.find(d => d.code === a.drug_code && d.type === 'drug');
-                if (validDrug) {
-                    dict.push({ code: a.drug_code, name: a.alias_name, type: 'alias', ref_name: validDrug.name });
-                }
-            });
-        }
-        
         ivAliasDict = dict;
-        document.getElementById('iv-search-input').placeholder = "พิมพ์ชื่อยาหลัก, Trade Name หรือ Alias...";
+        document.getElementById('iv-search-input').placeholder = "พิมพ์ชื่อยา หรือ ชื่อพ้อง...";
         document.getElementById('iv-search-input').disabled = false;
     }
 
@@ -195,10 +171,10 @@
         const filtered = ivAliasDict.filter(item => item.name.toLowerCase().includes(q) || item.code.toLowerCase().includes(q)).slice(0, 15);
         
         if (filtered.length === 0) {
-            suggestionsBox.innerHTML = '<div class="suggestion-item" style="color:gray;">ไม่พบยา (หรือยานี้ไม่มีวิธีใช้ทาง IV ในระบบ)</div>';
+            suggestionsBox.innerHTML = '<div class="suggestion-item" style="color:gray;">ไม่พบรายชื่อยานี้ในระบบ IV Compat</div>';
         } else {
             suggestionsBox.innerHTML = filtered.map(item => {
-                // 🌟 ดักจับ: ถ้าชื่อ Alias/Trade ตรงกับชื่อหลักเป๊ะๆ ไม่ต้องวงเล็บซ้ำ
+                // ดักจับ: ถ้าชื่อ Alias ตรงกับชื่อหลักเป๊ะๆ ไม่ต้องวงเล็บซ้ำ
                 const isSameName = item.ref_name && item.name.toLowerCase().trim() === item.ref_name.toLowerCase().trim();
                 
                 const display = (item.type !== 'drug' && !isSameName) 
@@ -209,7 +185,7 @@
                     ? `${item.name} (${item.ref_name})` 
                     : item.name;
                 
-                return `<div class="suggestion-item" onclick="selectIvDrug('${item.code}', '${encodeHTML(displayName)}')">${display}</div>`;
+                return `<div class="suggestion-item" onclick="selectIvDrug('${encodeHTML(item.code)}', '${encodeHTML(displayName)}')">${display}</div>`;
             }).join('');
         }
         suggestionsBox.style.display = 'block';
@@ -238,7 +214,6 @@
             const match = ivAliasDict.find(d => d.name.toLowerCase() === val);
             
             if(match) {
-                // 🌟 ดักจับตอนพิมพ์แล้วกด Enter ด้วยเช่นกัน
                 const isSameName = match.ref_name && match.name.toLowerCase().trim() === match.ref_name.toLowerCase().trim();
                 const finalName = (match.type !== 'drug' && !isSameName) ? `${match.name} (${match.ref_name})` : match.name;
                 
