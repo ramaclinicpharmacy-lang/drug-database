@@ -78,6 +78,7 @@
     }
 
     async function startImport() {
+        // 🌟 แก้ไขตรงนี้: เติม เพื่อระบุว่าเอาไฟล์แรกที่เลือก
         const fileAlias = document.getElementById('file-alias').files;
         const fileCompat = document.getElementById('file-compat').files;
 
@@ -106,10 +107,9 @@
             const aliasData = await parseCSV(fileAlias);
             
             const aliasPayload = aliasData.map(row => ({
-                drug_name: row['Name'].trim(),
+                drug_name: row['Name'] ? row['Name'].trim() : '',
                 aliases: row['Alias'] ? row['Alias'].trim() : null
             })).filter(r => {
-                // 🌟 กรอง NSS และ D5W ออกจากฐานข้อมูลยาด้วย
                 const name = r.drug_name.toUpperCase();
                 return name && name !== 'NSS' && name !== 'D5W';
             });
@@ -144,19 +144,17 @@
                     search_date: row['Update']?.trim() || null
                 };
             }).filter(r => {
-                // 🌟 1. เช็กว่าชื่อยาว่างไหม
                 if (!r.drug_a || !r.drug_b) return false;
                 
-                // 🌟 2. เงื่อนไขสำคัญ: ตัดคู่ที่มียา NSS หรือ D5W ออกจากระบบ
                 const excludeList = ['NSS', 'D5W'];
                 const aName = r.drug_a.toUpperCase();
                 const bName = r.drug_b.toUpperCase();
                 
                 if (excludeList.includes(aName) || excludeList.includes(bName)) {
-                    return false; // โยนทิ้ง
+                    return false; 
                 }
 
-                return true; // เก็บไว้
+                return true; 
             });
 
             logMessage(`⚙️ เตรียมนำเข้าตาราง คู่ยา(Compat) จำนวน ${compatPayload.length} คู่ (ตัด NSS/D5W ออกแล้ว)...`);
