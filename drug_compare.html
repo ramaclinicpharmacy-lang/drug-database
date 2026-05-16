@@ -129,7 +129,8 @@
 
                 while (isFetching) {
                     const { data, error } = await supabaseClient.from('drugs')
-                        .select(`drug_code, drug_name, trade_name, drug_contents(generics(generic_name))`)
+                        // 🌟 เพิ่ม drug_nickname(nickname) เข้าไปใน select
+                        .select(`drug_code, drug_name, trade_name, drug_contents(generics(generic_name)), drug_nickname(nickname)`)
                         .eq('is_active', true)
                         .range(from, from + step - 1);
                     if (error) throw error;
@@ -142,11 +143,14 @@
                 
                 basicDrugList = allData.map(d => {
                     const gens = d.drug_contents ? d.drug_contents.map(c => c.generics?.generic_name).filter(Boolean) : [];
+                    // 🌟 รวบรวมชื่อพ้อง (Nickname/Alias)
+                    const nicks = d.drug_nickname ? d.drug_nickname.map(n => n.nickname).filter(Boolean) : [];
                     return {
                         drug_code: d.drug_code,
                         drug_name: d.drug_name,
                         trade_name: d.trade_name,
-                        generic_display: gens.length > 0 ? gens.join(' + ') : 'ไม่ระบุ'
+                        generic_display: gens.length > 0 ? gens.join(' + ') : 'ไม่ระบุ',
+                        nickname_display: nicks.length > 0 ? nicks.join(', ') : '' // เก็บไว้ประมวลผลค้นหา
                     };
                 });
                 console.log(`Loaded ${basicDrugList.length} drugs.`);
@@ -164,7 +168,10 @@
             const matches = basicDrugList.filter(d => 
                 (d.drug_code.toLowerCase().includes(q)) ||
                 (d.drug_name.toLowerCase().includes(q)) ||
-                (d.generic_display.toLowerCase().includes(q))
+                ((d.trade_name || '').toLowerCase().includes(q)) || // เผื่อค้นหาจาก Trade Name ด้วย
+                (d.generic_display.toLowerCase().includes(q)) ||
+                // 🌟 เพิ่มเงื่อนไขการค้นหาจาก ชื่อพ้อง (Nickname/Alias)
+                (d.nickname_display.toLowerCase().includes(q))
             ).slice(0, 30); // แสดงสูงสุด 30 รายการเพื่อให้ไม่อืด
 
             document.getElementById('search-count').innerText = `พบ ${matches.length} รายการ`;
@@ -172,6 +179,9 @@
             if (matches.length > 0) {
                 listContainer.innerHTML = matches.map(d => {
                     const isAlreadySelected = selectedDrugCodes.includes(d.drug_code);
+                    // 🌟 ถ้ามีชื่อพ้อง ให้โชว์ชื่อพ้องแถมไปในวงเล็บด้วย จะได้รู้ว่าเจอจากไหน
+                    const nicknameBadge = d.nickname_display ? `<br><small style="color:var(--purple);">🏷️ ชื่อพ้อง: ${d.nickname_display}</small>` : '';
+                    
                     return `
                     <div class="search-item" onclick="toggleCheckbox('cb-${d.drug_code}')">
                         <input type="checkbox" id="cb-${d.drug_code}" class="search-cb" value="${d.drug_code}" 
@@ -179,6 +189,7 @@
                         <label>
                             <b style="color:var(--primary);">${d.drug_name}</b>
                             <span style="font-size:0.8rem; color:gray;">Generic: ${d.generic_display} | Code: ${d.drug_code}</span>
+                            ${nicknameBadge}
                             ${isAlreadySelected ? '<small style="color:var(--success);">✅ เลือกไว้แล้ว</small>' : ''}
                         </label>
                     </div>
