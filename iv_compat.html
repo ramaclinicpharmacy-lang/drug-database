@@ -578,8 +578,13 @@
         
         container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">กำลังโหลด...</div>';
 
-        let query = supabaseClient.from('drug_for_iv_compat').select('*').order('drug_name', { ascending: true });
-        if (q) query = query.or(`drug_name.ilike.%${q}%,aliases.ilike.%${q}%`).limit(100);
+        let query = supabaseClient.from('drug_for_iv_compat').select('*');
+        if (q) {
+            query = query.or(`drug_name.ilike.%${q}%,aliases.ilike.%${q}%`).limit(100);
+        }
+        
+        // 🌟 ย้ายมาสั่งเรียงลำดับอักษรที่ท้ายสุด เพื่อให้ทำงานเสมอกันทุกกรณี
+        query = query.order('drug_name', { ascending: true });
 
         const { data, error } = await query;
         if (error) return container.innerHTML = `<div style="color:red; padding:20px;">Error: ${error.message}</div>`;
@@ -708,10 +713,16 @@
         
         container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">กำลังโหลด...</div>';
 
-        let query = supabaseClient.from('iv_compatibility').select('*').order('created_at', { ascending: false });
+        let query = supabaseClient.from('iv_compatibility').select('*');
 
-        if (q) query = query.or(`drug_a.ilike.%${q}%,drug_b.ilike.%${q}%`).limit(100);
-        else query = query.limit(50); 
+        if (q) {
+            query = query.or(`drug_a.ilike.%${q}%,drug_b.ilike.%${q}%`).limit(100);
+        } else {
+            query = query.limit(100); // ปรับเพิ่มการแสดงผลหน้าแรกจาก 50 เป็น 100 รายการ
+        }
+
+        // 🌟 เปลี่ยนจากเรียงตามวันที่ (created_at) ให้มาเรียงตามชื่อยาตัวแรก และยาตัวที่สองแทน (Alphabetical Order)
+        query = query.order('drug_a', { ascending: true }).order('drug_b', { ascending: true });
 
         const { data, error } = await query;
         if (error) return container.innerHTML = `<div style="color:red; padding:20px;">Error: ${error.message}</div>`;
