@@ -93,7 +93,10 @@
             <button class="btn btn-purple" onclick="addDrugToIvList()">➕ เพิ่มยา</button>
         </div>
         <div id="iv-suggestions" class="suggestions-dropdown"></div>
-
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 20px; margin-bottom: 5px;">
+            <b style="color:#475569; font-size:0.9rem;">☑️ รายการยาที่เลือกไว้:</b>
+            <button id="btn-clear-all-iv" class="btn btn-outline btn-sm" style="color:var(--danger); border-color:var(--danger); display:none;" onclick="clearAllIvSelected()">🗑️ ล้างทั้งหมด</button>
+        </div>
         <div class="selected-container" id="iv-selected-drugs">
             <span style="color:#94a3b8; font-style:italic;">(ยังไม่ได้เลือกยา โปรดค้นหาและเพิ่มยาด้านบน)</span>
         </div>
@@ -370,13 +373,27 @@
 
     function renderIvSelectedList() {
         const container = document.getElementById('iv-selected-drugs');
+        const clearBtn = document.getElementById('btn-clear-all-iv'); // 🌟 ดึงปุ่มล้างมาสั่งงาน
+        
         if (ivSelectedDrugs.length === 0) {
             container.innerHTML = '<span style="color:#94a3b8; font-style:italic;">(ยังไม่ได้เลือกยา โปรดค้นหาและเพิ่มยาด้านบน)</span>';
+            if (clearBtn) clearBtn.style.display = 'none'; // ซ่อนปุ่มถ้าไม่มียา
             return;
         }
+        
+        if (clearBtn) clearBtn.style.display = 'block'; // แสดงปุ่มถ้ามียาในตาราง
         container.innerHTML = ivSelectedDrugs.map((d, idx) => `
             <div class="drug-chip">💊 ${d.name} <span class="remove" onclick="removeDrug(${idx})">✖</span></div>
         `).join('');
+    }
+
+    // 🌟 ฟังก์ชันล้างรายชื่อยาทั้งหมดที่เพิ่มเข้ามาใหม่
+    function clearAllIvSelected() {
+        if (confirm("ต้องการล้างรายชื่อยาในรายการวิเคราะห์ทั้งหมดใช่หรือไม่?")) {
+            ivSelectedDrugs = [];
+            renderIvSelectedList();
+            document.getElementById('iv-result-section').style.display = 'none'; // ซ่อนส่วนผลลัพธ์เก่าด้วย
+        }
     }
 
     function removeDrug(idx) {
