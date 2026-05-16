@@ -21,7 +21,7 @@
 <body>
 
     <div class="card" style="border-top: 5px solid #4f46e5;">
-        <h2 style="margin-top: 0;">🚀 เครื่องมือนำเข้าข้อมูล IV Compat</h2>
+        <h2 style="margin-top: 0;">🚀 เครื่องมือนำเข้าข้อมูล IV Compat 1</h2>
         <p style="color: gray; font-size: 0.9rem; margin-top: -10px;">โปรแกรมจะแปลงข้อความและนำเข้าฐานข้อมูล Supabase อัตโนมัติ</p>
 
         <div class="form-group">
@@ -43,18 +43,12 @@
     </div>
 
 <script>
-    // ตั้งค่า Supabase
-    const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
     function logMessage(msg) {
         const logEl = document.getElementById('log');
         logEl.innerHTML += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
         logEl.scrollTop = logEl.scrollHeight;
     }
 
-    // ฟังก์ชันแปลงผลลัพธ์จากภาษาคน เป็นรหัส 1 ตัวอักษร
     function mapResultCode(val) {
         if (!val) return null;
         const lower = val.toLowerCase();
@@ -65,10 +59,9 @@
         return val.substring(0, 5); 
     }
 
-    // อ่านไฟล์ CSV
     function parseCSV(file) {
         return new Promise((resolve, reject) => {
-            if (typeof Papa === 'undefined') return reject(new Error("โหลดตัวอ่าน CSV ไม่สำเร็จ กรุณาเช็กอินเทอร์เน็ต"));
+            if (typeof Papa === 'undefined') return reject(new Error("โหลดตัวอ่าน CSV (PapaParse) ไม่สำเร็จ กรุณาเช็กอินเทอร์เน็ต"));
             Papa.parse(file, {
                 header: true,
                 skipEmptyLines: true,
@@ -80,6 +73,7 @@
 
     async function startImport() {
         try {
+            // 🌟 เช็กการเชื่อมต่อไฟล์อย่างรัดกุม
             const inputAlias = document.getElementById('file-alias');
             const inputCompat = document.getElementById('file-compat');
 
@@ -96,10 +90,20 @@
                 return;
             }
 
+            // 🌟 ตั้งค่า UI ระหว่างโหลด
             const btn = document.getElementById('btn-import');
             btn.disabled = true;
             btn.innerText = "⏳ กำลังทำงาน ห้ามปิดหน้าจอนี้...";
             document.getElementById('log').innerHTML = '';
+
+            // 🌟 เช็กการเชื่อมต่อ Supabase
+            if (typeof window.supabase === 'undefined') {
+                throw new Error("ไม่สามารถเชื่อมต่อฐานข้อมูลได้ (ระบบเครือข่ายอาจบล็อก Supabase CDN)");
+            }
+
+            const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
+            const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
+            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
             // ==========================================
             // ขั้นตอนที่ 1: ล้างข้อมูลเก่าทิ้ง
@@ -128,19 +132,8 @@
             for (let i = 0; i < aliasPayload.length; i += 100) {
                 const chunk = aliasPayload.slice(i, i + 100);
                 const { error } = await supabase.from('drug_for_iv_compat').insert(chunk);
-                
-                if (error) {
-                    // 🌟 ถ้ายิงกลุ่ม 100 ไม่ผ่าน ให้มาสืบหาคนผิดทีละตัว!
-                    logMessage(`⚠️ พบข้อผิดพลาดในชุดยาที่ ${i + 1}-${i + chunk.length} กำลังตรวจสอบแยกทีละตัว...`);
-                    for (const item of chunk) {
-                        const { error: itemErr } = await supabase.from('drug_for_iv_compat').insert([item]);
-                        if (itemErr) {
-                            logMessage(`<span style="color:#ef4444;">❌ นำเข้าไม่ได้: ยา "<b>${item.drug_name}</b>" - ${itemErr.message}</span>`);
-                        }
-                    }
-                } else {
-                    logMessage(`   ✅ นำเข้าชุดยาที่ ${i + 1} ถึง ${i + chunk.length} สำเร็จ`);
-                }
+                if (error) throw new Error("Alias Error: " + error.message);
+                logMessage(`   ✅ นำเข้าชุดยาที่ ${i + 1} ถึง ${i + chunk.length} สำเร็จ`);
             }
 
             // ==========================================
@@ -165,13 +158,11 @@
                 };
             }).filter(r => {
                 if (!r.drug_a || !r.drug_b) return false;
-                
                 const excludeList = ['NSS', 'D5W'];
                 const aName = r.drug_a.toUpperCase();
                 const bName = r.drug_b.toUpperCase();
                 
                 if (excludeList.includes(aName) || excludeList.includes(bName)) return false; 
-
                 return true; 
             });
 
@@ -180,26 +171,18 @@
             for (let i = 0; i < compatPayload.length; i += 100) {
                 const chunk = compatPayload.slice(i, i + 100);
                 const { error } = await supabase.from('iv_compatibility').insert(chunk);
-                
                 if (error) {
-                    // 🌟 ถ้ายิงกลุ่ม 100 ไม่ผ่าน ให้มาสืบหาคนผิดทีละคู่ยา!
-                    logMessage(`⚠️ พบข้อผิดพลาดในคู่ยาชุดที่ ${i + 1}-${i + chunk.length} กำลังตรวจสอบแยกทีละคู่...`);
-                    for (const item of chunk) {
-                        const { error: itemErr } = await supabase.from('iv_compatibility').insert([item]);
-                        if (itemErr) {
-                            logMessage(`<span style="color:#ef4444;">❌ นำเข้าไม่ได้: คู่ยา "<b>${item.drug_a}</b>" + "<b>${item.drug_b}</b>" - ${itemErr.message}</span>`);
-                        }
-                    }
+                     logMessage(`❌ ข้อผิดพลาด: ${error.message}`);
                 } else {
                      logMessage(`   ✅ นำเข้าคู่ยาชุดที่ ${i + 1} ถึง ${i + chunk.length} สำเร็จ`);
                 }
             }
 
             logMessage("🎉🎉🎉 นำเข้าข้อมูลทั้งหมดเสร็จสมบูรณ์!");
-            alert("✅ นำเข้าข้อมูลเสร็จสิ้นแล้ว! (โปรดเช็กหน้าต่าง Log หากมีตัวหนังสือสีแดง แสดงว่ามียาบางตัว/คู่ยาบางคู่ที่นำเข้าไม่ได้)");
+            alert("✅ นำเข้าข้อมูลสำเร็จเรียบร้อย สามารถปิดหน้าจอนี้ได้เลยครับ");
 
         } catch (err) {
-            logMessage("❌ พบข้อผิดพลาดร้ายแรง: " + err.message);
+            logMessage("❌ พบข้อผิดพลาด: " + err.message);
             alert("❌ เกิดข้อผิดพลาด: " + err.message);
         } finally {
             const btn = document.getElementById('btn-import');
