@@ -142,8 +142,13 @@
             logMessage("📂 กำลังอ่านไฟล์ Compat.csv...");
             const compatData = await parseCSV(fileCompat);
 
-            // 🌟 1. ดึงรายชื่อยาที่นำเข้าผ่านในขั้นตอนที่ 2 มาเตรียมไว้เพื่อตรวจสอบ
-            const validDrugNames = new Set(aliasPayload.map(d => d.drug_name.toUpperCase()));
+            // 🌟 1. เปลี่ยนเป็น Map เพื่อจำ "หน้าตาตัวพิมพ์เล็ก-ใหญ่ที่ถูกต้อง 100%" จากตารางแม่
+            const validDrugsMap = new Map();
+            aliasPayload.forEach(d => {
+                if (d.drug_name) {
+                    validDrugsMap.set(d.drug_name.toUpperCase(), d.drug_name);
+                }
+            });
 
             const compatPayload = compatData.map(row => {
                 let details = [];
@@ -167,26 +172,41 @@
                 
                 if (excludeList.includes(aName) || excludeList.includes(bName)) return false; 
                 
-                // 🌟 2. ดักจับ Error: ถ้ายาในตารางคู่ยา "ไม่มีชื่อ" อยู่ในตารางยาหลัก ให้แจ้งเตือนและข้ามไป
-                if (!validDrugNames.has(aName)) {
-                    logMessage(`⚠️ ข้ามคู่ยา: ไม่พบยาต้นทาง "<b>${r.drug_a}</b>" (กรุณาเพิ่มลงในไฟล์ Name And Alias)`);
+                // 🌟 2. ตรวจสอบและดึงค่าการสะกดตัวพิมพ์ที่ถูกต้องจากตารางแม่
+                const correctCaseA = validDrugsMap.get(aName);
+                const correctCaseB = validDrugsMap.get(bName);
+
+                if (!correctCaseA) {
+                    logMessage(`⚠️ ข้ามคู่ยา: ไม่พบยาต้นทาง "${r.drug_a}" ในตารางยาหลัก (กรุณาเพิ่มในไฟล์ที่ 1)`);
                     return false;
                 }
-                if (!validDrugNames.has(bName)) {
-                    logMessage(`⚠️ ข้ามคู่ยา: ไม่พบยาปลายทาง "<b>${r.drug_b}</b>" (กรุณาเพิ่มลงในไฟล์ Name And Alias)`);
+                if (!correctCaseB) {
+                    logMessage(`⚠️ ข้ามคู่ยา: ไม่พบยาปลายทาง "${r.drug_b}" ในตารางยาหลัก (กรุณาเพิ่มในไฟล์ที่ 1)`);
                     return false;
                 }
+
+                // 🌟 บังคับเปลี่ยนชื่อยาให้ตรงตามตัวพิมพ์เล็ก-ใหญ่ของตารางแม่เป๊ะๆ ป้องกันการเกิด Foreign Key Error
+                r.drug_a = correctCaseA;
+                r.drug_b = correctCaseB;
 
                 return true; 
             });
 
-            logMessage(`⚙️ เตรียมนำเข้าตาราง คู่ยา(Compat) จำนวน ${compatPayload.length} คู่ (คัดกรองยาที่ไม่มีในระบบออกแล้ว)...`);
+            logMessage(`⚙️ เตรียมนำเข้าตาราง คู่ยา(Compat) จำนวน ${compatPayload.length} คู่...`);
 
             for (let i = 0; i < compatPayload.length; i += 100) {
                 const chunk = compatPayload.slice(i, i + 100);
                 const { error } = await supabase.from('iv_compatibility').insert(chunk);
+                
                 if (error) {
-                     logMessage(`❌ ข้อผิดพลาดในฐานข้อมูล: ${error.message}`);
+                    // 🌟 3. ถ้ายิงแบบกลุ่ม 100 แถวไม่ผ่าน ให้เปลี่ยนมายิงทีละแถวในชุดนั้น เพื่อสืบค้นและแสดงคู่ยาที่มีปัญหาทันที
+                    logMessage(`⚠️ ชุดคู่ยาที่ ${i + 1}-${i + chunk.length} มีปัญหา กำลังตรวจสอบแยกทีละคู่...`);
+                    for (const item of chunk) {
+                        const { error: itemErr } = await supabase.from('iv_compatibility').insert([item]);
+                        if (itemErr) {
+                            logMessage(`<span style="color:#ef4444;">❌ นำเข้าไม่ได้: คู่ยา "<b>${item.drug_a}</b>" + "<b>${item.drug_b}</b>" -> สาเหตุ: ${itemErr.message}</span>`);
+                        }
+                    }
                 } else {
                      logMessage(`   ✅ นำเข้าคู่ยาชุดที่ ${i + 1} ถึง ${i + chunk.length} สำเร็จ`);
                 }
