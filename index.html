@@ -1147,9 +1147,26 @@
         </div>
 
         <div style="font-size:0.85rem; font-weight:bold; margin-top:15px; margin-bottom:5px; color:var(--dark);">รายการชื่อพ้องปัจจุบัน:</div>
-        <div id="current-alias-list" style="max-height: 250px; overflow-y: auto;"></div>
+        <div id="current-alias-list" style="max-height: 250px; overflow-y: auto; margin-bottom:10px;"></div>
         
-        <button class="btn btn-outline" style="width:100%; margin-top:15px; height:42px;" onclick="closeModal('alias-admin-modal')">ปิดหน้าต่าง</button>
+        <button class="btn btn-outline" style="width:100%; margin-bottom:15px; height:42px; color:var(--purple); border-color:var(--purple);" onclick="openAliasBulkCopy()">🔁 คัดลอกชื่อพ้องทั้งหมดไปยาอื่น (มียาสามัญเดียวกัน)</button>
+
+        <button class="btn btn-outline" style="width:100%; height:42px;" onclick="closeModal('alias-admin-modal')">ปิดหน้าต่าง</button>
+    </div>
+</div>
+<div id="alias-bulk-copy-modal" class="modal">
+    <div class="modal-content" style="max-width: 600px; border-top: 8px solid var(--purple);">
+        <h3 style="color:var(--purple); margin-top:0;">🔁 คัดลอกชื่อพ้องไปยาอื่น</h3>
+        <p style="font-size:0.85rem; color:gray; margin-top:-5px;">ระบบจะดึงยาที่มี "ยาสามัญ (Generic)" ตรงกับต้นฉบับมาให้เลือก</p>
+        <input type="hidden" id="alias-bulk-source-code">
+        
+        <label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">เลือกยาปลายทาง:</label>
+        <div id="alias-bulk-target-list" style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 8px; margin-bottom: 15px; background: white;"></div>
+        
+        <div style="display:flex; gap:10px;">
+            <button class="btn" style="background:var(--purple); color:white; flex:1; height:45px;" onclick="executeAliasBulkCopy()">✅ ยืนยันการคัดลอก</button>
+            <button class="btn btn-outline" style="flex:1; height:45px;" onclick="closeModal('alias-bulk-copy-modal')">ยกเลิก</button>
+        </div>
     </div>
 </div>
 <!-- 🖼️ Modal: จัดการรูปภาพยา (Admin) -->
@@ -5345,6 +5362,99 @@ async function fetchLogs() {
         if (confirm('ยืนยันการลบชื่อพ้องนี้ออกจากระบบ?')) {
             await supabaseClient.from('drug_nickname').delete().eq('id', id);
             fetchCurrentAliases(code); 
+        }
+    }
+    async function openAliasBulkCopy() {
+        const sourceCode = document.getElementById('alias-admin-drug-code').value;
+        if (!sourceCode) return;
+        
+        document.getElementById('alias-bulk-source-code').value = sourceCode;
+        
+        // 1. หากลุ่มยาสามัญของต้นฉบับ
+        const currentDrug = allDrugsRaw.find(d => d.drug_code === sourceCode);
+        if (!currentDrug || !currentDrug.drug_contents || currentDrug.drug_contents.length === 0) {
+            alert("ยาต้นทางนี้ยังไม่ได้ผูกส่วนประกอบ (Generic) จึงไม่สามารถค้นหายาที่คล้ายกันได้ครับ");
+            return;
+        }
+        
+        const genericCodes = currentDrug.drug_contents.map(c => c.generics?.generic_code || c.generic_code);
+        
+        // 2. ดึงยาอื่นๆ ที่มี generic ตรงกัน
+        const targetDrugs = allDrugsRaw.filter(d => 
+            d.drug_code !== sourceCode && 
+            d.drug_contents && 
+            d.drug_contents.some(c => genericCodes.includes(c.generics?.generic_code || c.generic_code))
+        );
+        
+        const targetListEl = document.getElementById('alias-bulk-target-list');
+        if (targetDrugs.length === 0) {
+            targetListEl.innerHTML = '<div style="color:gray; text-align:center; padding: 20px;">ไม่พบยาอื่นที่มี Generic ตรงกันเลยครับ</div>';
+        } else {
+            targetListEl.innerHTML = targetDrugs.map(d => `
+                <label style="display:flex; align-items:center; gap:10px; padding:10px; border-bottom:1px solid #e2e8f0; cursor:pointer; text-align:left; background:#fafafa; border-radius:6px; margin-bottom:5px;">
+                    <input type="checkbox" name="alias-bulk-target-drugs" style="transform: scale(1.2);" value="${d.drug_code}" checked>
+                    <div style="flex:1;">
+                        <span class="badge" style="background:#f3e8ff; color:#6d28d9; border:1px solid #e9d5ff; font-size:0.7rem;">${d.drug_code}</span> 
+                        <b style="color:var(--dark);">${d.drug_name}</b> 
+                        <small style="color:gray;">(${d.dosage_form || '-'})</small>
+                    </div>
+                </label>`).join('');
+        }
+        openModal('alias-bulk-copy-modal');
+    }
+
+    async function executeAliasBulkCopy() {
+        const sourceCode = document.getElementById('alias-bulk-source-code').value;
+        const selectedCheckboxes = document.querySelectorAll('input[name="alias-bulk-target-drugs"]:checked');
+        const targetDrugCodes = Array.from(selectedCheckboxes).map(cb => cb.value);
+        
+        if (targetDrugCodes.length === 0) return alert("กรุณาเลือกยาปลายทางอย่างน้อย 1 รายการ");
+        
+        const btn = document.querySelector('#alias-bulk-copy-modal .btn');
+        btn.innerText = "⏳ กำลังคัดลอก...";
+        btn.disabled = true;
+
+        try {
+            // 1. ดึงชื่อพ้องทั้งหมดของต้นฉบับ
+            const { data: sourceAliases, error: fetchErr } = await supabaseClient.from('drug_nickname').select('nickname').eq('drug_code', sourceCode);
+            if (fetchErr) throw fetchErr;
+            if (!sourceAliases || sourceAliases.length === 0) {
+                alert("ยาต้นฉบับยังไม่มีชื่อพ้องให้คัดลอกครับ");
+                return;
+            }
+
+            const aliasesToCopy = sourceAliases.map(a => a.nickname);
+            let successCount = 0;
+
+            // 2. วนลูปก๊อปปี้ไปใส่ยาปลายทาง
+            for (const tCode of targetDrugCodes) {
+                // เช็กชื่อเดิมที่มีอยู่แล้ว จะได้ไม่เซฟซ้ำซ้อน
+                const { data: existing } = await supabaseClient.from('drug_nickname').select('nickname').eq('drug_code', tCode);
+                const existingNames = (existing || []).map(e => e.nickname);
+                
+                const payload = [];
+                for (const nickname of aliasesToCopy) {
+                    if (!existingNames.includes(nickname)) {
+                        payload.push({ drug_code: tCode, nickname: nickname });
+                    }
+                }
+                
+                if (payload.length > 0) {
+                    const { error: insErr } = await supabaseClient.from('drug_nickname').insert(payload);
+                    if (insErr) console.error("Error copy alias to", tCode, insErr);
+                    else successCount++;
+                } else {
+                    successCount++; // นับว่าสำเร็จถ้ายามีชื่อพวกนี้ครบอยู่แล้ว
+                }
+            }
+
+            alert(`✅ คัดลอกชื่อพ้องไปยังยาปลายทาง สำเร็จ ${successCount} รายการ!`);
+            closeModal('alias-bulk-copy-modal');
+        } catch (err) {
+            alert("เกิดข้อผิดพลาด: " + err.message);
+        } finally {
+            btn.innerText = "✅ ยืนยันการคัดลอก";
+            btn.disabled = false;
         }
     }
 </script>
