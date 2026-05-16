@@ -1132,7 +1132,26 @@
         <button class="btn btn-outline" style="width:100%; margin-top:15px; height:42px;" onclick="closeModal('changelog-admin-modal')">ปิดหน้าต่าง</button>
     </div>
 </div>
+<div id="alias-admin-modal" class="modal">
+    <div class="modal-content" style="max-width: 500px; border-top: 8px solid var(--purple);">
+        <h3 style="color:var(--purple); margin-top:0;">🏷️ จัดการชื่อพ้อง (Alias / คำค้นหา)</h3>
+        <h4 id="alias-admin-drug-name" style="margin-bottom: 15px; color:var(--dark);"></h4>
+        <input type="hidden" id="alias-admin-drug-code">
 
+        <div class="section-box" style="background:#faf5ff; border-color:#e9d5ff;">
+            <label style="font-size:0.85rem; font-weight:bold; display:block;">เพิ่มชื่อพ้อง / ชื่อค้นหา (Alias Name)</label>
+            <div style="display:flex; gap:10px; margin-top:5px;">
+                <input type="text" id="alias-admin-input" placeholder="เช่น ชื่อย่อ, ชื่อการค้าอื่นๆ..." style="flex:1; margin:0;" onkeypress="if(event.key === 'Enter') addAlias()">
+                <button class="btn btn-purple" style="height:42px; background:var(--purple); color:white; border:none;" onclick="addAlias()">+ เพิ่ม</button>
+            </div>
+        </div>
+
+        <div style="font-size:0.85rem; font-weight:bold; margin-top:15px; margin-bottom:5px; color:var(--dark);">รายการชื่อพ้องปัจจุบัน:</div>
+        <div id="current-alias-list" style="max-height: 250px; overflow-y: auto;"></div>
+        
+        <button class="btn btn-outline" style="width:100%; margin-top:15px; height:42px;" onclick="closeModal('alias-admin-modal')">ปิดหน้าต่าง</button>
+    </div>
+</div>
 <!-- 🖼️ Modal: จัดการรูปภาพยา (Admin) -->
 <div id="drug-image-modal" class="modal">
     <div class="modal-content" style="max-width: 500px; border-top: 8px solid var(--primary);">
@@ -2493,6 +2512,7 @@ async function fetchLogs() {
                         ${isAdmin ? `<div class="admin-actions" style="padding-left: 28px; margin-top: 5px;">
                             ${adminNutriBtn} ${adminMeBtn} ${adminLinkBtn}
                             <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:#0284c7; border-color:#0284c7;" onclick="event.stopPropagation(); openImageAdmin('${safeCode}', '${safeName}')">🖼️ รูปยา</button>
+                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--purple); border-color:var(--purple);" onclick="event.stopPropagation(); openAliasManager('${safeCode}', '${safeName}')">🏷️ ชื่อพ้อง</button>
                             <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--info); border-color:var(--info);" onclick="event.stopPropagation(); openLabelManager('${safeCode}', '${safeName}')">🏷️ ฉลาก</button>
                             <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--pink); border-color:var(--pink);" onclick="event.stopPropagation(); openNlemManager('${safeCode}', '${safeName}')">📋 บัญชี</button>
                             <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openAdminManager('${safeCode}', '${safeName}')">💉 วิธีใช้</button>
@@ -5258,6 +5278,74 @@ async function fetchLogs() {
         fetchAllGeneLabNames(); 
         fetchGenerics(); // สั่งให้ดึงข้อมูลใหม่มาลง allGenerics
         fetchDrugs();
+    }
+    // ==========================================
+    // 🏷️ ระบบจัดการ Alias (ชื่อพ้อง)
+    // ==========================================
+    async function openAliasManager(code, name) {
+        document.getElementById('alias-admin-drug-code').value = code;
+        document.getElementById('alias-admin-drug-name').innerText = "💊 " + name;
+        document.getElementById('alias-admin-input').value = '';
+        
+        await fetchCurrentAliases(code);
+        openModal('alias-admin-modal');
+    }
+
+    async function fetchCurrentAliases(code) {
+        const listEl = document.getElementById('current-alias-list');
+        listEl.innerHTML = '<div style="color:gray; text-align:center;">กำลังโหลด...</div>';
+
+        const { data, error } = await supabaseClient.from('drug_nickname')
+            .select('*')
+            .eq('drug_code', code)
+            .order('nickname', { ascending: true });
+
+        if (error || !data || data.length === 0) {
+            listEl.innerHTML = '<div style="color:gray; text-align:center; padding:10px; border:1px dashed #cbd5e1; border-radius:8px;">ยังไม่มีชื่อพ้อง</div>';
+            return;
+        }
+
+        listEl.innerHTML = data.map(a => `
+            <div class="list-item" style="border-left:3px solid var(--purple); align-items:center;">
+                <span style="flex:1; color:var(--dark); font-weight:bold;">${encodeHTML(a.nickname)}</span>
+                <button class="btn btn-outline btn-sm" style="color:red;" onclick="removeAlias(${a.id}, '${code}')">🗑️ ลบ</button>
+            </div>
+        `).join('');
+    }
+
+    async function addAlias() {
+        const code = document.getElementById('alias-admin-drug-code').value;
+        const aliasName = document.getElementById('alias-admin-input').value.trim();
+
+        if (!aliasName) return alert('กรุณาระบุชื่อพ้อง หรือคำค้นหา');
+
+        const btn = document.querySelector('#alias-admin-modal .btn-purple');
+        btn.innerText = '⏳';
+        btn.disabled = true;
+
+        const { error } = await supabaseClient.from('drug_nickname').insert({ 
+            drug_code: code, 
+            nickname: aliasName 
+        });
+
+        btn.innerText = '+ เพิ่ม';
+        btn.disabled = false;
+
+        if (error) {
+            const msg = error.message.toLowerCase();
+            if (msg.includes('jwt') || msg.includes('rls')) return promptRelogin();
+            return alert("เกิดข้อผิดพลาดในการบันทึก: " + error.message);
+        }
+
+        document.getElementById('alias-admin-input').value = ''; 
+        fetchCurrentAliases(code); 
+    }
+
+    async function removeAlias(id, code) {
+        if (confirm('ยืนยันการลบชื่อพ้องนี้ออกจากระบบ?')) {
+            await supabaseClient.from('drug_nickname').delete().eq('id', id);
+            fetchCurrentAliases(code); 
+        }
     }
 </script>
 </body>
