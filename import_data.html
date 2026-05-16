@@ -142,6 +142,9 @@
             logMessage("📂 กำลังอ่านไฟล์ Compat.csv...");
             const compatData = await parseCSV(fileCompat);
 
+            // 🌟 1. ดึงรายชื่อยาที่นำเข้าผ่านในขั้นตอนที่ 2 มาเตรียมไว้เพื่อตรวจสอบ
+            const validDrugNames = new Set(aliasPayload.map(d => d.drug_name.toUpperCase()));
+
             const compatPayload = compatData.map(row => {
                 let details = [];
                 if (row['Conc Rate Stability Protect from light']) details.push(row['Conc Rate Stability Protect from light'].trim());
@@ -163,16 +166,27 @@
                 const bName = r.drug_b.toUpperCase();
                 
                 if (excludeList.includes(aName) || excludeList.includes(bName)) return false; 
+                
+                // 🌟 2. ดักจับ Error: ถ้ายาในตารางคู่ยา "ไม่มีชื่อ" อยู่ในตารางยาหลัก ให้แจ้งเตือนและข้ามไป
+                if (!validDrugNames.has(aName)) {
+                    logMessage(`⚠️ ข้ามคู่ยา: ไม่พบยาต้นทาง "<b>${r.drug_a}</b>" (กรุณาเพิ่มลงในไฟล์ Name And Alias)`);
+                    return false;
+                }
+                if (!validDrugNames.has(bName)) {
+                    logMessage(`⚠️ ข้ามคู่ยา: ไม่พบยาปลายทาง "<b>${r.drug_b}</b>" (กรุณาเพิ่มลงในไฟล์ Name And Alias)`);
+                    return false;
+                }
+
                 return true; 
             });
 
-            logMessage(`⚙️ เตรียมนำเข้าตาราง คู่ยา(Compat) จำนวน ${compatPayload.length} คู่ (ตัด NSS/D5W ออกแล้ว)...`);
+            logMessage(`⚙️ เตรียมนำเข้าตาราง คู่ยา(Compat) จำนวน ${compatPayload.length} คู่ (คัดกรองยาที่ไม่มีในระบบออกแล้ว)...`);
 
             for (let i = 0; i < compatPayload.length; i += 100) {
                 const chunk = compatPayload.slice(i, i + 100);
                 const { error } = await supabase.from('iv_compatibility').insert(chunk);
                 if (error) {
-                     logMessage(`❌ ข้อผิดพลาด: ${error.message}`);
+                     logMessage(`❌ ข้อผิดพลาดในฐานข้อมูล: ${error.message}`);
                 } else {
                      logMessage(`   ✅ นำเข้าคู่ยาชุดที่ ${i + 1} ถึง ${i + chunk.length} สำเร็จ`);
                 }
