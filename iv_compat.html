@@ -12,12 +12,14 @@
         
         .layout-wrapper { max-width: 1000px; margin: auto; width: 100%; display: block; }
         
-        .navbar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 12px 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .navbar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 12px 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
         .navbar h2 { margin: 0; font-size: 1.3rem; color: var(--purple); display: flex; align-items: center; gap: 8px; }
         
         .btn { cursor: pointer; border: none; border-radius: 10px; padding: 10px 16px; font-weight: bold; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.95rem; }
+        .btn-sm { padding: 4px 10px; font-size: 0.85rem; border-radius: 6px; }
         .btn-primary { background: var(--primary); color: white; }
         .btn-purple { background: var(--purple); color: white; }
+        .btn-success { background: var(--success); color: white; }
         .btn-outline { background: transparent; border: 1px solid #cbd5e1; color: #475569; }
         .btn-outline:hover { background: #f1f5f9; }
         .btn:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -52,6 +54,17 @@
         .pair-header { font-weight: bold; font-size: 1.05rem; margin-bottom: 8px; }
         .pair-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: rgba(255,255,255,0.6); padding: 10px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.05); }
 
+        /* Admin Modal CSS */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; overflow-y: auto; padding: 20px; animation: fadeIn 0.2s ease; }
+        .modal-content { background: white; max-width: 800px; margin: auto; border-radius: 12px; padding: 25px; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .close-btn { position: absolute; right: 20px; top: 20px; font-size: 1.5rem; cursor: pointer; color: gray; }
+        .close-btn:hover { color: red; }
+        .form-control { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-family: 'Sarabun'; font-size: 0.95rem; }
+        .form-control:focus { border-color: var(--primary); outline: none; }
+        .admin-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .admin-table th { background: #f1f5f9; padding: 10px; text-align: left; border-bottom: 2px solid #cbd5e1; }
+        .admin-table td { padding: 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
@@ -59,13 +72,14 @@
 <body>
 
 <div class="layout-wrapper">
-    <!-- Navbar -->
     <nav class="navbar">
         <h2>💉 ระบบจัดสายให้ยา (IV Compatibility)</h2>
-        <button class="btn btn-outline" onclick="window.close()">⬅️ กลับหน้าหลัก</button>
+        <div style="display:flex; gap:10px;">
+            <button class="btn btn-outline" style="border-color:var(--info); color:var(--info);" onclick="openAdminModal()">🛠️ จัดการข้อมูล</button>
+            <button class="btn btn-outline" onclick="window.close()">⬅️ กลับหน้าหลัก</button>
+        </div>
     </nav>
 
-    <!-- Search Section -->
     <div class="search-box">
         <label style="font-weight:bold; color:var(--dark); margin-bottom:8px; display:block;">🔍 ค้นหาและเลือกยาที่ต้องการให้พร้อมกัน (Y-Site):</label>
         <div class="input-group">
@@ -83,7 +97,6 @@
         </button>
     </div>
 
-    <!-- Results Section -->
     <div class="result-section" id="iv-result-section">
         <h3>📊 ผลการจัดสายให้ยา (Optimized Lines)</h3>
         <p style="font-size:0.85rem; color:gray; margin-top:-10px;">*ระบบใช้ทฤษฎีกราฟคำนวณเพื่อใช้จำนวนสาย (Line) ให้น้อยที่สุด โดยยาในสายเดียวกันสามารถให้ร่วมกันทาง Y-Site ได้อย่างปลอดภัย</p>
@@ -95,6 +108,81 @@
     </div>
 </div>
 
+<div id="admin-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeAdminModal()">&times;</span>
+        <h2 style="margin-top:0; color:var(--dark);">🛠️ จัดการข้อมูล IV Compatibility</h2>
+
+        <div id="admin-form-section" style="display:none; background:#f8fafc; padding:20px; border-radius:10px; border:1px solid #cbd5e1; margin-bottom:20px;">
+            <h3 id="admin-form-title" style="margin-top:0; color:var(--primary);">➕ เพิ่มคู่ยาใหม่</h3>
+            <input type="hidden" id="admin-id">
+            
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:15px;">
+                <div>
+                    <label style="font-weight:bold; font-size:0.85rem;">ยา A (Drug A)</label>
+                    <select id="admin-drug-a" class="form-control"></select>
+                </div>
+                <div>
+                    <label style="font-weight:bold; font-size:0.85rem;">ยา B (Drug B)</label>
+                    <select id="admin-drug-b" class="form-control"></select>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:15px;">
+                <div>
+                    <label style="font-weight:bold; font-size:0.85rem;">ผล Y-Site</label>
+                    <select id="admin-ysite" class="form-control">
+                        <option value="N/A">ไม่มีข้อมูล (N/A)</option>
+                        <option value="C">✅ Compatible (C)</option>
+                        <option value="I">❌ Incompatible (I)</option>
+                        <option value="U">⚠️ Uncertain (U)</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-weight:bold; font-size:0.85rem;">ผล Admixture</label>
+                    <select id="admin-admix" class="form-control">
+                        <option value="N/A">ไม่มีข้อมูล (N/A)</option>
+                        <option value="C">✅ Compatible (C)</option>
+                        <option value="I">❌ Incompatible (I)</option>
+                        <option value="U">⚠️ Uncertain (U)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="margin-bottom:15px;">
+                <label style="font-weight:bold; font-size:0.85rem;">รายละเอียด / หมายเหตุ (Detail)</label>
+                <textarea id="admin-detail" class="form-control" rows="3" placeholder="เช่น การป้องกันแสง, สารละลายที่ห้ามใช้..."></textarea>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 2fr 1fr; gap:15px; margin-bottom:20px;">
+                <div>
+                    <label style="font-weight:bold; font-size:0.85rem;">อ้างอิง (Reference)</label>
+                    <input type="text" id="admin-ref" class="form-control" placeholder="เช่น Trissel's, Lexicomp">
+                </div>
+                <div>
+                    <label style="font-weight:bold; font-size:0.85rem;">วันที่/ปี (Update Date)</label>
+                    <input type="text" id="admin-date" class="form-control" placeholder="เช่น May 2026">
+                </div>
+            </div>
+
+            <div style="display:flex; gap:10px;">
+                <button class="btn btn-success" style="flex:1; height:45px;" onclick="saveCompatData()">💾 บันทึกข้อมูล</button>
+                <button class="btn btn-outline" style="flex:1; height:45px;" onclick="closeAdminForm()">❌ ยกเลิก</button>
+            </div>
+        </div>
+
+        <div id="admin-list-section">
+            <div style="display:flex; gap:10px; margin-bottom:15px;">
+                <input type="text" id="admin-search" class="form-control" placeholder="🔍 ค้นหาชื่อยาในคู่ (A หรือ B)..." onkeyup="fetchAdminList()">
+                <button class="btn btn-primary" onclick="openAdminForm()">➕ เพิ่มคู่ยา</button>
+            </div>
+            <div style="max-height: 450px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px;">
+                <div id="admin-table-container"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     // 🔗 ตั้งค่า Supabase
     const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
@@ -102,10 +190,10 @@
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let ivAliasDict = [];
-    let ivSelectedDrugs = []; // Array of {code, name}
+    let ivSelectedDrugs = []; 
     let pendingIvSelection = null;
+    let allDrugNames = []; // 🌟 เก็บรายชื่อยาหลักทั้งหมดไว้ใช้ทำ Dropdown ในหน้า Admin
 
-    // 🌟 1. ฟังก์ชันช่วยดึงข้อมูลแบบ Loop ทะลุข้อจำกัด 1,000 แถว
     async function fetchAllWithPagination(tableName, selectQuery) {
         let allData = [];
         let isFetching = true;
@@ -133,21 +221,19 @@
         return allData;
     }
 
-    // 🚀 Init Data (เปลี่ยนมาดึงจากตาราง drug_for_iv_compat)
     async function init() {
         document.getElementById('iv-search-input').placeholder = "⏳ กำลังโหลดฐานข้อมูลยา IV...";
         document.getElementById('iv-search-input').disabled = true; 
         
-        // ดึงข้อมูลทั้งหมดจากตารางใหม่
         const ivData = await fetchAllWithPagination('drug_for_iv_compat', '*');
 
         let dict = [];
+        let nameSet = new Set();
         
         ivData.forEach(d => {
-            // ใส่ชื่อยาหลัก
             dict.push({ code: d.drug_name, name: d.drug_name, type: 'drug' });
+            nameSet.add(d.drug_name); // 🌟 เก็บรายชื่อยาเฉพาะ
             
-            // ถ้ายานี้มีชื่อพ้อง (Aliases) ให้หั่นด้วยลูกน้ำ (,) แล้วนำมาเก็บไว้ให้ค้นหาเจอ
             if (d.aliases) {
                 const aliasList = d.aliases.split(',').map(s => s.trim()).filter(s => s);
                 aliasList.forEach(a => {
@@ -157,11 +243,13 @@
         });
         
         ivAliasDict = dict;
+        allDrugNames = Array.from(nameSet).sort(); // เรียง A-Z
+        
         document.getElementById('iv-search-input').placeholder = "พิมพ์ชื่อยา หรือ ชื่อพ้อง...";
         document.getElementById('iv-search-input').disabled = false;
     }
 
-    // 🔍 Autocomplete
+    // 🔍 Autocomplete หน้า User
     function handleIvSearch(e) {
         const q = e.target.value.toLowerCase().trim();
         const suggestionsBox = document.getElementById('iv-suggestions');
@@ -174,17 +262,9 @@
             suggestionsBox.innerHTML = '<div class="suggestion-item" style="color:gray;">ไม่พบรายชื่อยานี้ในระบบ IV Compat</div>';
         } else {
             suggestionsBox.innerHTML = filtered.map(item => {
-                // ดักจับ: ถ้าชื่อ Alias ตรงกับชื่อหลักเป๊ะๆ ไม่ต้องวงเล็บซ้ำ
                 const isSameName = item.ref_name && item.name.toLowerCase().trim() === item.ref_name.toLowerCase().trim();
-                
-                const display = (item.type !== 'drug' && !isSameName) 
-                    ? `${item.name} <small style="color:gray;">(อ้างอิง: ${item.ref_name})</small>` 
-                    : item.name;
-                    
-                const displayName = (item.type !== 'drug' && !isSameName) 
-                    ? `${item.name} (${item.ref_name})` 
-                    : item.name;
-                
+                const display = (item.type !== 'drug' && !isSameName) ? `${item.name} <small style="color:gray;">(อ้างอิง: ${item.ref_name})</small>` : item.name;
+                const displayName = (item.type !== 'drug' && !isSameName) ? `${item.name} (${item.ref_name})` : item.name;
                 return `<div class="suggestion-item" onclick="selectIvDrug('${encodeHTML(item.code)}', '${encodeHTML(displayName)}')">${display}</div>`;
             }).join('');
         }
@@ -200,23 +280,19 @@
         document.getElementById('iv-search-input').focus();
     }
 
-    // ซ่อนกล่องคลิกข้างนอก
     document.addEventListener('click', function(e) {
         const input = document.getElementById('iv-search-input');
         const box = document.getElementById('iv-suggestions');
         if (!input.contains(e.target) && !box.contains(e.target)) box.style.display = 'none';
     });
 
-    // ➕ Add to List
     function addDrugToIvList() {
         if (!pendingIvSelection) {
             const val = document.getElementById('iv-search-input').value.trim().toLowerCase();
             const match = ivAliasDict.find(d => d.name.toLowerCase() === val);
-            
             if(match) {
                 const isSameName = match.ref_name && match.name.toLowerCase().trim() === match.ref_name.toLowerCase().trim();
                 const finalName = (match.type !== 'drug' && !isSameName) ? `${match.name} (${match.ref_name})` : match.name;
-                
                 pendingIvSelection = { code: match.code, name: finalName };
             } else {
                 return alert("กรุณาเลือกยาจากรายการแนะนำที่เด้งขึ้นมาครับ");
@@ -233,11 +309,9 @@
         pendingIvSelection = null;
         document.getElementById('iv-search-input').value = '';
         renderIvSelectedList();
-        
         document.getElementById('iv-result-section').style.display = 'none';
     }
 
-    // กด Enter ในช่องค้นหา = กดปุ่มเพิ่ม
     document.getElementById('iv-search-input').addEventListener('keypress', function (e) {
         if (e.key === 'Enter') addDrugToIvList();
     });
@@ -249,10 +323,7 @@
             return;
         }
         container.innerHTML = ivSelectedDrugs.map((d, idx) => `
-            <div class="drug-chip">
-                💊 ${d.name} 
-                <span class="remove" onclick="removeDrug(${idx})">✖</span>
-            </div>
+            <div class="drug-chip">💊 ${d.name} <span class="remove" onclick="removeDrug(${idx})">✖</span></div>
         `).join('');
     }
 
@@ -262,9 +333,9 @@
         document.getElementById('iv-result-section').style.display = 'none';
     }
 
-    // 🧠 วิเคราะห์ Graph Theory
+    // 🧠 Graph Theory
     async function analyzeIvCompatibility() {
-        if (ivSelectedDrugs.length < 2) return alert("กรุณาเพิ่มยาในรายการอย่างน้อย 2 ชนิดเพื่อวิเคราะห์การให้ยาร่วมกันครับ");
+        if (ivSelectedDrugs.length < 2) return alert("กรุณาเพิ่มยาในรายการอย่างน้อย 2 ชนิดเพื่อวิเคราะห์ครับ");
         
         const btn = document.getElementById('btn-analyze');
         btn.innerText = "⏳ กำลังประมวลผล...";
@@ -272,32 +343,23 @@
 
         const codes = ivSelectedDrugs.map(d => d.code);
         
-        // ดึงข้อมูล IV Compat เฉพาะคู่ยาที่เลือกมา
-        const { data, error } = await supabaseClient.from('iv_compatibility')
-            .select('*')
-            .in('drug_a', codes)
-            .in('drug_b', codes);
+        const { data, error } = await supabaseClient.from('iv_compatibility').select('*').in('drug_a', codes).in('drug_b', codes);
 
         btn.innerText = "🧠 วิเคราะห์และจัดกลุ่มสายยาอัตโนมัติ (AI Line Optimizer)";
         btn.disabled = false;
 
-        if (error) return alert("เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล: " + error.message);
+        if (error) return alert("Error: " + error.message);
         
         const compatData = data || [];
 
         const checkCompat = (code1, code2) => {
-            const pair = compatData.find(d => 
-                (d.drug_a === code1 && d.drug_b === code2) || 
-                (d.drug_a === code2 && d.drug_b === code1)
-            );
+            const pair = compatData.find(d => (d.drug_a === code1 && d.drug_b === code2) || (d.drug_a === code2 && d.drug_b === code1));
             return pair ? pair.y_site_result : 'No Data';
         };
 
-        // --- Graph Coloring Algorithm (Welsh-Powell) ---
         let lines = []; 
         let remainingDrugs = [...ivSelectedDrugs];
 
-        // 1. เรียงลำดับตัวที่มีปัญหา(เข้ากับเพื่อนไม่ได้) เยอะที่สุดขึ้นมาก่อน
         remainingDrugs.sort((a, b) => {
             let aInc = 0; let bInc = 0;
             remainingDrugs.forEach(d => {
@@ -307,32 +369,23 @@
             return bInc - aInc; 
         });
 
-        // 2. จัดลงสาย (Greedy)
         for (let drug of remainingDrugs) {
             let placed = false;
             for (let line of lines) {
                 let canJoin = true;
-                // ยาที่จะเข้าสายนี้ได้ ต้อง Compatible (C) กับทุกตัวในสายนี้
                 for (let existingDrug of line) {
                     if (checkCompat(drug.code, existingDrug.code) !== 'C') {
-                        canJoin = false;
-                        break;
+                        canJoin = false; break;
                     }
                 }
                 if (canJoin) {
-                    line.push(drug);
-                    placed = true;
-                    break;
+                    line.push(drug); placed = true; break;
                 }
             }
-            if (!placed) {
-                lines.push([drug]);
-            }
+            if (!placed) lines.push([drug]);
         }
 
-        // --- วาด UI: สรุปสายให้ยา ---
         const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6'];
-        
         document.getElementById('iv-lines-container').innerHTML = lines.map((line, idx) => `
             <div class="line-card" style="border-left-color: ${colors[idx % colors.length]};">
                 <h4 style="color: ${colors[idx % colors.length]};">📌 สายให้ยาที่ ${idx + 1}</h4>
@@ -342,13 +395,10 @@
             </div>
         `).join('');
 
-        // --- วาด UI: รายละเอียดคู่ยา (Pairwise) ---
         let pairsHtml = '';
         for (let i = 0; i < ivSelectedDrugs.length; i++) {
             for (let j = i + 1; j < ivSelectedDrugs.length; j++) {
-                let d1 = ivSelectedDrugs[i];
-                let d2 = ivSelectedDrugs[j];
-                
+                let d1 = ivSelectedDrugs[i]; let d2 = ivSelectedDrugs[j];
                 let pair = compatData.find(d => (d.drug_a === d1.code && d.drug_b === d2.code) || (d.drug_a === d2.code && d.drug_b === d1.code));
                 
                 let resY = pair ? pair.y_site_result : 'No Data';
@@ -365,20 +415,163 @@
                 pairsHtml += `
                 <div class="pair-card ${cardClass}">
                     <div class="pair-header">${d1.name} <span style="color:#94a3b8; font-weight:normal; font-size:0.9rem;">&</span> ${d2.name}</div>
-                    
                     <div class="pair-grid">
                         <div><span style="color:gray; font-size:0.8rem;">Y-Site:</span><br><b>${iconY}</b></div>
                         <div><span style="color:gray; font-size:0.8rem;">Admixture:</span><br><b>${iconA}</b></div>
                     </div>
-
                     ${pair && pair.detail ? `<div style="margin-top:10px; font-size:0.9rem; color:#334155;"><b>📝 Note:</b> ${pair.detail.replace(/\n/g, '<br>')}</div>` : ''}
                     ${pair && pair.reference ? `<div style="margin-top:8px; font-size:0.8rem; color:#94a3b8;">📚 Ref: ${pair.reference} ${pair.search_date ? `(${pair.search_date})` : ''}</div>` : ''}
                 </div>`;
             }
         }
-        
         document.getElementById('iv-pairs-container').innerHTML = pairsHtml;
         document.getElementById('iv-result-section').style.display = 'block';
+    }
+
+
+    // ==========================================
+    // 🛠️ ADMIN CRUD LOGIC
+    // ==========================================
+
+    function openAdminModal() {
+        document.getElementById('admin-modal').style.display = 'block';
+        
+        // เตรียม Dropdown รายชื่อยา A และ B
+        const optionsHtml = '<option value="">-- เลือกยา --</option>' + allDrugNames.map(d => `<option value="${d}">${d}</option>`).join('');
+        document.getElementById('admin-drug-a').innerHTML = optionsHtml;
+        document.getElementById('admin-drug-b').innerHTML = optionsHtml;
+        
+        fetchAdminList();
+    }
+
+    function closeAdminModal() {
+        document.getElementById('admin-modal').style.display = 'none';
+        closeAdminForm();
+    }
+
+    function openAdminForm(editData = null) {
+        document.getElementById('admin-form-section').style.display = 'block';
+        document.getElementById('admin-list-section').style.display = 'none';
+
+        if (editData) {
+            document.getElementById('admin-form-title').innerHTML = '✏️ แก้ไขคู่ยา';
+            document.getElementById('admin-id').value = editData.id;
+            document.getElementById('admin-drug-a').value = editData.drug_a;
+            document.getElementById('admin-drug-b').value = editData.drug_b;
+            document.getElementById('admin-ysite').value = editData.y_site_result || 'N/A';
+            document.getElementById('admin-admix').value = editData.admixture_result || 'N/A';
+            document.getElementById('admin-detail').value = editData.detail || '';
+            document.getElementById('admin-ref').value = editData.reference || '';
+            document.getElementById('admin-date').value = editData.search_date || '';
+        } else {
+            document.getElementById('admin-form-title').innerHTML = '➕ เพิ่มคู่ยาใหม่';
+            document.getElementById('admin-id').value = '';
+            document.getElementById('admin-drug-a').value = '';
+            document.getElementById('admin-drug-b').value = '';
+            document.getElementById('admin-ysite').value = 'N/A';
+            document.getElementById('admin-admix').value = 'N/A';
+            document.getElementById('admin-detail').value = '';
+            document.getElementById('admin-ref').value = '';
+            document.getElementById('admin-date').value = '';
+        }
+    }
+
+    function closeAdminForm() {
+        document.getElementById('admin-form-section').style.display = 'none';
+        document.getElementById('admin-list-section').style.display = 'block';
+    }
+
+    async function saveCompatData() {
+        const id = document.getElementById('admin-id').value;
+        const drugA = document.getElementById('admin-drug-a').value;
+        const drugB = document.getElementById('admin-drug-b').value;
+
+        if (!drugA || !drugB) return alert('กรุณาเลือกยาให้ครบทั้ง 2 ชนิด');
+        if (drugA === drugB) return alert('ไม่สามารถจับคู่ยาชนิดเดียวกันได้');
+
+        // 🌟 กฎเหล็ก: เรียงชื่อยาตามตัวอักษรเสมอ ป้องกันการมีคู่ซ้ำ A-B และ B-A
+        const finalA = drugA < drugB ? drugA : drugB;
+        const finalB = drugA < drugB ? drugB : drugA;
+
+        // เช็กข้อมูลซ้ำในระบบ
+        let query = supabaseClient.from('iv_compatibility').select('id').eq('drug_a', finalA).eq('drug_b', finalB);
+        if (id) query = query.neq('id', id); // ถ้าเป็นการแก้ไข ให้ยกเว้น ID ตัวเอง
+
+        const { data: dupData } = await query;
+        if (dupData && dupData.length > 0) return alert('⚠️ คู่ยานี้ถูกจับคู่ไว้ในระบบแล้ว กรุณากดค้นหาแล้วแก้ไขแทนครับ');
+
+        const payload = {
+            drug_a: finalA,
+            drug_b: finalB,
+            y_site_result: document.getElementById('admin-ysite').value === 'N/A' ? null : document.getElementById('admin-ysite').value,
+            admixture_result: document.getElementById('admin-admix').value === 'N/A' ? null : document.getElementById('admin-admix').value,
+            detail: document.getElementById('admin-detail').value.trim() || null,
+            reference: document.getElementById('admin-ref').value.trim() || null,
+            search_date: document.getElementById('admin-date').value.trim() || null
+        };
+
+        const { error } = id 
+            ? await supabaseClient.from('iv_compatibility').update(payload).eq('id', id)
+            : await supabaseClient.from('iv_compatibility').insert(payload);
+
+        if (error) return alert("Error: " + error.message);
+        
+        alert(`✅ บันทึกคู่ ${finalA} - ${finalB} สำเร็จ`);
+        closeAdminForm();
+        fetchAdminList();
+    }
+
+    async function fetchAdminList() {
+        const container = document.getElementById('admin-table-container');
+        const q = document.getElementById('admin-search').value.toLowerCase().trim();
+        
+        container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">กำลังโหลด...</div>';
+
+        let query = supabaseClient.from('iv_compatibility').select('*').order('created_at', { ascending: false });
+
+        if (q) query = query.or(`drug_a.ilike.%${q}%,drug_b.ilike.%${q}%`).limit(100);
+        else query = query.limit(50); // ถ้าไม่ค้นหา โชว์ล่าสุด 50 รายการ
+
+        const { data, error } = await query;
+        if (error) return container.innerHTML = `<div style="color:red; padding:20px;">Error: ${error.message}</div>`;
+
+        if (!data || data.length === 0) return container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">ไม่พบข้อมูลคู่ยา</div>';
+
+        let html = `
+        <table class="admin-table">
+            <tr>
+                <th style="width:50%;">คู่ยา (Pair)</th>
+                <th style="width:15%; text-align:center;">Y-Site</th>
+                <th style="width:15%; text-align:center;">Admix</th>
+                <th style="width:20%; text-align:center;">จัดการ</th>
+            </tr>`;
+
+        data.forEach(item => {
+            const statusY = item.y_site_result === 'C' ? '🟢 C' : (item.y_site_result === 'I' ? '🔴 I' : (item.y_site_result === 'U' ? '🟡 U' : '-'));
+            const statusA = item.admixture_result === 'C' ? '🟢 C' : (item.admixture_result === 'I' ? '🔴 I' : (item.admixture_result === 'U' ? '🟡 U' : '-'));
+            const safeObj = JSON.stringify(item).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+            
+            html += `
+            <tr>
+                <td><b>${item.drug_a}</b> <br><span style="color:gray; font-size:0.8rem;">กับ</span> <b>${item.drug_b}</b></td>
+                <td style="text-align:center; font-weight:bold;">${statusY}</td>
+                <td style="text-align:center; font-weight:bold;">${statusA}</td>
+                <td style="text-align:center;">
+                    <button class="btn btn-sm" style="background:#f59e0b; color:white;" onclick='openAdminForm(${safeObj})'>✏️ แก้ไข</button>
+                    <button class="btn btn-sm" style="background:#ef4444; color:white;" onclick="deleteCompatData(${item.id})">🗑️ ลบ</button>
+                </td>
+            </tr>`;
+        });
+        
+        html += `</table>`;
+        container.innerHTML = html;
+    }
+
+    async function deleteCompatData(id) {
+        if(confirm("❗ ยืนยันการลบคู่ยานี้ออกจากระบบอย่างถาวร?")) {
+            await supabaseClient.from('iv_compatibility').delete().eq('id', id);
+            fetchAdminList();
+        }
     }
 
     function encodeHTML(str) { return !str ? '' : str.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
