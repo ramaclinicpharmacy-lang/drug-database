@@ -93,7 +93,10 @@
             <button class="btn btn-purple" onclick="addDrugToIvList()">➕ เพิ่มยา</button>
         </div>
         <div id="iv-suggestions" class="suggestions-dropdown"></div>
-
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 20px; margin-bottom: 5px;">
+            <b style="color:#475569; font-size:0.9rem;">☑️ รายการยาที่เลือกไว้:</b>
+            <button id="btn-clear-all-iv" class="btn btn-outline btn-sm" style="color:var(--danger); border-color:var(--danger); display:none;" onclick="clearAllIvSelected()">🗑️ ล้างทั้งหมด</button>
+        </div>
         <div class="selected-container" id="iv-selected-drugs">
             <span style="color:#94a3b8; font-style:italic;">(ยังไม่ได้เลือกยา โปรดค้นหาและเพิ่มยาด้านบน)</span>
         </div>
@@ -370,13 +373,27 @@
 
     function renderIvSelectedList() {
         const container = document.getElementById('iv-selected-drugs');
+        const clearBtn = document.getElementById('btn-clear-all-iv'); // 🌟 ดึงปุ่มล้างมาสั่งงาน
+        
         if (ivSelectedDrugs.length === 0) {
             container.innerHTML = '<span style="color:#94a3b8; font-style:italic;">(ยังไม่ได้เลือกยา โปรดค้นหาและเพิ่มยาด้านบน)</span>';
+            if (clearBtn) clearBtn.style.display = 'none'; // ซ่อนปุ่มถ้าไม่มียา
             return;
         }
+        
+        if (clearBtn) clearBtn.style.display = 'block'; // แสดงปุ่มถ้ามียาในตาราง
         container.innerHTML = ivSelectedDrugs.map((d, idx) => `
             <div class="drug-chip">💊 ${d.name} <span class="remove" onclick="removeDrug(${idx})">✖</span></div>
         `).join('');
+    }
+
+    // 🌟 ฟังก์ชันล้างรายชื่อยาทั้งหมดที่เพิ่มเข้ามาใหม่
+    function clearAllIvSelected() {
+        if (confirm("ต้องการล้างรายชื่อยาในรายการวิเคราะห์ทั้งหมดใช่หรือไม่?")) {
+            ivSelectedDrugs = [];
+            renderIvSelectedList();
+            document.getElementById('iv-result-section').style.display = 'none'; // ซ่อนส่วนผลลัพธ์เก่าด้วย
+        }
     }
 
     function removeDrug(idx) {
@@ -578,8 +595,13 @@
         
         container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">กำลังโหลด...</div>';
 
-        let query = supabaseClient.from('drug_for_iv_compat').select('*').order('drug_name', { ascending: true });
-        if (q) query = query.or(`drug_name.ilike.%${q}%,aliases.ilike.%${q}%`).limit(100);
+        let query = supabaseClient.from('drug_for_iv_compat').select('*');
+        if (q) {
+            query = query.or(`drug_name.ilike.%${q}%,aliases.ilike.%${q}%`).limit(100);
+        }
+        
+        // 🌟 ย้ายมาสั่งเรียงลำดับอักษรที่ท้ายสุด เพื่อให้ทำงานเสมอกันทุกกรณี
+        query = query.order('drug_name', { ascending: true });
 
         const { data, error } = await query;
         if (error) return container.innerHTML = `<div style="color:red; padding:20px;">Error: ${error.message}</div>`;
@@ -708,10 +730,16 @@
         
         container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">กำลังโหลด...</div>';
 
-        let query = supabaseClient.from('iv_compatibility').select('*').order('created_at', { ascending: false });
+        let query = supabaseClient.from('iv_compatibility').select('*');
 
-        if (q) query = query.or(`drug_a.ilike.%${q}%,drug_b.ilike.%${q}%`).limit(100);
-        else query = query.limit(50); 
+        if (q) {
+            query = query.or(`drug_a.ilike.%${q}%,drug_b.ilike.%${q}%`).limit(100);
+        } else {
+            query = query.limit(100); // ปรับเพิ่มการแสดงผลหน้าแรกจาก 50 เป็น 100 รายการ
+        }
+
+        // 🌟 เปลี่ยนจากเรียงตามวันที่ (created_at) ให้มาเรียงตามชื่อยาตัวแรก และยาตัวที่สองแทน (Alphabetical Order)
+        query = query.order('drug_a', { ascending: true }).order('drug_b', { ascending: true });
 
         const { data, error } = await query;
         if (error) return container.innerHTML = `<div style="color:red; padding:20px;">Error: ${error.message}</div>`;
