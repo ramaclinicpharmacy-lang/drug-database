@@ -4626,20 +4626,44 @@ async function fetchLogs() {
         const endISO = endDate.toISOString();
         const startISO = new Date(start).toISOString();
     
-        const { data, error } = await supabaseClient
-            .from('audit_logs')
-            .select('*')
-            .gte('changed_at', startISO)
-            .lte('changed_at', endISO)
-            .order('changed_at', { ascending: false });
+        // 🌟 แก้ไขตรงนี้: เพิ่มตัวแปรและทำลูปดึงข้อมูลทีละ 1,000 แถวเพื่อทำลายลิมิต Supabase
+        let allData = [];
+        let isFetching = true;
+        let from = 0;
+        const step = 1000;
+    
+        try {
+            while (isFetching) {
+                const { data, error } = await supabaseClient
+                    .from('audit_logs')
+                    .select('*')
+                    .gte('changed_at', startISO)
+                    .lte('changed_at', endISO)
+                    .order('changed_at', { ascending: false })
+                    .range(from, from + step - 1); // 👈 ดึงข้อมูลตามช่วงช่วงละ 1,000 แถว
+                
+                if (error) throw error;
+                
+                if (data && data.length > 0) {
+                    allData = allData.concat(data);
+                    from += step; // ขยับจุดเริ่มต้นไปชุดถัดไป
+                    if (data.length < step) isFetching = false; // ถ้าข้อมูลมาไม่เต็ม 1,000 แปลว่าหมดก๊อกแล้ว
+                } else {
+                    isFetching = false;
+                }
+            }
+        } catch (error) {
+            btn.innerText = originalText;
+            btn.disabled = false;
+            return alert("Error: " + error.message);
+        }
     
         btn.innerText = originalText;
         btn.disabled = false;
     
-        if (error) return alert("Error: " + error.message);
-        if (!data || data.length === 0) return alert("❌ ไม่พบประวัติการแก้ไขในกรอบเวลาที่เลือก");
+        if (allData.length === 0) return alert("❌ ไม่พบประวัติการแก้ไขในกรอบเวลาที่เลือก");
     
-        // 🌟 ฟังก์ชัน Recursive ถอดรหัสลึก และจัดหน้าตาให้อ่านง่าย
+        // 🌟 ฟังก์ชัน Recursive ถอดรหัสลึก และจัดหน้าตาให้อ่านง่าย (คงเดิมไว้)
         const formatLogDataForCSV = (obj, indent = "") => {
             if (!obj || typeof obj !== 'object') return '';
             let result = [];
@@ -4667,7 +4691,7 @@ async function fetchLogs() {
                         val.forEach((item, index) => {
                             if (typeof item === 'object' && item !== null) {
                                 // ถ้าใน Array เป็น Object อีก ให้ย่อหน้าเข้าไปอีก
-                                result.push(`${indent}   [${index + 1}]\n${formatLogDataForCSV(item, indent + "     ")}`);
+                                result.push(`${indent}   [${index + 1}]\n${formatLogDataForCSV(item, indent + "      ")}`);
                             } else {
                                 // ถ้าใน Array เป็นข้อความธรรมดา
                                 result.push(`${indent}   - ${item}`);
@@ -4691,7 +4715,8 @@ async function fetchLogs() {
         let csvContent = '\uFEFF'; 
         csvContent += "Date,Time,Changed_By,Source,Action,Table,Record_ID,Old_Data,New_Data\n";
         
-        data.forEach(log => {
+        // 🌟 เปลี่ยนจาก data.forEach เป็น allData.forEach เพื่อเอาข้อมูลทั้งหมดมาเขียน CSV
+        allData.forEach(log => {
             const d = new Date(log.changed_at);
             const dateStr = d.toLocaleDateString('th-TH');
             const timeStr = d.toLocaleTimeString('th-TH');
