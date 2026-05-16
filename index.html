@@ -1160,6 +1160,12 @@
         <p style="font-size:0.85rem; color:gray; margin-top:-5px;">ระบบจะดึงยาที่มี "ยาสามัญ (Generic)" ตรงกับต้นฉบับมาให้เลือก</p>
         <input type="hidden" id="alias-bulk-source-code">
         
+        <div class="section-box" style="background:#faf5ff; border-color:#e9d5ff; padding:12px;">
+            <label style="font-size:0.85rem; font-weight:bold; color:var(--purple);">เลือกชื่อพ้องที่ต้องการคัดลอก:</label>
+            <select id="alias-bulk-copy-selection" style="margin-top:5px; font-weight:bold; color:var(--dark);">
+                </select>
+        </div>
+
         <label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">เลือกยาปลายทาง:</label>
         <div id="alias-bulk-target-list" style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 8px; margin-bottom: 15px; background: white;"></div>
         
@@ -5370,6 +5376,21 @@ async function fetchLogs() {
         
         document.getElementById('alias-bulk-source-code').value = sourceCode;
         
+        // 🌟 ดึงข้อมูลชื่อพ้องของยาต้นฉบับมาสร้าง Dropdown
+        const { data: sourceAliases, error: fetchErr } = await supabaseClient.from('drug_nickname').select('nickname').eq('drug_code', sourceCode);
+        if (fetchErr) return alert("Error fetching aliases: " + fetchErr.message);
+        if (!sourceAliases || sourceAliases.length === 0) {
+            alert("ยาต้นฉบับนี้ยังไม่มีชื่อพ้องให้คัดลอกครับ");
+            return;
+        }
+
+        const selectEl = document.getElementById('alias-bulk-copy-selection');
+        let optionsHtml = '<option value="ALL">-- 📑 คัดลอกชื่อพ้อง "ทั้งหมด" --</option>';
+        sourceAliases.forEach(a => {
+            optionsHtml += `<option value="${encodeHTML(a.nickname)}">📌 เฉพาะคำว่า: "${encodeHTML(a.nickname)}"</option>`;
+        });
+        selectEl.innerHTML = optionsHtml;
+
         // 1. หากลุ่มยาสามัญของต้นฉบับ
         const currentDrug = allDrugsRaw.find(d => d.drug_code === sourceCode);
         if (!currentDrug || !currentDrug.drug_contents || currentDrug.drug_contents.length === 0) {
@@ -5405,6 +5426,8 @@ async function fetchLogs() {
 
     async function executeAliasBulkCopy() {
         const sourceCode = document.getElementById('alias-bulk-source-code').value;
+        const selectedAliasVal = document.getElementById('alias-bulk-copy-selection').value; // รับค่าตัวเลือก (ALL หรือชื่อคำเดียว)
+        
         const selectedCheckboxes = document.querySelectorAll('input[name="alias-bulk-target-drugs"]:checked');
         const targetDrugCodes = Array.from(selectedCheckboxes).map(cb => cb.value);
         
@@ -5415,15 +5438,16 @@ async function fetchLogs() {
         btn.disabled = true;
 
         try {
-            // 1. ดึงชื่อพ้องทั้งหมดของต้นฉบับ
-            const { data: sourceAliases, error: fetchErr } = await supabaseClient.from('drug_nickname').select('nickname').eq('drug_code', sourceCode);
-            if (fetchErr) throw fetchErr;
-            if (!sourceAliases || sourceAliases.length === 0) {
-                alert("ยาต้นฉบับยังไม่มีชื่อพ้องให้คัดลอกครับ");
-                return;
+            // 🌟 1. ดึงและกรองชื่อพ้องที่ต้องการจะคัดลอก
+            let aliasesToCopy = [];
+            if (selectedAliasVal === 'ALL') {
+                const { data: sourceAliases, error: fetchErr } = await supabaseClient.from('drug_nickname').select('nickname').eq('drug_code', sourceCode);
+                if (fetchErr) throw fetchErr;
+                aliasesToCopy = sourceAliases.map(a => a.nickname);
+            } else {
+                aliasesToCopy = [selectedAliasVal]; // เอาแค่คำเดียวที่ผู้ใช้เลือกมา
             }
 
-            const aliasesToCopy = sourceAliases.map(a => a.nickname);
             let successCount = 0;
 
             // 2. วนลูปก๊อปปี้ไปใส่ยาปลายทาง
@@ -5444,11 +5468,11 @@ async function fetchLogs() {
                     if (insErr) console.error("Error copy alias to", tCode, insErr);
                     else successCount++;
                 } else {
-                    successCount++; // นับว่าสำเร็จถ้ายามีชื่อพวกนี้ครบอยู่แล้ว
+                    successCount++; 
                 }
             }
 
-            alert(`✅ คัดลอกชื่อพ้องไปยังยาปลายทาง สำเร็จ ${successCount} รายการ!`);
+            alert(`✅ คัดลอกสำเร็จไปยังยาปลายทาง ${successCount} รายการ!`);
             closeModal('alias-bulk-copy-modal');
         } catch (err) {
             alert("เกิดข้อผิดพลาด: " + err.message);
