@@ -43,18 +43,12 @@
     </div>
 
 <script>
-    // ตั้งค่า Supabase
-    const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
     function logMessage(msg) {
         const logEl = document.getElementById('log');
         logEl.innerHTML += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
         logEl.scrollTop = logEl.scrollHeight;
     }
 
-    // ฟังก์ชันแปลงผลลัพธ์จากภาษาคน เป็นรหัส 1 ตัวอักษร (C, I, U, N/A)
     function mapResultCode(val) {
         if (!val) return null;
         const lower = val.toLowerCase();
@@ -62,12 +56,12 @@
         if (lower.includes('❌') || lower.includes('incompatible')) return 'I';
         if (lower.includes('⚠️') || lower.includes('variable')) return 'U';
         if (lower.includes('no data')) return 'N/A';
-        return val.substring(0, 5); // กันเหนียว
+        return val.substring(0, 5); 
     }
 
-    // อ่านไฟล์ CSV
     function parseCSV(file) {
         return new Promise((resolve, reject) => {
+            if (typeof Papa === 'undefined') return reject(new Error("โหลดตัวอ่าน CSV (PapaParse) ไม่สำเร็จ กรุณาเช็กอินเทอร์เน็ต"));
             Papa.parse(file, {
                 header: true,
                 skipEmptyLines: true,
@@ -78,20 +72,39 @@
     }
 
     async function startImport() {
-        // 🌟 ใส่ เพื่อหยิบไฟล์ที่ผู้ใช้เลือกมาใช้งานจริงๆ
-        const fileAlias = document.getElementById('file-alias').files;
-        const fileCompat = document.getElementById('file-compat').files;
-
-        if (!fileAlias || !fileCompat) {
-            return alert("กรุณาเลือกไฟล์ CSV ให้ครบทั้ง 2 ไฟล์ครับ");
-        }
-
-        const btn = document.getElementById('btn-import');
-        btn.disabled = true;
-        btn.innerText = "⏳ กำลังทำงาน ห้ามปิดหน้าจอนี้...";
-        document.getElementById('log').innerHTML = '';
-
         try {
+            // 🌟 เช็กการเชื่อมต่อไฟล์อย่างรัดกุม
+            const inputAlias = document.getElementById('file-alias');
+            const inputCompat = document.getElementById('file-compat');
+
+            if (!inputAlias || !inputCompat) {
+                alert("❌ ไม่พบช่องอัปโหลดไฟล์ในระบบ");
+                return;
+            }
+
+            const fileAlias = inputAlias.files[0];
+            const fileCompat = inputCompat.files[0];
+
+            if (!fileAlias || !fileCompat) {
+                alert("⚠️ กรุณาอัปโหลดไฟล์ CSV ให้ครบทั้ง 2 ไฟล์ครับ!");
+                return;
+            }
+
+            // 🌟 ตั้งค่า UI ระหว่างโหลด
+            const btn = document.getElementById('btn-import');
+            btn.disabled = true;
+            btn.innerText = "⏳ กำลังทำงาน ห้ามปิดหน้าจอนี้...";
+            document.getElementById('log').innerHTML = '';
+
+            // 🌟 เช็กการเชื่อมต่อ Supabase
+            if (typeof window.supabase === 'undefined') {
+                throw new Error("ไม่สามารถเชื่อมต่อฐานข้อมูลได้ (ระบบเครือข่ายอาจบล็อก Supabase CDN)");
+            }
+
+            const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
+            const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
+            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
             // ==========================================
             // ขั้นตอนที่ 1: ล้างข้อมูลเก่าทิ้ง
             // ==========================================
@@ -129,6 +142,9 @@
             logMessage("📂 กำลังอ่านไฟล์ Compat.csv...");
             const compatData = await parseCSV(fileCompat);
 
+            // 🌟 1. ดึงรายชื่อยาที่นำเข้าผ่านในขั้นตอนที่ 2 มาเตรียมไว้เพื่อตรวจสอบ
+            const validDrugNames = new Set(aliasPayload.map(d => d.drug_name.toUpperCase()));
+
             const compatPayload = compatData.map(row => {
                 let details = [];
                 if (row['Conc Rate Stability Protect from light']) details.push(row['Conc Rate Stability Protect from light'].trim());
@@ -145,25 +161,32 @@
                 };
             }).filter(r => {
                 if (!r.drug_a || !r.drug_b) return false;
-                
                 const excludeList = ['NSS', 'D5W'];
                 const aName = r.drug_a.toUpperCase();
                 const bName = r.drug_b.toUpperCase();
                 
-                if (excludeList.includes(aName) || excludeList.includes(bName)) {
-                    return false; 
+                if (excludeList.includes(aName) || excludeList.includes(bName)) return false; 
+                
+                // 🌟 2. ดักจับ Error: ถ้ายาในตารางคู่ยา "ไม่มีชื่อ" อยู่ในตารางยาหลัก ให้แจ้งเตือนและข้ามไป
+                if (!validDrugNames.has(aName)) {
+                    logMessage(`⚠️ ข้ามคู่ยา: ไม่พบยาต้นทาง "<b>${r.drug_a}</b>" (กรุณาเพิ่มลงในไฟล์ Name And Alias)`);
+                    return false;
+                }
+                if (!validDrugNames.has(bName)) {
+                    logMessage(`⚠️ ข้ามคู่ยา: ไม่พบยาปลายทาง "<b>${r.drug_b}</b>" (กรุณาเพิ่มลงในไฟล์ Name And Alias)`);
+                    return false;
                 }
 
                 return true; 
             });
 
-            logMessage(`⚙️ เตรียมนำเข้าตาราง คู่ยา(Compat) จำนวน ${compatPayload.length} คู่ (ตัด NSS/D5W ออกแล้ว)...`);
+            logMessage(`⚙️ เตรียมนำเข้าตาราง คู่ยา(Compat) จำนวน ${compatPayload.length} คู่ (คัดกรองยาที่ไม่มีในระบบออกแล้ว)...`);
 
             for (let i = 0; i < compatPayload.length; i += 100) {
                 const chunk = compatPayload.slice(i, i + 100);
                 const { error } = await supabase.from('iv_compatibility').insert(chunk);
                 if (error) {
-                     logMessage(`❌ ข้อผิดพลาด: ${error.message}`);
+                     logMessage(`❌ ข้อผิดพลาดในฐานข้อมูล: ${error.message}`);
                 } else {
                      logMessage(`   ✅ นำเข้าคู่ยาชุดที่ ${i + 1} ถึง ${i + chunk.length} สำเร็จ`);
                 }
@@ -173,11 +196,14 @@
             alert("✅ นำเข้าข้อมูลสำเร็จเรียบร้อย สามารถปิดหน้าจอนี้ได้เลยครับ");
 
         } catch (err) {
-            logMessage("❌ พบข้อผิดพลาดร้ายแรง: " + err.message);
+            logMessage("❌ พบข้อผิดพลาด: " + err.message);
             alert("❌ เกิดข้อผิดพลาด: " + err.message);
         } finally {
-            btn.disabled = false;
-            btn.innerText = "▶️ เริ่มนำเข้าข้อมูล";
+            const btn = document.getElementById('btn-import');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = "▶️ เริ่มนำเข้าข้อมูล";
+            }
         }
     }
 </script>
