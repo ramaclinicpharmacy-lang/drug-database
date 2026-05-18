@@ -412,6 +412,14 @@
 
         const codes = ivSelectedDrugs.map(d => d.code);
         
+        // 🌟 จุดที่เพิ่มเข้ามาใหม่: บันทึก Log รายชื่อยาที่ค้นหาลงฐานข้อมูล (ทำงานเบื้องหลัง ไม่บล็อก UI หลัก)
+        supabaseClient.from('iv_search_logs').insert([
+            { search_drugs: codes }
+        ]).then(({ error }) => { 
+            if (error) console.error("🔒 ไม่สามารถบันทึกสถิติการใช้งานได้:", error.message); 
+        });
+
+        // 🔍 ดึงข้อมูลคู่ยาเพื่อนำไปคำนวณต่อ (โค้ดเดิม)
         const { data, error } = await supabaseClient.from('iv_compatibility').select('*').in('drug_a', codes).in('drug_b', codes);
 
         btn.innerText = "🧠 วิเคราะห์และจัดกลุ่มสายยาอัตโนมัติ (AI Line Optimizer)";
