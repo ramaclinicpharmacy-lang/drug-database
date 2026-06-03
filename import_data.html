@@ -59,7 +59,7 @@
         return val.substring(0, 5); 
     }
 
-    // ฟังก์ชันแปลงวันที่จาก d/m/yyyy ให้เป็น YYYY-MM-DD เพื่อบันทึกลง Database
+    // 🌟 แก้ไข: แปลงวันที่ด้วยวิธีแบบคลาสสิก ป้องกันปัญหาเบราว์เซอร์ไม่รองรับ padStart
     function convertToDatabaseDate(dateStr) {
         if (!dateStr) return null;
         let str = String(dateStr).trim();
@@ -68,9 +68,10 @@
         if (str.includes('/')) {
             const parts = str.split('/');
             if (parts.length === 3) {
-                const day = parts.padStart(2, '0');
-                const month = parts.padStart(2, '0');
-                const year = parts;
+                // เติม 0 ด้านหน้าแล้วตัดเอา 2 ตัวท้ายสุดเสมอ ปลอดภัย 100%
+                const day = ('0' + parts.trim()).slice(-2);
+                const month = ('0' + parts.trim()).slice(-2);
+                const year = parts.trim();
                 return `${year}-${month}-${day}`; 
             }
         }
@@ -108,20 +109,17 @@
             const fileAlias = inputAlias.files[0];
             const fileCompat = inputCompat.files[0];
 
-            // ล็อกปุ่ม UI
             const btn = document.getElementById('btn-import');
             btn.disabled = true;
             btn.innerText = "⏳ กำลังทำงาน ห้ามปิดหน้าจอนี้...";
             document.getElementById('log').innerHTML = '';
 
-            // 🌟 1. อ่านไฟล์เก็บไว้ในหน่วยความจำ (RAM) ก่อนเป็นอันดับแรก เพื่อป้องกัน Blob Error
             logMessage("📂 กำลังอ่านไฟล์ Name And Alias.csv เข้าสู่หน่วยความจำ...");
             const aliasData = await parseCSV(fileAlias);
             
             logMessage("📂 กำลังอ่านไฟล์ Compat.csv เข้าสู่หน่วยความจำ...");
             const compatData = await parseCSV(fileCompat);
 
-            // เช็กการเชื่อมต่อ Supabase
             if (typeof window.supabase === 'undefined') {
                 throw new Error("ไม่สามารถเชื่อมต่อฐานข้อมูลได้ (ระบบเครือข่ายอาจบล็อก Supabase CDN)");
             }
@@ -130,13 +128,11 @@
             const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
             const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            // 🌟 2. ล้างข้อมูลเก่าทิ้ง
             logMessage("🗑️ กำลังลบข้อมูลเก่าในตาราง iv_compatibility...");
             await supabase.from('iv_compatibility').delete().neq('id', 0);
             logMessage("🗑️ กำลังลบข้อมูลเก่าในตาราง drug_for_iv_compat...");
             await supabase.from('drug_for_iv_compat').delete().neq('drug_name', 'xxxxxx');
 
-            // 🌟 3. นำเข้าตาราง ยาหลัก (drug_for_iv_compat)
             const aliasPayload = aliasData.map(row => ({
                 drug_name: row['Name'] ? row['Name'].trim() : '',
                 aliases: row['Alias'] ? row['Alias'].trim() : null
@@ -154,7 +150,6 @@
                 logMessage(`   ✅ นำเข้าชุดยาที่ ${i + 1} ถึง ${i + chunk.length} สำเร็จ`);
             }
 
-            // 🌟 4. นำเข้าตาราง คู่ยา (iv_compatibility)
             const validDrugsMap = new Map();
             aliasPayload.forEach(d => {
                 if (d.drug_name) {
@@ -189,7 +184,7 @@
                     admixture_result: admixtureRes,
                     detail: details.length > 0 ? details.join('\n\n') : null,
                     reference: row['Ref']?.trim() || null,
-                    search_date: convertToDatabaseDate(row['Update']) // อัปเดตฟอร์แมตวันที่ที่นี่
+                    search_date: convertToDatabaseDate(row['Update']) // 🌟 เรียกใช้ฟังก์ชันที่แก้แล้ว
                 };
             }).filter(r => {
                 if (!r.drug_a || !r.drug_b) return false;
