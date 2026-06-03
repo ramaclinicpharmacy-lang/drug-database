@@ -59,27 +59,32 @@
         return val.substring(0, 5); 
     }
 
-    // 🌟 แก้ไข: แปลงวันที่ด้วยวิธีแบบคลาสสิก ป้องกันปัญหาเบราว์เซอร์ไม่รองรับ padStart
+    // 🌟 แก้ไขล่าสุด: ทิ้งฟังก์ชันที่มีปัญหา เปลี่ยนมาใช้วิธีลบช่องว่างรวดเดียว และไม่ใช้ .trim()
     function convertToDatabaseDate(dateStr) {
         if (!dateStr) return null;
-        let str = String(dateStr).trim();
+        
+        // 1. แปลงเป็นอักษรแน่ๆ และลบช่องว่างออกให้เกลี้ยงก่อน (แทนการใช้ trim())
+        let str = String(dateStr).replace(/\s+/g, '');
         if (!str) return null;
 
-        if (str.includes('/')) {
-            const parts = str.split('/');
-            if (parts.length === 3) {
-                // เติม 0 ด้านหน้าแล้วตัดเอา 2 ตัวท้ายสุดเสมอ ปลอดภัย 100%
-                const day = ('0' + parts.trim()).slice(-2);
-                const month = ('0' + parts.trim()).slice(-2);
-                const year = parts.trim();
-                return `${year}-${month}-${day}`; 
+        // 2. ถ้ามีเครื่องหมาย / ให้หั่นส่วนประกอบออกมา
+        if (str.indexOf('/') !== -1) {
+            let arr = str.split('/');
+            if (arr.length === 3) {
+                // ต่ออักษร '0' เข้าไปข้างหน้า แล้วหยิบเอาแค่ 2 ตัวท้าย ป้องกันปัญหา Error 100%
+                let day = ('0' + arr).slice(-2);
+                let month = ('0' + arr).slice(-2);
+                let year = arr;
+                return year + '-' + month + '-' + day; 
             }
         }
         
+        // 3. ถ้ามาถูกฟอร์แมตแล้ว (YYYY-MM-DD)
         if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
             return str;
         }
 
+        // 4. คืนค่าตามที่ได้มาหากไม่ตรงเงื่อนไข
         return str; 
     }
 
@@ -134,8 +139,8 @@
             await supabase.from('drug_for_iv_compat').delete().neq('drug_name', 'xxxxxx');
 
             const aliasPayload = aliasData.map(row => ({
-                drug_name: row['Name'] ? row['Name'].trim() : '',
-                aliases: row['Alias'] ? row['Alias'].trim() : null
+                drug_name: row['Name'] ? String(row['Name']).replace(/^\s+|\s+$/g, '') : '',
+                aliases: row['Alias'] ? String(row['Alias']).replace(/^\s+|\s+$/g, '') : null
             })).filter(r => {
                 const name = r.drug_name.toUpperCase();
                 return name && name !== 'NSS' && name !== 'D5W';
@@ -150,102 +155,4 @@
                 logMessage(`   ✅ นำเข้าชุดยาที่ ${i + 1} ถึง ${i + chunk.length} สำเร็จ`);
             }
 
-            const validDrugsMap = new Map();
-            aliasPayload.forEach(d => {
-                if (d.drug_name) {
-                    validDrugsMap.set(d.drug_name.toUpperCase(), d.drug_name);
-                }
-            });
-
-            const compatPayload = compatData.map(row => {
-                let details = [];
-                if (row['Conc Rate Stability Protect from light']) details.push('🧪 ' + row['Conc Rate Stability Protect from light'].trim());
-                if (row['Irritant Vesicant and other detail']) details.push('⚠️ ' + row['Irritant Vesicant and other detail'].trim());
-                if (row['Note']) details.push('📝 Note: ' + row['Note'].trim());
-                if (row['LOE/Credibility']) details.push('📊 ความน่าเชื่อถือ: ' + row['LOE/Credibility'].trim());
-                if (row['Confirm data']) details.push('✅ ข้อมูลการตรวจสอบ: ' + row['Confirm data'].trim());
-
-                const mainResult = mapResultCode(row['compatibility_result']);
-                let ySiteRes = mainResult; 
-                let admixtureRes = null;
-
-                const ySiteFlag = row['Y-site'] ? row['Y-site'].trim().toUpperCase() : '';
-                const admixtureFlag = row['Admixture'] ? row['Admixture'].trim().toUpperCase() : '';
-
-                if (ySiteFlag || admixtureFlag) {
-                    ySiteRes = (ySiteFlag === 'YES') ? mainResult : (ySiteFlag === 'NO' ? 'I' : null);
-                    admixtureRes = (admixtureFlag === 'YES') ? mainResult : (admixtureFlag === 'NO' ? 'I' : null);
-                }
-                
-                return {
-                    drug_a: row['Drug1 & Synonym']?.trim(),
-                    drug_b: row['Drug2 & Synonym']?.trim(),
-                    y_site_result: ySiteRes,
-                    admixture_result: admixtureRes,
-                    detail: details.length > 0 ? details.join('\n\n') : null,
-                    reference: row['Ref']?.trim() || null,
-                    search_date: convertToDatabaseDate(row['Update']) // 🌟 เรียกใช้ฟังก์ชันที่แก้แล้ว
-                };
-            }).filter(r => {
-                if (!r.drug_a || !r.drug_b) return false;
-                const excludeList = ['NSS', 'D5W'];
-                const aName = r.drug_a.toUpperCase();
-                const bName = r.drug_b.toUpperCase();
-                
-                if (excludeList.includes(aName) || excludeList.includes(bName)) return false; 
-                
-                const correctCaseA = validDrugsMap.get(aName);
-                const correctCaseB = validDrugsMap.get(bName);
-
-                if (!correctCaseA) {
-                    logMessage(`⚠️ ข้ามคู่ยา: ไม่พบยาต้นทาง "${r.drug_a}" ในตารางยาหลัก`);
-                    return false;
-                }
-                if (!correctCaseB) {
-                    logMessage(`⚠️ ข้ามคู่ยา: ไม่พบยาปลายทาง "${r.drug_b}" ในตารางยาหลัก`);
-                    return false;
-                }
-
-                r.drug_a = correctCaseA;
-                r.drug_b = correctCaseB;
-
-                return true; 
-            });
-
-            logMessage(`⚙️ เตรียมนำเข้าตาราง คู่ยา(Compat) จำนวน ${compatPayload.length} คู่...`);
-
-            for (let i = 0; i < compatPayload.length; i += 100) {
-                const chunk = compatPayload.slice(i, i + 100);
-                const { error } = await supabase.from('iv_compatibility').insert(chunk);
-                
-                if (error) {
-                    logMessage(`⚠️ ชุดคู่ยาที่ ${i + 1}-${i + chunk.length} มีปัญหา กำลังตรวจสอบแยกทีละคู่...`);
-                    for (const item of chunk) {
-                        const { error: itemErr } = await supabase.from('iv_compatibility').insert([item]);
-                        if (itemErr) {
-                            logMessage(`<span style="color:#ef4444;">❌ นำเข้าไม่ได้: คู่ยา "<b>${item.drug_a}</b>" + "<b>${item.drug_b}</b>" -> สาเหตุ: ${itemErr.message}</span>`);
-                        }
-                    }
-                } else {
-                     logMessage(`   ✅ นำเข้าคู่ยาชุดที่ ${i + 1} ถึง ${i + chunk.length} สำเร็จ`);
-                }
-            }
-
-            logMessage("🎉🎉🎉 นำเข้าข้อมูลทั้งหมดเสร็จสมบูรณ์!");
-            alert("✅ นำเข้าข้อมูลสำเร็จเรียบร้อย สามารถปิดหน้าจอนี้ได้เลยครับ");
-
-        } catch (err) {
-            logMessage("❌ พบข้อผิดพลาด: " + err.message);
-            alert("❌ เกิดข้อผิดพลาด: " + err.message);
-        } finally {
-            const btn = document.getElementById('btn-import');
-            if (btn) {
-                btn.disabled = false;
-                btn.innerText = "▶️ เริ่มนำเข้าข้อมูล";
-            }
-        }
-    }
-</script>
-
-</body>
-</html>
+            const valid
