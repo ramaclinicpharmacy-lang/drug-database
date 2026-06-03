@@ -1,255 +1,250 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IV Compat Importer</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Sarabun', sans-serif; background: #f8fafc; padding: 20px; color: #1e293b; max-width: 800px; margin: auto; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        .form-group { margin-bottom: 15px; }
-        label { font-weight: bold; display: block; margin-bottom: 5px; color: #4f46e5; }
-        input[type="file"] { border: 1px solid #cbd5e1; padding: 10px; border-radius: 8px; width: 100%; box-sizing: border-box; }
-        button { background: #4f46e5; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 1.1rem; }
-        button:disabled { background: #94a3b8; cursor: not-allowed; }
-        #log { background: #1e293b; color: #10b981; padding: 15px; border-radius: 8px; height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.9rem; white-space: pre-wrap; }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IV Compat Importer</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background: #f8fafc; padding: 20px; color: #1e293b; max-width: 800px; margin: auto; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { font-weight: bold; display: block; margin-bottom: 5px; color: #4f46e5; }
+        input[type="file"] { border: 1px solid #cbd5e1; padding: 10px; border-radius: 8px; width: 100%; box-sizing: border-box; }
+        button { background: #4f46e5; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 1.1rem; }
+        button:disabled { background: #94a3b8; cursor: not-allowed; }
+        #log { background: #1e293b; color: #10b981; padding: 15px; border-radius: 8px; height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.9rem; white-space: pre-wrap; }
+    </style>
 </head>
 <body>
 
-    <div class="card" style="border-top: 5px solid #4f46e5;">
-        <h2 style="margin-top: 0;">🚀 เครื่องมือนำเข้าข้อมูล IV Compat</h2>
-        <p style="color: gray; font-size: 0.9rem; margin-top: -10px;">โปรแกรมจะแปลงข้อความและนำเข้าฐานข้อมูล Supabase อัตโนมัติ</p>
+    <div class="card" style="border-top: 5px solid #4f46e5;">
+        <h2 style="margin-top: 0;">🚀 เครื่องมือนำเข้าข้อมูล IV Compat</h2>
+        <p style="color: gray; font-size: 0.9rem; margin-top: -10px;">โปรแกรมจะแปลงข้อความและนำเข้าฐานข้อมูล Supabase อัตโนมัติ</p>
 
-        <div class="form-group">
-            <label>1. อัปโหลดไฟล์ "Name And Alias.csv"</label>
-            <input type="file" id="file-alias" accept=".csv">
-        </div>
+        <div class="form-group">
+            <label>1. อัปโหลดไฟล์ "Name And Alias.csv"</label>
+            <input type="file" id="file-alias" accept=".csv">
+        </div>
 
-        <div class="form-group">
-            <label>2. อัปโหลดไฟล์ "Compat.csv"</label>
-            <input type="file" id="file-compat" accept=".csv">
-        </div>
+        <div class="form-group">
+            <label>2. อัปโหลดไฟล์ "Compat.csv"</label>
+            <input type="file" id="file-compat" accept=".csv">
+        </div>
 
-        <button id="btn-import" onclick="startImport()">▶️ เริ่มนำเข้าข้อมูล</button>
-    </div>
+        <button id="btn-import" onclick="startImport()">▶️ เริ่มนำเข้าข้อมูล</button>
+    </div>
 
-    <div class="card">
-        <label style="color:#1e293b;">📜 Log การทำงาน:</label>
-        <div id="log">รอการสั่งงาน...</div>
-    </div>
+    <div class="card">
+        <label style="color:#1e293b;">📜 Log การทำงาน:</label>
+        <div id="log">รอการสั่งงาน...</div>
+    </div>
 
 <script>
-    function logMessage(msg) {
-        const logEl = document.getElementById('log');
-        logEl.innerHTML += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
-        logEl.scrollTop = logEl.scrollHeight;
-    }
+    function logMessage(msg) {
+        const logEl = document.getElementById('log');
+        logEl.innerHTML += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+        logEl.scrollTop = logEl.scrollHeight;
+    }
 
-    function mapResultCode(val) {
-        if (!val) return null;
-        const lower = val.toLowerCase();
-        if (lower.includes('✅') || (lower.includes('compatible') && !lower.includes('incompatible'))) return 'C';
-        if (lower.includes('❌') || lower.includes('incompatible')) return 'I';
-        if (lower.includes('⚠️') || lower.includes('variable')) return 'U';
-        if (lower.includes('no data')) return 'N/A';
-        return val.substring(0, 5); 
-    }
+    function mapResultCode(val) {
+        if (!val) return null;
+        const lower = val.toLowerCase();
+        if (lower.includes('✅') || (lower.includes('compatible') && !lower.includes('incompatible'))) return 'C';
+        if (lower.includes('❌') || lower.includes('incompatible')) return 'I';
+        if (lower.includes('⚠️') || lower.includes('variable')) return 'U';
+        if (lower.includes('no data')) return 'N/A';
+        return val.substring(0, 5); 
+    }
 
-    function convertToDatabaseDate(dateStr) {
-        if (!dateStr) return null;
-        let str = String(dateStr).trim();
-        if (!str) return null;
+    function parseCSV(file) {
+        return new Promise((resolve, reject) => {
+            if (typeof Papa === 'undefined') return reject(new Error("โหลดตัวอ่าน CSV (PapaParse) ไม่สำเร็จ กรุณาเช็กอินเทอร์เน็ต"));
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: (results) => resolve(results.data),
+                error: (err) => reject(err)
+            });
+        });
+    }
 
-        if (str.includes('/')) {
-            const parts = str.split('/');
-            if (parts.length === 3) {
-                const day = parts.padStart(2, '0');
-                const month = parts.padStart(2, '0');
-                const year = parts;
-                return `${year}-${month}-${day}`; 
-            }
-        }
-        
-        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
-            return str;
-        }
+    async function startImport() {
+        try {
+            // 🌟 เช็กการเชื่อมต่อไฟล์อย่างรัดกุม
+            const inputAlias = document.getElementById('file-alias');
+            const inputCompat = document.getElementById('file-compat');
 
-        return str; 
-    }
+            if (!inputAlias || !inputCompat) {
+                alert("❌ ไม่พบช่องอัปโหลดไฟล์ในระบบ");
+                return;
+            }
 
-    function parseCSV(file) {
-        return new Promise((resolve, reject) => {
-            if (!file) return reject(new Error("ไม่พบไฟล์กรุณาอัปโหลดใหม่")); // 🌟 ดักจับไฟล์ว่าง
-            if (typeof Papa === 'undefined') return reject(new Error("โหลดตัวอ่าน CSV (PapaParse) ไม่สำเร็จ กรุณาเช็กอินเทอร์เน็ต"));
-            Papa.parse(file, {
-                header: true,
-                skipEmptyLines: true,
-                complete: (results) => resolve(results.data),
-                error: (err) => reject(err)
-            });
-        });
-    }
+            const fileAlias = inputAlias.files[0];
+            const fileCompat = inputCompat.files[0];
 
-    async function startImport() {
-        try {
-            const inputAlias = document.getElementById('file-alias');
-            const inputCompat = document.getElementById('file-compat');
+            if (!fileAlias || !fileCompat) {
+                alert("⚠️ กรุณาอัปโหลดไฟล์ CSV ให้ครบทั้ง 2 ไฟล์ครับ!");
+                return;
+            }
 
-            // เช็กว่ามีการเลือกไฟล์เข้ามาครบทั้ง 2 กล่องหรือไม่
-            if (!inputAlias || !inputCompat || !inputAlias.files || !inputCompat.files) {
-                alert("⚠️ กรุณาเลือกไฟล์ CSV ให้ครบทั้ง 2 กล่องครับ!");
-                return;
-            }
+            // 🌟 ตั้งค่า UI ระหว่างโหลด
+            const btn = document.getElementById('btn-import');
+            btn.disabled = true;
+            btn.innerText = "⏳ กำลังทำงาน ห้ามปิดหน้าจอนี้...";
+            document.getElementById('log').innerHTML = '';
 
-            const fileAlias = inputAlias.files;
-            const fileCompat = inputCompat.files;
+            // 🌟 เช็กการเชื่อมต่อ Supabase
+            if (typeof window.supabase === 'undefined') {
+                throw new Error("ไม่สามารถเชื่อมต่อฐานข้อมูลได้ (ระบบเครือข่ายอาจบล็อก Supabase CDN)");
+            }
 
-            const btn = document.getElementById('btn-import');
-            btn.disabled = true;
-            btn.innerText = "⏳ กำลังทำงาน ห้ามปิดหน้าจอนี้...";
-            document.getElementById('log').innerHTML = '';
+            const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
+            const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
+            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            // 🌟 1. อ่านไฟล์ทั้งสองให้เสร็จตั้งแต่แรก ป้องกันเบราว์เซอร์เคลียร์ไฟล์ทิ้งระหว่างรอเน็ต
-            logMessage("📂 กำลังอ่านและตรวจสอบไฟล์ Name And Alias.csv ...");
-            const aliasData = await parseCSV(fileAlias);
+            // ==========================================
+            // ขั้นตอนที่ 1: ล้างข้อมูลเก่าทิ้ง
+            // ==========================================
+            logMessage("🗑️ กำลังลบข้อมูลเก่าในตาราง iv_compatibility...");
+            await supabase.from('iv_compatibility').delete().neq('id', 0);
+            logMessage("🗑️ กำลังลบข้อมูลเก่าในตาราง drug_for_iv_compat...");
+            await supabase.from('drug_for_iv_compat').delete().neq('drug_name', 'xxxxxx');
 
-            logMessage("📂 กำลังอ่านและตรวจสอบไฟล์ Compat.csv ...");
-            const compatData = await parseCSV(fileCompat);
+            // ==========================================
+            // ขั้นตอนที่ 2: นำเข้าตาราง drug_for_iv_compat
+            // ==========================================
+            logMessage("📂 กำลังอ่านไฟล์ Name And Alias.csv...");
+            const aliasData = await parseCSV(fileAlias);
+            
+            const aliasPayload = aliasData.map(row => ({
+                drug_name: row['Name'] ? row['Name'].trim() : '',
+                aliases: row['Alias'] ? row['Alias'].trim() : null
+            })).filter(r => {
+                const name = r.drug_name.toUpperCase();
+                return name && name !== 'NSS' && name !== 'D5W';
+            });
 
-            // 🌟 2. เชื่อมต่อฐานข้อมูล
-            if (typeof window.supabase === 'undefined') {
-                throw new Error("ไม่สามารถเชื่อมต่อฐานข้อมูลได้ (ระบบเครือข่ายอาจบล็อก Supabase CDN)");
-            }
+            logMessage(`⚙️ เตรียมนำเข้าตาราง ยาหลัก จำนวน ${aliasPayload.length} รายการ...`);
+            
+            for (let i = 0; i < aliasPayload.length; i += 100) {
+                const chunk = aliasPayload.slice(i, i + 100);
+                const { error } = await supabase.from('drug_for_iv_compat').insert(chunk);
+                if (error) throw new Error("Alias Error: " + error.message);
+                logMessage(`   ✅ นำเข้าชุดยาที่ ${i + 1} ถึง ${i + chunk.length} สำเร็จ`);
+            }
 
-            const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
-            const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
-            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            // ==========================================
+            // ขั้นตอนที่ 3: นำเข้าตาราง iv_compatibility
+            // ==========================================
+            logMessage("📂 กำลังอ่านไฟล์ Compat.csv...");
+            const compatData = await parseCSV(fileCompat);
 
-            // 🌟 3. ล้างข้อมูลเก่า
-            logMessage("🗑️ กำลังลบข้อมูลเก่าในตาราง iv_compatibility...");
-            await supabase.from('iv_compatibility').delete().neq('id', 0);
-            logMessage("🗑️ กำลังลบข้อมูลเก่าในตาราง drug_for_iv_compat...");
-            await supabase.from('drug_for_iv_compat').delete().neq('drug_name', 'xxxxxx');
+            // 🌟 1. เปลี่ยนเป็น Map เพื่อจำ "หน้าตาตัวพิมพ์เล็ก-ใหญ่ที่ถูกต้อง 100%" จากตารางแม่
+            const validDrugsMap = new Map();
+            aliasPayload.forEach(d => {
+                if (d.drug_name) {
+                    validDrugsMap.set(d.drug_name.toUpperCase(), d.drug_name);
+                }
+            });
 
-            // 🌟 4. เตรียมข้อมูลยาหลัก และนำเข้า
-            const aliasPayload = aliasData.map(row => ({
-                drug_name: row['Name'] ? row['Name'].trim() : '',
-                aliases: row['Alias'] ? row['Alias'].trim() : null
-            })).filter(r => {
-                const name = r.drug_name.toUpperCase();
-                return name && name !== 'NSS' && name !== 'D5W';
-            });
+            const compatPayload = compatData.map(row => {
+                let details = [];
+                // 🌟 1. เพิ่มการดึงข้อมูลจากคอลัมน์ใหม่ (Note, LOE, Confirm data) และใส่ Icon ให้น่าอ่านขึ้น
+                if (row['Conc Rate Stability Protect from light']) details.push('🧪 ' + row['Conc Rate Stability Protect from light'].trim());
+                if (row['Irritant Vesicant and other detail']) details.push('⚠️ ' + row['Irritant Vesicant and other detail'].trim());
+                if (row['Note']) details.push('📝 Note: ' + row['Note'].trim());
+                if (row['LOE/Credibility']) details.push('📊 ความน่าเชื่อถือ: ' + row['LOE/Credibility'].trim());
+                if (row['Confirm data']) details.push('✅ ข้อมูลการตรวจสอบ: ' + row['Confirm data'].trim());
 
-            logMessage(`⚙️ เตรียมนำเข้าตาราง ยาหลัก จำนวน ${aliasPayload.length} รายการ...`);
-            
-            for (let i = 0; i < aliasPayload.length; i += 100) {
-                const chunk = aliasPayload.slice(i, i + 100);
-                const { error } = await supabase.from('drug_for_iv_compat').insert(chunk);
-                if (error) throw new Error("Alias Error: " + error.message);
-                logMessage(`   ✅ นำเข้าชุดยาที่ ${i + 1} ถึง ${i + chunk.length} สำเร็จ`);
-            }
+                // 🌟 2. ประมวลผลลัพธ์หลัก (ดึงจาก compatibility_result)
+                const mainResult = mapResultCode(row['compatibility_result']);
+                let ySiteRes = mainResult; // ให้ Y-site ใช้ผลหลักเป็นค่าเริ่มต้น
+                let admixtureRes = null;
 
-            // 🌟 5. เตรียมข้อมูลคู่ยา และนำเข้า
-            const validDrugsMap = new Map();
-            aliasPayload.forEach(d => {
-                if (d.drug_name) {
-                    validDrugsMap.set(d.drug_name.toUpperCase(), d.drug_name);
-                }
-            });
+                // 🌟 3. อัปเดตตรรกะใหม่ หากมีการระบุ Y-site หรือ Admixture แบบเจาะจง (YES/NO) ในแถว
+                const ySiteFlag = row['Y-site'] ? row['Y-site'].trim().toUpperCase() : '';
+                const admixtureFlag = row['Admixture'] ? row['Admixture'].trim().toUpperCase() : '';
 
-            const compatPayload = compatData.map(row => {
-                let details = [];
-                if (row['Conc Rate Stability Protect from light']) details.push('🧪 ' + row['Conc Rate Stability Protect from light'].trim());
-                if (row['Irritant Vesicant and other detail']) details.push('⚠️ ' + row['Irritant Vesicant and other detail'].trim());
-                if (row['Note']) details.push('📝 Note: ' + row['Note'].trim());
-                if (row['LOE/Credibility']) details.push('📊 ความน่าเชื่อถือ: ' + row['LOE/Credibility'].trim());
-                if (row['Confirm data']) details.push('✅ ข้อมูลการตรวจสอบ: ' + row['Confirm data'].trim());
+                if (ySiteFlag || admixtureFlag) {
+                    ySiteRes = (ySiteFlag === 'YES') ? mainResult : (ySiteFlag === 'NO' ? 'I' : null);
+                    admixtureRes = (admixtureFlag === 'YES') ? mainResult : (admixtureFlag === 'NO' ? 'I' : null);
+                }
+                
+                return {
+                    drug_a: row['Drug1 & Synonym']?.trim(),
+                    drug_b: row['Drug2 & Synonym']?.trim(),
+                    y_site_result: ySiteRes,            // เปลี่ยนมารับค่าจากตัวแปรที่คำนวณใหม่
+                    admixture_result: admixtureRes,     // เปลี่ยนมารับค่าจากตัวแปรที่คำนวณใหม่
+                    detail: details.length > 0 ? details.join('\n\n') : null,
+                    reference: row['Ref']?.trim() || null,
+                    search_date: row['Update']?.trim() || null
+                };
+            }).filter(r => { 
 
-                const mainResult = mapResultCode(row['compatibility_result']);
-                let ySiteRes = mainResult; 
-                let admixtureRes = null;
+                if (!r.drug_a || !r.drug_b) return false;
+                const excludeList = ['NSS', 'D5W'];
+                const aName = r.drug_a.toUpperCase();
+                const bName = r.drug_b.toUpperCase();
+                
+                if (excludeList.includes(aName) || excludeList.includes(bName)) return false; 
+                
+                // 🌟 2. ตรวจสอบและดึงค่าการสะกดตัวพิมพ์ที่ถูกต้องจากตารางแม่
+                const correctCaseA = validDrugsMap.get(aName);
+                const correctCaseB = validDrugsMap.get(bName);
 
-                const ySiteFlag = row['Y-site'] ? row['Y-site'].trim().toUpperCase() : '';
-                const admixtureFlag = row['Admixture'] ? row['Admixture'].trim().toUpperCase() : '';
+                if (!correctCaseA) {
+                    logMessage(`⚠️ ข้ามคู่ยา: ไม่พบยาต้นทาง "${r.drug_a}" ในตารางยาหลัก (กรุณาเพิ่มในไฟล์ที่ 1)`);
+                    return false;
+                }
+                if (!correctCaseB) {
+                    logMessage(`⚠️ ข้ามคู่ยา: ไม่พบยาปลายทาง "${r.drug_b}" ในตารางยาหลัก (กรุณาเพิ่มในไฟล์ที่ 1)`);
+                    return false;
+                }
 
-                if (ySiteFlag || admixtureFlag) {
-                    ySiteRes = (ySiteFlag === 'YES') ? mainResult : (ySiteFlag === 'NO' ? 'I' : null);
-                    admixtureRes = (admixtureFlag === 'YES') ? mainResult : (admixtureFlag === 'NO' ? 'I' : null);
-                }
-                
-                return {
-                    drug_a: row['Drug1 & Synonym']?.trim(),
-                    drug_b: row['Drug2 & Synonym']?.trim(),
-                    y_site_result: ySiteRes,            
-                    admixture_result: admixtureRes,     
-                    detail: details.length > 0 ? details.join('\n\n') : null,
-                    reference: row['Ref']?.trim() || null,
-                    search_date: convertToDatabaseDate(row['Update']) 
-                };
-            }).filter(r => { 
+                // 🌟 บังคับเปลี่ยนชื่อยาให้ตรงตามตัวพิมพ์เล็ก-ใหญ่ของตารางแม่เป๊ะๆ ป้องกันการเกิด Foreign Key Error
+                r.drug_a = correctCaseA;
+                r.drug_b = correctCaseB;
 
-                if (!r.drug_a || !r.drug_b) return false;
-                const excludeList = ['NSS', 'D5W'];
-                const aName = r.drug_a.toUpperCase();
-                const bName = r.drug_b.toUpperCase();
-                
-                if (excludeList.includes(aName) || excludeList.includes(bName)) return false; 
-                
-                const correctCaseA = validDrugsMap.get(aName);
-                const correctCaseB = validDrugsMap.get(bName);
+                return true; 
+            });
 
-                if (!correctCaseA) {
-                    logMessage(`⚠️ ข้ามคู่ยา: ไม่พบยาต้นทาง "${r.drug_a}" ในตารางยาหลัก`);
-                    return false;
-                }
-                if (!correctCaseB) {
-                    logMessage(`⚠️ ข้ามคู่ยา: ไม่พบยาปลายทาง "${r.drug_b}" ในตารางยาหลัก`);
-                    return false;
-                }
+            logMessage(`⚙️ เตรียมนำเข้าตาราง คู่ยา(Compat) จำนวน ${compatPayload.length} คู่...`);
 
-                r.drug_a = correctCaseA;
-                r.drug_b = correctCaseB;
+            for (let i = 0; i < compatPayload.length; i += 100) {
+                const chunk = compatPayload.slice(i, i + 100);
+                const { error } = await supabase.from('iv_compatibility').insert(chunk);
+                
+                if (error) {
+                    // 🌟 3. ถ้ายิงแบบกลุ่ม 100 แถวไม่ผ่าน ให้เปลี่ยนมายิงทีละแถวในชุดนั้น เพื่อสืบค้นและแสดงคู่ยาที่มีปัญหาทันที
+                    logMessage(`⚠️ ชุดคู่ยาที่ ${i + 1}-${i + chunk.length} มีปัญหา กำลังตรวจสอบแยกทีละคู่...`);
+                    for (const item of chunk) {
+                        const { error: itemErr } = await supabase.from('iv_compatibility').insert([item]);
+                        if (itemErr) {
+                            logMessage(`<span style="color:#ef4444;">❌ นำเข้าไม่ได้: คู่ยา "<b>${item.drug_a}</b>" + "<b>${item.drug_b}</b>" -> สาเหตุ: ${itemErr.message}</span>`);
+                        }
+                    }
+                } else {
+                     logMessage(`   ✅ นำเข้าคู่ยาชุดที่ ${i + 1} ถึง ${i + chunk.length} สำเร็จ`);
+                }
+            }
 
-                return true; 
-            });
+            logMessage("🎉🎉🎉 นำเข้าข้อมูลทั้งหมดเสร็จสมบูรณ์!");
+            alert("✅ นำเข้าข้อมูลสำเร็จเรียบร้อย สามารถปิดหน้าจอนี้ได้เลยครับ");
 
-            logMessage(`⚙️ เตรียมนำเข้าตาราง คู่ยา(Compat) จำนวน ${compatPayload.length} คู่...`);
-
-            for (let i = 0; i < compatPayload.length; i += 100) {
-                const chunk = compatPayload.slice(i, i + 100);
-                const { error } = await supabase.from('iv_compatibility').insert(chunk);
-                
-                if (error) {
-                    logMessage(`⚠️ ชุดคู่ยาที่ ${i + 1}-${i + chunk.length} มีปัญหา กำลังตรวจสอบแยกทีละคู่...`);
-                    for (const item of chunk) {
-                        const { error: itemErr } = await supabase.from('iv_compatibility').insert([item]);
-                        if (itemErr) {
-                            logMessage(`<span style="color:#ef4444;">❌ นำเข้าไม่ได้: คู่ยา "<b>${item.drug_a}</b>" + "<b>${item.drug_b}</b>" -> สาเหตุ: ${itemErr.message}</span>`);
-                        }
-                    }
-                } else {
-                     logMessage(`   ✅ นำเข้าคู่ยาชุดที่ ${i + 1} ถึง ${i + chunk.length} สำเร็จ`);
-                }
-            }
-
-            logMessage("🎉🎉🎉 นำเข้าข้อมูลทั้งหมดเสร็จสมบูรณ์!");
-            alert("✅ นำเข้าข้อมูลสำเร็จเรียบร้อย สามารถปิดหน้าจอนี้ได้เลยครับ");
-
-        } catch (err) {
-            logMessage("❌ พบข้อผิดพลาด: " + err.message);
-            alert("❌ เกิดข้อผิดพลาด: " + err.message);
-        } finally {
-            const btn = document.getElementById('btn-import');
-            if (btn) {
-                btn.disabled = false;
-                btn.innerText = "▶️ เริ่มนำเข้าข้อมูล";
-            }
-        }
-    }
+        } catch (err) {
+            logMessage("❌ พบข้อผิดพลาด: " + err.message);
+            alert("❌ เกิดข้อผิดพลาด: " + err.message);
+        } finally {
+            const btn = document.getElementById('btn-import');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = "▶️ เริ่มนำเข้าข้อมูล";
+            }
+        }
+    }
 </script>
 
 </body>
