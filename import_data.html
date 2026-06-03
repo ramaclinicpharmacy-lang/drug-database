@@ -59,8 +59,32 @@
         return val.substring(0, 5); 
     }
 
+    // ฟังก์ชันแปลงวันที่จาก d/m/yyyy ให้เป็น YYYY-MM-DD เพื่อบันทึกลง Database
+    function convertToDatabaseDate(dateStr) {
+        if (!dateStr) return null;
+        let str = String(dateStr).trim();
+        if (!str) return null;
+
+        if (str.includes('/')) {
+            const parts = str.split('/');
+            if (parts.length === 3) {
+                const day = parts.padStart(2, '0');
+                const month = parts.padStart(2, '0');
+                const year = parts;
+                return `${year}-${month}-${day}`; 
+            }
+        }
+        
+        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+            return str;
+        }
+
+        return str; 
+    }
+
     function parseCSV(file) {
         return new Promise((resolve, reject) => {
+            if (!file) return reject(new Error("ไม่พบไฟล์กรุณาตรวจสอบการอัปโหลดอีกครั้ง"));
             if (typeof Papa === 'undefined') return reject(new Error("โหลดตัวอ่าน CSV (PapaParse) ไม่สำเร็จ กรุณาเช็กอินเทอร์เน็ต"));
             Papa.parse(file, {
                 header: true,
@@ -76,24 +100,28 @@
             const inputAlias = document.getElementById('file-alias');
             const inputCompat = document.getElementById('file-compat');
 
-            if (!inputAlias || !inputCompat) {
-                alert("❌ ไม่พบช่องอัปโหลดไฟล์ในระบบ");
+            if (!inputAlias || !inputCompat || !inputAlias.files || !inputCompat.files) {
+                alert("⚠️ กรุณาอัปโหลดไฟล์ CSV ให้ครบทั้ง 2 ไฟล์ครับ!");
                 return;
             }
 
             const fileAlias = inputAlias.files;
             const fileCompat = inputCompat.files;
 
-            if (!fileAlias || !fileCompat) {
-                alert("⚠️ กรุณาอัปโหลดไฟล์ CSV ให้ครบทั้ง 2 ไฟล์ครับ!");
-                return;
-            }
-
+            // ล็อกปุ่ม UI
             const btn = document.getElementById('btn-import');
             btn.disabled = true;
             btn.innerText = "⏳ กำลังทำงาน ห้ามปิดหน้าจอนี้...";
             document.getElementById('log').innerHTML = '';
 
+            // 🌟 1. อ่านไฟล์เก็บไว้ในหน่วยความจำ (RAM) ก่อนเป็นอันดับแรก เพื่อป้องกัน Blob Error
+            logMessage("📂 กำลังอ่านไฟล์ Name And Alias.csv เข้าสู่หน่วยความจำ...");
+            const aliasData = await parseCSV(fileAlias);
+            
+            logMessage("📂 กำลังอ่านไฟล์ Compat.csv เข้าสู่หน่วยความจำ...");
+            const compatData = await parseCSV(fileCompat);
+
+            // เช็กการเชื่อมต่อ Supabase
             if (typeof window.supabase === 'undefined') {
                 throw new Error("ไม่สามารถเชื่อมต่อฐานข้อมูลได้ (ระบบเครือข่ายอาจบล็อก Supabase CDN)");
             }
@@ -102,20 +130,13 @@
             const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
             const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            // ==========================================
-            // ขั้นตอนที่ 1: ล้างข้อมูลเก่าทิ้ง
-            // ==========================================
+            // 🌟 2. ล้างข้อมูลเก่าทิ้ง
             logMessage("🗑️ กำลังลบข้อมูลเก่าในตาราง iv_compatibility...");
             await supabase.from('iv_compatibility').delete().neq('id', 0);
             logMessage("🗑️ กำลังลบข้อมูลเก่าในตาราง drug_for_iv_compat...");
             await supabase.from('drug_for_iv_compat').delete().neq('drug_name', 'xxxxxx');
 
-            // ==========================================
-            // ขั้นตอนที่ 2: นำเข้าตาราง drug_for_iv_compat
-            // ==========================================
-            logMessage("📂 กำลังอ่านไฟล์ Name And Alias.csv...");
-            const aliasData = await parseCSV(fileAlias);
-            
+            // 🌟 3. นำเข้าตาราง ยาหลัก (drug_for_iv_compat)
             const aliasPayload = aliasData.map(row => ({
                 drug_name: row['Name'] ? row['Name'].trim() : '',
                 aliases: row['Alias'] ? row['Alias'].trim() : null
@@ -133,12 +154,7 @@
                 logMessage(`   ✅ นำเข้าชุดยาที่ ${i + 1} ถึง ${i + chunk.length} สำเร็จ`);
             }
 
-            // ==========================================
-            // ขั้นตอนที่ 3: นำเข้าตาราง iv_compatibility
-            // ==========================================
-            logMessage("📂 กำลังอ่านไฟล์ Compat.csv...");
-            const compatData = await parseCSV(fileCompat);
-
+            // 🌟 4. นำเข้าตาราง คู่ยา (iv_compatibility)
             const validDrugsMap = new Map();
             aliasPayload.forEach(d => {
                 if (d.drug_name) {
@@ -148,19 +164,16 @@
 
             const compatPayload = compatData.map(row => {
                 let details = [];
-                // รวบรวมข้อมูลดีเทล คอลัมน์เก่า + คอลัมน์ใหม่
                 if (row['Conc Rate Stability Protect from light']) details.push('🧪 ' + row['Conc Rate Stability Protect from light'].trim());
                 if (row['Irritant Vesicant and other detail']) details.push('⚠️ ' + row['Irritant Vesicant and other detail'].trim());
                 if (row['Note']) details.push('📝 Note: ' + row['Note'].trim());
                 if (row['LOE/Credibility']) details.push('📊 ความน่าเชื่อถือ: ' + row['LOE/Credibility'].trim());
                 if (row['Confirm data']) details.push('✅ ข้อมูลการตรวจสอบ: ' + row['Confirm data'].trim());
 
-                // ประมวลผลลัพธ์หลัก
                 const mainResult = mapResultCode(row['compatibility_result']);
-                let ySiteRes = mainResult; // ค่าเริ่มต้นเหมือนเดิม
+                let ySiteRes = mainResult; 
                 let admixtureRes = null;
 
-                // อัปเดตตรรกะใหม่ หากมีการระบุ Y-site หรือ Admixture แบบเจาะจงในแถว
                 const ySiteFlag = row['Y-site'] ? row['Y-site'].trim().toUpperCase() : '';
                 const admixtureFlag = row['Admixture'] ? row['Admixture'].trim().toUpperCase() : '';
 
@@ -176,7 +189,7 @@
                     admixture_result: admixtureRes,
                     detail: details.length > 0 ? details.join('\n\n') : null,
                     reference: row['Ref']?.trim() || null,
-                    search_date: row['Update']?.trim() || null
+                    search_date: convertToDatabaseDate(row['Update']) // อัปเดตฟอร์แมตวันที่ที่นี่
                 };
             }).filter(r => {
                 if (!r.drug_a || !r.drug_b) return false;
