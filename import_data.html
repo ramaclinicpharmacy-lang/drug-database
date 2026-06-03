@@ -81,8 +81,8 @@
                 return;
             }
 
-            const fileAlias = inputAlias.files;
-            const fileCompat = inputCompat.files;
+            const fileAlias = inputAlias.files[0];
+            const fileCompat = inputCompat.files[0];
 
             if (!fileAlias || !fileCompat) {
                 alert("⚠️ กรุณาอัปโหลดไฟล์ CSV ให้ครบทั้ง 2 ไฟล์ครับ!");
