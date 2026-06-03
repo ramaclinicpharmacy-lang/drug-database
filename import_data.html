@@ -151,7 +151,7 @@
                 if (row['LOE/Credibility']) details.push('📊 ความน่าเชื่อถือ: ' + row['LOE/Credibility'].trim());
                 if (row['Confirm data']) details.push('✅ ข้อมูลการตรวจสอบ: ' + row['Confirm data'].trim());
 
-                // 🌟 ประมวลผลลัพธ์หลัก และแยก Y-site / Admixture
+                // ประมวลผลลัพธ์หลัก
                 const mainResult = mapResultCode(row['compatibility_result']);
                 let ySiteRes = mainResult; 
                 let admixtureRes = null;
@@ -159,9 +159,19 @@
                 const ySiteFlag = row['Y-site'] ? row['Y-site'].trim().toUpperCase() : '';
                 const admixtureFlag = row['Admixture'] ? row['Admixture'].trim().toUpperCase() : '';
 
+                // 🌟 [แก้ไขใหม่] เช็กเงื่อนไขให้ครอบคลุมคำว่า 'VARIABLE' ด้วย
                 if (ySiteFlag || admixtureFlag) {
-                    ySiteRes = (ySiteFlag === 'YES') ? mainResult : (ySiteFlag === 'NO' ? 'I' : null);
-                    admixtureRes = (admixtureFlag === 'YES') ? mainResult : (admixtureFlag === 'NO' ? 'I' : null);
+                    // ประมวลผล Y-Site
+                    if (ySiteFlag === 'YES') ySiteRes = mainResult || 'C';
+                    else if (ySiteFlag === 'NO') ySiteRes = 'I';
+                    else if (ySiteFlag === 'VARIABLE' || ySiteFlag === 'U') ySiteRes = 'U';
+                    else ySiteRes = null; // ปล่อยว่างถ้าไม่ได้ระบุ
+
+                    // ประมวลผล Admixture
+                    if (admixtureFlag === 'YES') admixtureRes = mainResult || 'C';
+                    else if (admixtureFlag === 'NO') admixtureRes = 'I';
+                    else if (admixtureFlag === 'VARIABLE' || admixtureFlag === 'U') admixtureRes = 'U';
+                    else admixtureRes = null; // ปล่อยว่างถ้าไม่ได้ระบุ
                 }
                 
                 return {
@@ -171,7 +181,6 @@
                     admixture_result: admixtureRes,
                     detail: details.length > 0 ? details.join('\n\n') : null,
                     reference: row['Ref']?.trim() || null,
-                    // 🌟 ดึงข้อมูลวันที่ดิบมาตรงๆ ไม่ผ่านการแปลงใดๆ
                     search_date: row['Update']?.trim() || null
                 };
             }).filter(r => {
