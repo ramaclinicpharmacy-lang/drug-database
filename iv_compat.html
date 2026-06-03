@@ -56,14 +56,14 @@
 
         /* Admin Modal CSS */
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; overflow-y: auto; padding: 20px; animation: fadeIn 0.2s ease; }
-        .modal-content { background: white; max-width: 800px; margin: auto; border-radius: 12px; padding: 25px; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .modal-content { background: white; max-width: 900px; margin: auto; border-radius: 12px; padding: 25px; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .close-btn { position: absolute; right: 20px; top: 20px; font-size: 1.5rem; cursor: pointer; color: gray; }
         .close-btn:hover { color: red; }
         .form-control { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-family: 'Sarabun'; font-size: 0.95rem; }
         .form-control:focus { border-color: var(--primary); outline: none; }
         .admin-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
         .admin-table th { background: #f1f5f9; padding: 10px; text-align: left; border-bottom: 2px solid #cbd5e1; }
-        .admin-table td { padding: 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+        .admin-table td { padding: 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
 
         /* Tabs CSS */
         .admin-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; }
@@ -209,7 +209,7 @@
                     </div>
                     <div>
                         <label style="font-weight:bold; font-size:0.85rem;">วันที่/ปี (Update Date)</label>
-                        <input type="text" id="admin-date" class="form-control" placeholder="เช่น May 2026">
+                        <input type="text" id="admin-date" class="form-control" placeholder="เช่น May 2026 หรือ 18/04/2026">
                     </div>
                 </div>
 
@@ -220,8 +220,19 @@
             </div>
 
             <div id="admin-list-section">
-                <div style="display:flex; gap:10px; margin-bottom:15px;">
-                    <input type="text" id="admin-search" class="form-control" placeholder="🔍 ค้นหาชื่อยาในคู่ (A หรือ B)..." onkeyup="fetchAdminList()">
+                <div style="display:flex; gap:10px; margin-bottom:15px; flex-wrap:wrap; align-items:center;">
+                    <input type="text" id="admin-search" class="form-control" style="flex:1; min-width:150px;" placeholder="🔍 ค้นหาชื่อยาในคู่..." onkeyup="fetchAdminList()">
+                    
+                    <label style="font-size:0.9rem; display:flex; align-items:center; gap:5px; background:white; padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer; white-space:nowrap;">
+                        <input type="checkbox" id="admin-filter-outdate" onchange="fetchAdminList()"> ⚠️ เกิน 1 ปี
+                    </label>
+
+                    <select id="admin-sort" class="form-control" style="width:auto; padding:8px;" onchange="fetchAdminList()">
+                        <option value="name">🔤 เรียงตามชื่อยา (A-Z)</option>
+                        <option value="date_desc">📅 อัปเดตล่าสุด -> เก่า</option>
+                        <option value="date_asc">📅 อัปเดตเก่าสุด -> ใหม่</option>
+                    </select>
+
                     <button class="btn btn-primary" onclick="openAdminForm()">➕ เพิ่มคู่ยา</button>
                 </div>
                 <div style="max-height: 400px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px;">
@@ -242,7 +253,32 @@
     let ivAliasDict = [];
     let ivSelectedDrugs = []; 
     let pendingIvSelection = null;
-    let allDrugNames = []; // เก็บรายชื่อยาหลักทั้งหมดไว้ใช้ทำ Dropdown ในหน้า Admin
+    let allDrugNames = []; 
+
+    // 🌟 ฟังก์ชันช่วยประมวลผลวันที่ (รองรับรูปแบบ d/m/yyyy, dd/mm/yyyy, yyyy-mm-dd)
+    function parseDateStrict(dateStr) {
+        if (!dateStr) return 0;
+        let str = String(dateStr).trim();
+        if (!str) return 0;
+        
+        if (str.includes('/')) {
+            const parts = str.split('/');
+            if (parts.length === 3) {
+                const day = parseInt(parts, 10);
+                const month = parseInt(parts, 10) - 1; 
+                const year = parseInt(parts, 10);
+                return new Date(year, month, day).getTime();
+            }
+        }
+        
+        if (str.includes('-')) {
+            const d = new Date(str);
+            if (!isNaN(d.getTime())) return d.getTime();
+        }
+        
+        const d = new Date(str);
+        return isNaN(d.getTime()) ? 0 : d.getTime();
+    }
 
     async function fetchAllWithPagination(tableName, selectQuery) {
         let allData = [];
@@ -298,7 +334,6 @@
         document.getElementById('iv-search-input').placeholder = "พิมพ์ชื่อยา หรือ ชื่อพ้อง...";
         document.getElementById('iv-search-input').disabled = false;
         
-        // อัปเดต Dropdown กรณีเปิด Admin Modal ค้างไว้
         prepareIvAdminDropdowns();
     }
 
@@ -373,26 +408,25 @@
 
     function renderIvSelectedList() {
         const container = document.getElementById('iv-selected-drugs');
-        const clearBtn = document.getElementById('btn-clear-all-iv'); // 🌟 ดึงปุ่มล้างมาสั่งงาน
+        const clearBtn = document.getElementById('btn-clear-all-iv');
         
         if (ivSelectedDrugs.length === 0) {
             container.innerHTML = '<span style="color:#94a3b8; font-style:italic;">(ยังไม่ได้เลือกยา โปรดค้นหาและเพิ่มยาด้านบน)</span>';
-            if (clearBtn) clearBtn.style.display = 'none'; // ซ่อนปุ่มถ้าไม่มียา
+            if (clearBtn) clearBtn.style.display = 'none';
             return;
         }
         
-        if (clearBtn) clearBtn.style.display = 'block'; // แสดงปุ่มถ้ามียาในตาราง
+        if (clearBtn) clearBtn.style.display = 'block';
         container.innerHTML = ivSelectedDrugs.map((d, idx) => `
             <div class="drug-chip">💊 ${d.name} <span class="remove" onclick="removeDrug(${idx})">✖</span></div>
         `).join('');
     }
 
-    // 🌟 ฟังก์ชันล้างรายชื่อยาทั้งหมดที่เพิ่มเข้ามาใหม่
     function clearAllIvSelected() {
         if (confirm("ต้องการล้างรายชื่อยาในรายการวิเคราะห์ทั้งหมดใช่หรือไม่?")) {
             ivSelectedDrugs = [];
             renderIvSelectedList();
-            document.getElementById('iv-result-section').style.display = 'none'; // ซ่อนส่วนผลลัพธ์เก่าด้วย
+            document.getElementById('iv-result-section').style.display = 'none';
         }
     }
 
@@ -412,14 +446,12 @@
 
         const codes = ivSelectedDrugs.map(d => d.code);
         
-        // 🌟 จุดที่เพิ่มเข้ามาใหม่: บันทึก Log รายชื่อยาที่ค้นหาลงฐานข้อมูล (ทำงานเบื้องหลัง ไม่บล็อก UI หลัก)
         supabaseClient.from('iv_search_logs').insert([
             { search_drugs: codes }
         ]).then(({ error }) => { 
             if (error) console.error("🔒 ไม่สามารถบันทึกสถิติการใช้งานได้:", error.message); 
         });
 
-        // 🔍 ดึงข้อมูลคู่ยาเพื่อนำไปคำนวณต่อ (โค้ดเดิม)
         const { data, error } = await supabaseClient.from('iv_compatibility').select('*').in('drug_a', codes).in('drug_b', codes);
 
         btn.innerText = "🧠 วิเคราะห์และจัดกลุ่มสายยาอัตโนมัติ (AI Line Optimizer)";
@@ -522,7 +554,7 @@
 
     function openAdminModal() {
         document.getElementById('admin-modal').style.display = 'block';
-        switchAdminTab('drugs'); // เปิดมาแท็บแรกเสมอ
+        switchAdminTab('drugs');
     }
 
     function closeAdminModal() {
@@ -531,9 +563,6 @@
         closeAdminDrugForm();
     }
 
-    // ==========================================
-    // 💊 ADMIN: DRUGS & ALIASES (TAB 1)
-    // ==========================================
     function openAdminDrugForm(name = null, aliases = null) {
         document.getElementById('admin-drug-form-section').style.display = 'block';
         document.getElementById('admin-drug-list-section').style.display = 'none';
@@ -545,7 +574,7 @@
             document.getElementById('admin-drug-form-title').innerHTML = '✏️ แก้ไขชื่อพ้อง (Alias)';
             document.getElementById('admin-drug-is-edit').value = 'true';
             nameInput.value = name;
-            nameInput.disabled = true; // ล็อกไม่ให้แก้ Primary Key
+            nameInput.disabled = true;
             warning.style.display = 'block';
             document.getElementById('admin-drug-aliases-input').value = aliases || '';
         } else {
@@ -577,11 +606,9 @@
 
         let error;
         if (isEdit) {
-            // Update อัปเดตเฉพาะ aliases เพราะ drug_name เป็น PK
             const res = await supabaseClient.from('drug_for_iv_compat').update({ aliases: payload.aliases }).eq('drug_name', drugName);
             error = res.error;
         } else {
-            // Insert
             const res = await supabaseClient.from('drug_for_iv_compat').insert(payload);
             error = res.error;
         }
@@ -594,7 +621,7 @@
         alert(`✅ บันทึกชื่อยา ${drugName} สำเร็จ`);
         closeAdminDrugForm();
         fetchAdminDrugList();
-        init(); // รีเฟรชฐานข้อมูลโดยรวม
+        init();
     }
 
     async function fetchAdminDrugList() {
@@ -607,8 +634,6 @@
         if (q) {
             query = query.or(`drug_name.ilike.%${q}%,aliases.ilike.%${q}%`).limit(100);
         }
-        
-        // 🌟 ย้ายมาสั่งเรียงลำดับอักษรที่ท้ายสุด เพื่อให้ทำงานเสมอกันทุกกรณี
         query = query.order('drug_name', { ascending: true });
 
         const { data, error } = await query;
@@ -645,7 +670,7 @@
         if(confirm(`⚠️ คำเตือน: ยืนยันการลบยา "${drugName}" ใช่หรือไม่?\n\n* หากลบ คู่ยา (IV Pairs) ทั้งหมดที่มียานี้จะถูกลบตามไปด้วยโดยอัตโนมัติ!`)) {
             await supabaseClient.from('drug_for_iv_compat').delete().eq('drug_name', drugName);
             fetchAdminDrugList();
-            init(); // รีเฟรชฐานข้อมูลโดยรวม
+            init();
         }
     }
 
@@ -701,7 +726,6 @@
         if (!drugA || !drugB) return alert('กรุณาเลือกยาให้ครบทั้ง 2 ชนิด');
         if (drugA === drugB) return alert('ไม่สามารถจับคู่ยาชนิดเดียวกันได้');
 
-        // กฎเหล็ก: เรียงชื่อยาตามตัวอักษรเสมอ ป้องกันซ้ำ
         const finalA = drugA < drugB ? drugA : drugB;
         const finalB = drugA < drugB ? drugB : drugA;
 
@@ -732,48 +756,92 @@
         fetchAdminList();
     }
 
+    // 🌟 ระบบดึงและจัดการข้อมูล (Filter & Sort Date)
     async function fetchAdminList() {
         const container = document.getElementById('admin-table-container');
         const q = document.getElementById('admin-search').value.toLowerCase().trim();
+        const isOutdatedOnly = document.getElementById('admin-filter-outdate').checked;
+        const sortMode = document.getElementById('admin-sort').value;
         
         container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">กำลังโหลด...</div>';
 
         let query = supabaseClient.from('iv_compatibility').select('*');
 
         if (q) {
-            query = query.or(`drug_a.ilike.%${q}%,drug_b.ilike.%${q}%`).limit(100);
-        } else {
-            query = query.limit(100); // ปรับเพิ่มการแสดงผลหน้าแรกจาก 50 เป็น 100 รายการ
+            query = query.or(`drug_a.ilike.%${q}%,drug_b.ilike.%${q}%`);
         }
-
-        // 🌟 เปลี่ยนจากเรียงตามวันที่ (created_at) ให้มาเรียงตามชื่อยาตัวแรก และยาตัวที่สองแทน (Alphabetical Order)
-        query = query.order('drug_a', { ascending: true }).order('drug_b', { ascending: true });
+        
+        // เราดึงข้อมูลมาจำนวณมากเพื่อนำมาจัดเรียงในฝั่งบราวเซอร์
+        query = query.limit(2000); 
 
         const { data, error } = await query;
         if (error) return container.innerHTML = `<div style="color:red; padding:20px;">Error: ${error.message}</div>`;
-        if (!data || data.length === 0) return container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">ไม่พบข้อมูลคู่ยา</div>';
+        
+        let filteredData = data || [];
+        
+        // คำนวณเวลาย้อนหลัง 1 ปี 
+        const oneYearAgoTime = new Date();
+        oneYearAgoTime.setFullYear(oneYearAgoTime.getFullYear() - 1);
+        const threshold = oneYearAgoTime.getTime();
+
+        // 🌟 1. การกรองข้อมูล (Filter) เฉพาะอันที่เกิน 1 ปี
+        if (isOutdatedOnly) {
+            filteredData = filteredData.filter(item => {
+                const t = parseDateStrict(item.search_date);
+                return t > 0 && t < threshold; // ต้องมีวันที่ และเก่ากว่า 1 ปี
+            });
+        }
+
+        // 🌟 2. การเรียงลำดับ (Sorting)
+        filteredData.sort((a, b) => {
+            if (sortMode === 'name') {
+                if (a.drug_a === b.drug_a) return a.drug_b.localeCompare(b.drug_b);
+                return a.drug_a.localeCompare(b.drug_a);
+            } else {
+                const tA = parseDateStrict(a.search_date);
+                const tB = parseDateStrict(b.search_date);
+                if (sortMode === 'date_desc') return tB - tA; // ใหม่สุด -> เก่าสุด
+                if (sortMode === 'date_asc') return tA - tB;  // เก่าสุด -> ใหม่สุด
+            }
+            return 0;
+        });
+
+        if (filteredData.length === 0) {
+            return container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</div>';
+        }
 
         let html = `
         <table class="admin-table">
             <tr>
-                <th style="width:50%;">คู่ยา (Pair)</th>
-                <th style="width:15%; text-align:center;">Y-Site</th>
-                <th style="width:15%; text-align:center;">Admix</th>
-                <th style="width:20%; text-align:center;">จัดการ</th>
+                <th style="width:38%;">คู่ยา (Pair)</th>
+                <th style="width:10%; text-align:center;">Y-Site</th>
+                <th style="width:10%; text-align:center;">Admix</th>
+                <th style="width:25%; text-align:center;">วันที่อัปเดต</th>
+                <th style="width:17%; text-align:center;">จัดการ</th>
             </tr>`;
 
-        data.forEach(item => {
+        filteredData.forEach(item => {
             const statusY = item.y_site_result === 'C' ? '🟢 C' : (item.y_site_result === 'I' ? '🔴 I' : (item.y_site_result === 'U' ? '🟡 U' : '-'));
             const statusA = item.admixture_result === 'C' ? '🟢 C' : (item.admixture_result === 'I' ? '🔴 I' : (item.admixture_result === 'U' ? '🟡 U' : '-'));
             const safeObj = JSON.stringify(item).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
             
+            // ตรวจสอบ Outdated เพื่อแสดง Badge เตือน
+            const itemTime = parseDateStrict(item.search_date);
+            const isOld = itemTime > 0 && itemTime < threshold;
+            const dateDisplay = item.search_date ? encodeHTML(item.search_date) : '-';
+            const alertBadge = isOld ? `<br><span style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:bold; display:inline-block; margin-top:4px;">⚠️ เกิน 1 ปี</span>` : '';
+
             html += `
             <tr>
                 <td><b>${encodeHTML(item.drug_a)}</b> <br><span style="color:gray; font-size:0.8rem;">กับ</span> <b>${encodeHTML(item.drug_b)}</b></td>
-                <td style="text-align:center; font-weight:bold;">${statusY}</td>
-                <td style="text-align:center; font-weight:bold;">${statusA}</td>
-                <td style="text-align:center;">
-                    <button class="btn btn-sm" style="background:#f59e0b; color:white;" onclick='openAdminForm(${safeObj})'>✏️ แก้ไข</button>
+                <td style="text-align:center; font-weight:bold; vertical-align:middle;">${statusY}</td>
+                <td style="text-align:center; font-weight:bold; vertical-align:middle;">${statusA}</td>
+                <td style="text-align:center; font-size:0.85rem; color:#475569; vertical-align:middle;">
+                    ${dateDisplay}
+                    ${alertBadge}
+                </td>
+                <td style="text-align:center; vertical-align:middle;">
+                    <button class="btn btn-sm" style="background:#f59e0b; color:white; margin-bottom:5px;" onclick='openAdminForm(${safeObj})'>✏️ แก้ไข</button>
                     <button class="btn btn-sm" style="background:#ef4444; color:white;" onclick="deleteCompatData(${item.id})">🗑️ ลบ</button>
                 </td>
             </tr>`;
