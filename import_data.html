@@ -59,44 +59,6 @@
         return val.substring(0, 5); 
     }
 
-    // 🌟 ฟังก์ชันสำหรับแปลงและจัดรูปแบบวันที่ให้เป็น DD/MM/YYYY เสมอก่อนนำเข้า Database
-    function standardizeDate(dateStr) {
-        if (!dateStr) return null;
-        let str = String(dateStr).trim();
-        if (!str) return null;
-
-        let d;
-        // 1. กรณีเป็น YYYY-MM-DD
-        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
-            d = new Date(str);
-        } 
-        // 2. กรณีเป็น DD/MM/YYYY หรือ D/M/YYYY
-        else if (str.includes('/')) {
-            const parts = str.split('/');
-            if (parts.length === 3) {
-                // แปลงเป็น YYYY-MM-DD เพื่อให้ JavaScript รับรู้ได้อย่างถูกต้อง
-                d = new Date(`${parts}-${parts}-${parts}`);
-            } else {
-                d = new Date(str);
-            }
-        } 
-        // 3. รูปแบบอื่นๆ
-        else {
-            d = new Date(str);
-        }
-
-        // หากแปลงเป็นวันที่สำเร็จ ให้คืนค่าในรูปแบบ DD/MM/YYYY แบบบังคับ 2 หลัก
-        if (d instanceof Date && !isNaN(d.getTime())) {
-            const day = String(d.getDate()).padStart(2, '0');
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const year = d.getFullYear();
-            return `${day}/${month}/${year}`;
-        }
-        
-        // หากอ่านเป็นวันที่ไม่ได้จริงๆ ให้เก็บข้อความเดิมที่พิมพ์มาไว้กันข้อมูลหาย
-        return str;
-    }
-
     function parseCSV(file) {
         return new Promise((resolve, reject) => {
             if (typeof Papa === 'undefined') return reject(new Error("โหลดตัวอ่าน CSV (PapaParse) ไม่สำเร็จ กรุณาเช็กอินเทอร์เน็ต"));
@@ -111,7 +73,6 @@
 
     async function startImport() {
         try {
-            // 🌟 เช็กการเชื่อมต่อไฟล์อย่างรัดกุม
             const inputAlias = document.getElementById('file-alias');
             const inputCompat = document.getElementById('file-compat');
 
@@ -128,13 +89,11 @@
                 return;
             }
 
-            // 🌟 ตั้งค่า UI ระหว่างโหลด
             const btn = document.getElementById('btn-import');
             btn.disabled = true;
             btn.innerText = "⏳ กำลังทำงาน ห้ามปิดหน้าจอนี้...";
             document.getElementById('log').innerHTML = '';
 
-            // 🌟 เช็กการเชื่อมต่อ Supabase
             if (typeof window.supabase === 'undefined') {
                 throw new Error("ไม่สามารถเชื่อมต่อฐานข้อมูลได้ (ระบบเครือข่ายอาจบล็อก Supabase CDN)");
             }
@@ -180,7 +139,6 @@
             logMessage("📂 กำลังอ่านไฟล์ Compat.csv...");
             const compatData = await parseCSV(fileCompat);
 
-            // 🌟 1. เปลี่ยนเป็น Map เพื่อจำ "หน้าตาตัวพิมพ์เล็ก-ใหญ่ที่ถูกต้อง 100%" จากตารางแม่
             const validDrugsMap = new Map();
             aliasPayload.forEach(d => {
                 if (d.drug_name) {
@@ -190,7 +148,7 @@
 
             const compatPayload = compatData.map(row => {
                 let details = [];
-                // เพิ่มการดึงข้อมูลจากคอลัมน์ใหม่ (Note, LOE, Confirm data)
+                // รวบรวมข้อมูลดีเทล คอลัมน์เก่า + คอลัมน์ใหม่
                 if (row['Conc Rate Stability Protect from light']) details.push('🧪 ' + row['Conc Rate Stability Protect from light'].trim());
                 if (row['Irritant Vesicant and other detail']) details.push('⚠️ ' + row['Irritant Vesicant and other detail'].trim());
                 if (row['Note']) details.push('📝 Note: ' + row['Note'].trim());
@@ -199,10 +157,10 @@
 
                 // ประมวลผลลัพธ์หลัก
                 const mainResult = mapResultCode(row['compatibility_result']);
-                let ySiteRes = mainResult; // ให้ Y-site ใช้ผลหลักเป็นค่าเริ่มต้น
+                let ySiteRes = mainResult; // ค่าเริ่มต้นเหมือนเดิม
                 let admixtureRes = null;
 
-                // อัปเดตตรรกะใหม่ หากมีการระบุ Y-site หรือ Admixture แบบเจาะจง (YES/NO) ในแถว
+                // อัปเดตตรรกะใหม่ หากมีการระบุ Y-site หรือ Admixture แบบเจาะจงในแถว
                 const ySiteFlag = row['Y-site'] ? row['Y-site'].trim().toUpperCase() : '';
                 const admixtureFlag = row['Admixture'] ? row['Admixture'].trim().toUpperCase() : '';
 
@@ -214,14 +172,13 @@
                 return {
                     drug_a: row['Drug1 & Synonym']?.trim(),
                     drug_b: row['Drug2 & Synonym']?.trim(),
-                    y_site_result: ySiteRes,            
-                    admixture_result: admixtureRes,     
+                    y_site_result: ySiteRes,
+                    admixture_result: admixtureRes,
                     detail: details.length > 0 ? details.join('\n\n') : null,
                     reference: row['Ref']?.trim() || null,
-                    search_date: standardizeDate(row['Update']) // 🌟 เรียกใช้ฟังก์ชันแปลงวันที่ตรงนี้
+                    search_date: row['Update']?.trim() || null
                 };
-            }).filter(r => { 
-
+            }).filter(r => {
                 if (!r.drug_a || !r.drug_b) return false;
                 const excludeList = ['NSS', 'D5W'];
                 const aName = r.drug_a.toUpperCase();
@@ -229,20 +186,18 @@
                 
                 if (excludeList.includes(aName) || excludeList.includes(bName)) return false; 
                 
-                // 🌟 ตรวจสอบและดึงค่าการสะกดตัวพิมพ์ที่ถูกต้องจากตารางแม่
                 const correctCaseA = validDrugsMap.get(aName);
                 const correctCaseB = validDrugsMap.get(bName);
 
                 if (!correctCaseA) {
-                    logMessage(`⚠️ ข้ามคู่ยา: ไม่พบยาต้นทาง "${r.drug_a}" ในตารางยาหลัก (กรุณาเพิ่มในไฟล์ที่ 1)`);
+                    logMessage(`⚠️ ข้ามคู่ยา: ไม่พบยาต้นทาง "${r.drug_a}" ในตารางยาหลัก`);
                     return false;
                 }
                 if (!correctCaseB) {
-                    logMessage(`⚠️ ข้ามคู่ยา: ไม่พบยาปลายทาง "${r.drug_b}" ในตารางยาหลัก (กรุณาเพิ่มในไฟล์ที่ 1)`);
+                    logMessage(`⚠️ ข้ามคู่ยา: ไม่พบยาปลายทาง "${r.drug_b}" ในตารางยาหลัก`);
                     return false;
                 }
 
-                // บังคับเปลี่ยนชื่อยาให้ตรงตามตัวพิมพ์เล็ก-ใหญ่ของตารางแม่เป๊ะๆ
                 r.drug_a = correctCaseA;
                 r.drug_b = correctCaseB;
 
@@ -256,7 +211,6 @@
                 const { error } = await supabase.from('iv_compatibility').insert(chunk);
                 
                 if (error) {
-                    // ถ้ายิงแบบกลุ่ม 100 แถวไม่ผ่าน ให้เปลี่ยนมายิงทีละแถวเพื่อหาตัวที่มีปัญหา
                     logMessage(`⚠️ ชุดคู่ยาที่ ${i + 1}-${i + chunk.length} มีปัญหา กำลังตรวจสอบแยกทีละคู่...`);
                     for (const item of chunk) {
                         const { error: itemErr } = await supabase.from('iv_compatibility').insert([item]);
