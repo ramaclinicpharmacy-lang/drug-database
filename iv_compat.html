@@ -221,13 +221,13 @@
 
             <div id="admin-list-section">
                 <div style="display:flex; gap:10px; margin-bottom:15px; flex-wrap:wrap; align-items:center;">
-                    <input type="text" id="admin-search" class="form-control" style="flex:1; min-width:150px;" placeholder="🔍 ค้นหาชื่อยาในคู่..." onkeyup="fetchAdminList()">
+                    <input type="text" id="admin-search" class="form-control" style="flex:1; min-width:150px;" placeholder="🔍 ค้นหาชื่อยาในคู่..." onkeyup="fetchAdminList(1)">
                     
                     <label style="font-size:0.9rem; display:flex; align-items:center; gap:5px; background:white; padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer; white-space:nowrap;">
-                        <input type="checkbox" id="admin-filter-outdate" onchange="fetchAdminList()"> ⚠️ เกิน 1 ปี
+                        <input type="checkbox" id="admin-filter-outdate" onchange="fetchAdminList(1)"> ⚠️ เกิน 1 ปี
                     </label>
-
-                    <select id="admin-sort" class="form-control" style="width:auto; padding:8px;" onchange="fetchAdminList()">
+                    
+                    <select id="admin-sort" class="form-control" style="width:auto; padding:8px;" onchange="fetchAdminList(1)">
                         <option value="name">🔤 เรียงตามชื่อยา (A-Z)</option>
                         <option value="date_desc">📅 อัปเดตล่าสุด -> เก่า</option>
                         <option value="date_asc">📅 อัปเดตเก่าสุด -> ใหม่</option>
@@ -753,46 +753,52 @@
         
         alert(`✅ บันทึกคู่ ${finalA} - ${finalB} สำเร็จ`);
         closeAdminForm();
-        fetchAdminList();
+        fetchAdminList(1, true);
     }
 
     // 🌟 ระบบดึงและจัดการข้อมูล (Filter & Sort Date)
-    async function fetchAdminList() {
+    // 🌟 ตัวแปรสำหรับระบบ Pagination
+    let allAdminPairsCache = null; 
+    let currentAdminPage = 1;
+    const itemsPerPage = 100;
+
+    async function fetchAdminList(page = 1, forceRefresh = false) {
+        currentAdminPage = page;
         const container = document.getElementById('admin-table-container');
+        
+        // 1. โหลดข้อมูลทั้งหมดมาเก็บใน Cache (ทำแค่ครั้งแรก หรือเมื่อสั่ง Refresh)
+        if (!allAdminPairsCache || forceRefresh) {
+            container.innerHTML = '<div style="padding:40px; text-align:center; color:gray;">⏳ กำลังโหลดข้อมูลคู่ยาทั้งหมด...<br><small>(อาจใช้เวลาสักครู่)</small></div>';
+            // ใช้ fetchAllWithPagination ดึงข้อมูลทั้งหมด ก้าวข้ามขีดจำกัดของ Supabase
+            allAdminPairsCache = await fetchAllWithPagination('iv_compatibility', '*');
+        }
+
         const q = document.getElementById('admin-search').value.toLowerCase().trim();
         const isOutdatedOnly = document.getElementById('admin-filter-outdate').checked;
         const sortMode = document.getElementById('admin-sort').value;
         
-        container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">กำลังโหลด...</div>';
-
-        let query = supabaseClient.from('iv_compatibility').select('*');
+        // 2. กรองข้อมูลจาก Cache ฝั่ง Client (เร็วมาก ไม่ต้องรอ Server)
+        let filteredData = allAdminPairsCache;
 
         if (q) {
-            query = query.or(`drug_a.ilike.%${q}%,drug_b.ilike.%${q}%`);
+            filteredData = filteredData.filter(item => 
+                (item.drug_a && item.drug_a.toLowerCase().includes(q)) || 
+                (item.drug_b && item.drug_b.toLowerCase().includes(q))
+            );
         }
-        
-        // เราดึงข้อมูลมาจำนวณมากเพื่อนำมาจัดเรียงในฝั่งบราวเซอร์
-        query = query.limit(2000); 
 
-        const { data, error } = await query;
-        if (error) return container.innerHTML = `<div style="color:red; padding:20px;">Error: ${error.message}</div>`;
-        
-        let filteredData = data || [];
-        
-        // คำนวณเวลาย้อนหลัง 1 ปี 
         const oneYearAgoTime = new Date();
         oneYearAgoTime.setFullYear(oneYearAgoTime.getFullYear() - 1);
         const threshold = oneYearAgoTime.getTime();
 
-        // 🌟 1. การกรองข้อมูล (Filter) เฉพาะอันที่เกิน 1 ปี
         if (isOutdatedOnly) {
             filteredData = filteredData.filter(item => {
                 const t = parseDateStrict(item.search_date);
-                return t > 0 && t < threshold; // ต้องมีวันที่ และเก่ากว่า 1 ปี
+                return t > 0 && t < threshold;
             });
         }
 
-        // 🌟 2. การเรียงลำดับ (Sorting)
+        // 3. จัดเรียงข้อมูล
         filteredData.sort((a, b) => {
             if (sortMode === 'name') {
                 if (a.drug_a === b.drug_a) return a.drug_b.localeCompare(b.drug_b);
@@ -806,10 +812,21 @@
             return 0;
         });
 
-        if (filteredData.length === 0) {
+        // 4. ตัดแบ่งข้อมูลให้เหลือหน้าละ 100 แถว (Pagination)
+        const totalItems = filteredData.length;
+        const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+        
+        if (currentAdminPage > totalPages) currentAdminPage = totalPages;
+        if (currentAdminPage < 1) currentAdminPage = 1;
+
+        const startIndex = (currentAdminPage - 1) * itemsPerPage;
+        const paginatedData = filteredData.slice(startIndex, startIndex + itemsPerPage);
+
+        if (paginatedData.length === 0) {
             return container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</div>';
         }
 
+        // 5. สร้าง HTML ตารางตามปกติ
         let html = `
         <table class="admin-table">
             <tr>
@@ -820,12 +837,11 @@
                 <th style="width:17%; text-align:center;">จัดการ</th>
             </tr>`;
 
-        filteredData.forEach(item => {
+        paginatedData.forEach(item => {
             const statusY = item.y_site_result === 'C' ? '🟢 C' : (item.y_site_result === 'I' ? '🔴 I' : (item.y_site_result === 'U' ? '🟡 U' : '-'));
             const statusA = item.admixture_result === 'C' ? '🟢 C' : (item.admixture_result === 'I' ? '🔴 I' : (item.admixture_result === 'U' ? '🟡 U' : '-'));
             const safeObj = JSON.stringify(item).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
             
-            // ตรวจสอบ Outdated เพื่อแสดง Badge เตือน
             const itemTime = parseDateStrict(item.search_date);
             const isOld = itemTime > 0 && itemTime < threshold;
             const dateDisplay = item.search_date ? encodeHTML(item.search_date) : '-';
@@ -848,13 +864,25 @@
         });
         
         html += `</table>`;
-        container.innerHTML = html;
+
+        // 6. สร้าง HTML ปุ่มเปลี่ยนหน้า
+        const paginationHtml = `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding: 15px; background: #f8fafc; border-top: 1px solid #e2e8f0; position: sticky; bottom: 0;">
+            <span style="font-size:0.9rem; color:#64748b;">แสดง ${startIndex + 1} - ${Math.min(startIndex + itemsPerPage, totalItems)} จากทั้งหมด <b>${totalItems}</b> รายการ</span>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button class="btn btn-outline btn-sm" ${currentAdminPage === 1 ? 'disabled' : ''} onclick="fetchAdminList(${currentAdminPage - 1})">⬅️ ก่อนหน้า</button>
+                <span style="padding: 0 10px; font-weight:bold; font-size:0.95rem; color:var(--primary);">หน้า ${currentAdminPage} / ${totalPages}</span>
+                <button class="btn btn-outline btn-sm" ${currentAdminPage === totalPages ? 'disabled' : ''} onclick="fetchAdminList(${currentAdminPage + 1})">ถัดไป ➡️</button>
+            </div>
+        </div>`;
+
+        container.innerHTML = html + paginationHtml;
     }
 
     async function deleteCompatData(id) {
         if(confirm("❗ ยืนยันการลบคู่ยานี้ออกจากระบบอย่างถาวร?")) {
             await supabaseClient.from('iv_compatibility').delete().eq('id', id);
-            fetchAdminList();
+            fetchAdminList(currentAdminPage, true);
         }
     }
 
