@@ -151,7 +151,7 @@
 
             <div id="admin-drug-list-section">
                 <div style="display:flex; gap:10px; margin-bottom:15px;">
-                    <input type="text" id="admin-drug-search" class="form-control" placeholder="🔍 ค้นหาชื่อยา หรือ Alias..." onkeyup="fetchAdminDrugList()">
+                    <input type="text" id="admin-drug-search" class="form-control" placeholder="🔍 ค้นหาชื่อยา หรือ Alias..." onkeyup="fetchAdminDrugList(1)">
                     <button class="btn btn-success" onclick="openAdminDrugForm()">➕ เพิ่มยาใหม่</button>
                 </div>
                 <div style="max-height: 400px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px;">
@@ -620,26 +620,54 @@
         
         alert(`✅ บันทึกชื่อยา ${drugName} สำเร็จ`);
         closeAdminDrugForm();
-        fetchAdminDrugList();
+        fetchAdminDrugList(1, true);
         init();
     }
 
-    async function fetchAdminDrugList() {
+    // 🌟 ตัวแปรสำหรับระบบ Pagination (หน้าจัดการยา)
+    let allAdminDrugsCache = null; 
+    let currentAdminDrugPage = 1;
+    const drugItemsPerPage = 100;
+
+    async function fetchAdminDrugList(page = 1, forceRefresh = false) {
+        currentAdminDrugPage = page;
         const container = document.getElementById('admin-drug-table-container');
         const q = document.getElementById('admin-drug-search').value.toLowerCase().trim();
         
-        container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">กำลังโหลด...</div>';
-
-        let query = supabaseClient.from('drug_for_iv_compat').select('*');
-        if (q) {
-            query = query.or(`drug_name.ilike.%${q}%,aliases.ilike.%${q}%`).limit(100);
+        // 1. โหลดข้อมูลทั้งหมดมาเก็บใน Cache
+        if (!allAdminDrugsCache || forceRefresh) {
+            container.innerHTML = '<div style="padding:40px; text-align:center; color:gray;">⏳ กำลังโหลดข้อมูลรายชื่อยาทั้งหมด...</div>';
+            allAdminDrugsCache = await fetchAllWithPagination('drug_for_iv_compat', '*');
         }
-        query = query.order('drug_name', { ascending: true });
 
-        const { data, error } = await query;
-        if (error) return container.innerHTML = `<div style="color:red; padding:20px;">Error: ${error.message}</div>`;
-        if (!data || data.length === 0) return container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">ไม่พบรายชื่อยา</div>';
+        // 2. กรองข้อมูลจาก Cache ฝั่ง Client
+        let filteredData = allAdminDrugsCache;
 
+        if (q) {
+            filteredData = filteredData.filter(item => 
+                (item.drug_name && item.drug_name.toLowerCase().includes(q)) || 
+                (item.aliases && item.aliases.toLowerCase().includes(q))
+            );
+        }
+
+        // จัดเรียงตามชื่อยา (A-Z) เสมอ
+        filteredData.sort((a, b) => a.drug_name.localeCompare(b.drug_name));
+
+        // 3. ตัดแบ่งข้อมูลให้เหลือหน้าละ 100 แถว (Pagination)
+        const totalItems = filteredData.length;
+        const totalPages = Math.ceil(totalItems / drugItemsPerPage) || 1;
+        
+        if (currentAdminDrugPage > totalPages) currentAdminDrugPage = totalPages;
+        if (currentAdminDrugPage < 1) currentAdminDrugPage = 1;
+
+        const startIndex = (currentAdminDrugPage - 1) * drugItemsPerPage;
+        const paginatedData = filteredData.slice(startIndex, startIndex + drugItemsPerPage);
+
+        if (paginatedData.length === 0) {
+            return container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">ไม่พบรายชื่อยาที่ค้นหา</div>';
+        }
+
+        // 4. สร้าง HTML ตาราง
         let html = `
         <table class="admin-table">
             <tr>
@@ -648,7 +676,7 @@
                 <th style="width:20%; text-align:center;">จัดการ</th>
             </tr>`;
 
-        data.forEach(item => {
+        paginatedData.forEach(item => {
             const safeName = encodeHTML(item.drug_name);
             const safeAliases = encodeHTML(item.aliases || '');
             html += `
@@ -663,13 +691,25 @@
         });
         
         html += `</table>`;
-        container.innerHTML = html;
+
+        // 5. สร้าง HTML ปุ่มเปลี่ยนหน้า
+        const paginationHtml = `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding: 15px; background: #f8fafc; border-top: 1px solid #e2e8f0; position: sticky; bottom: 0;">
+            <span style="font-size:0.9rem; color:#64748b;">แสดง ${startIndex + 1} - ${Math.min(startIndex + drugItemsPerPage, totalItems)} จากทั้งหมด <b>${totalItems}</b> รายการ</span>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button class="btn btn-outline btn-sm" ${currentAdminDrugPage === 1 ? 'disabled' : ''} onclick="fetchAdminDrugList(${currentAdminDrugPage - 1})">⬅️ ก่อนหน้า</button>
+                <span style="padding: 0 10px; font-weight:bold; font-size:0.95rem; color:var(--success);">หน้า ${currentAdminDrugPage} / ${totalPages}</span>
+                <button class="btn btn-outline btn-sm" ${currentAdminDrugPage === totalPages ? 'disabled' : ''} onclick="fetchAdminDrugList(${currentAdminDrugPage + 1})">ถัดไป ➡️</button>
+            </div>
+        </div>`;
+
+        container.innerHTML = html + paginationHtml;
     }
 
     async function deleteAdminDrug(drugName) {
         if(confirm(`⚠️ คำเตือน: ยืนยันการลบยา "${drugName}" ใช่หรือไม่?\n\n* หากลบ คู่ยา (IV Pairs) ทั้งหมดที่มียานี้จะถูกลบตามไปด้วยโดยอัตโนมัติ!`)) {
             await supabaseClient.from('drug_for_iv_compat').delete().eq('drug_name', drugName);
-            fetchAdminDrugList();
+            fetchAdminDrugList(currentAdminDrugPage, true);
             init();
         }
     }
