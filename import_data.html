@@ -62,31 +62,31 @@
     function parseDateToISO(dateStr) {
         if (!dateStr) return null;
         
-        // 1. แปลงเป็นข้อความและตัดช่องว่าง
+        // 1. แปลงเป็นข้อความและตัดช่องว่างหัวท้าย
         const str = String(dateStr).trim();
         
-        // 2. ใช้ Regex ตรวจสอบรูปแบบ (วัน-เดือน-ปี)
-        const match = str.match(/^(\d{1,2})[-\/.,\s]+(\d{1,2})[-\/.,\s]+(\d{4})$/);
-        
-        // 3. ถ้าดึงข้อมูลได้สำเร็จ
-        if (match) {
-            let day = match;   // วัน
-            let month = match; // เดือน
-            let year = match;  // ปี
-            
-            // เติมเลข 0 ด้านหน้าด้วยวิธีดั้งเดิม (หลีกเลี่ยงการใช้ padStart)
-            if (day.length === 1) {
-                day = "0" + day;
-            }
-            if (month.length === 1) {
-                month = "0" + month;
-            }
-            
-            // ประกอบกลับเป็น YYYY-MM-DD
-            return `${year}-${month}-${day}`;
+        // ตัวช่วย: ถ้าในอนาคตข้อมูลเป็นรูปแบบ YYYY-MM-DD อยู่แล้ว ให้ส่งกลับได้เลย
+        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+            return str;
         }
         
-        return null;
+        let formattedDate = null;
+        
+        // 2. ใช้คำสั่ง replace ร่วมกับฟังก์ชันดึง วัน (d), เดือน (m), ปี (y) ออกมาโดยตรง 
+        // (วิธีนี้ไม่ต้องใช้เครื่องหมาย [ ] ป้องกันปัญหาโค้ดตกหล่นได้ 100%)
+        str.replace(/^(\d{1,2})[-\/.,\s]+(\d{1,2})[-\/.,\s]+(\d{4})$/, function(match, d, m, y) {
+            // เติมเลข 0 ข้างหน้าถ้ามีหลักเดียว
+            if (d.length === 1) {
+                d = "0" + d;
+            }
+            if (m.length === 1) {
+                m = "0" + m;
+            }
+            // ประกอบเป็นรูปแบบ YYYY-MM-DD ตามที่ฐานข้อมูลต้องการ
+            formattedDate = y + "-" + m + "-" + d;
+        });
+        
+        return formattedDate;
     }
 
     function parseCSV(file) {
