@@ -250,9 +250,18 @@
             </div>
         </div>
         <div id="tab-stats" style="display:none;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                <h3 style="margin:0; color:var(--primary);">📈 50 อันดับคู่ยาที่ถูกค้นหาบ่อยที่สุด</h3>
-                <button class="btn btn-outline" style="border-color:var(--primary); color:var(--primary);" onclick="fetchSearchStats()">🔄 รีเฟรชข้อมูล</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
+                <h3 style="margin:0; color:var(--primary);">📈 50 อันดับคู่ยาที่ค้นหาบ่อย</h3>
+                
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <select id="admin-stats-filter" class="form-control" style="width:auto; padding:8px;" onchange="fetchSearchStats()">
+                        <option value="all">📅 ตลอดกาล (All Time)</option>
+                        <option value="30">📅 30 วันย้อนหลัง</option>
+                        <option value="90">📅 90 วันย้อนหลัง</option>
+                        <option value="365">📅 1 ปีที่ผ่านมา</option>
+                    </select>
+                    <button class="btn btn-outline" style="border-color:var(--primary); color:var(--primary);" onclick="fetchSearchStats()">🔄 รีเฟรช</button>
+                </div>
             </div>
             <div style="max-height: 550px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px;">
                 <div id="admin-stats-container">
@@ -962,27 +971,45 @@ const statusA = item.admixture_result === 'C' ? '🟢 C' : (item.admixture_resul
         const container = document.getElementById('admin-stats-container');
         container.innerHTML = '<div style="padding:40px; text-align:center; color:gray;">⏳ กำลังประมวลผลข้อมูลสถิติ...</div>';
 
-        // 1. โหลดข้อมูลการค้นหาทั้งหมดจากฐานข้อมูล
-        const logs = await fetchAllWithPagination('iv_search_logs', 'search_drugs');
+        // 1. ดึงข้อมูล คอลัมน์ search_drugs และ created_at จากฐานข้อมูล
+        const logs = await fetchAllWithPagination('iv_search_logs', 'search_drugs, created_at');
 
         if (!logs || logs.length === 0) {
             return container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">ยังไม่มีข้อมูลการค้นหาในระบบ</div>';
         }
 
+        // 2. กรองข้อมูลตามช่วงวันที่เลือก
+        const filterDays = document.getElementById('admin-stats-filter').value;
+        let filteredLogs = logs;
+
+        if (filterDays !== 'all') {
+            const limitTime = new Date();
+            limitTime.setDate(limitTime.getDate() - parseInt(filterDays));
+            const threshold = limitTime.getTime();
+
+            filteredLogs = logs.filter(log => {
+                // ถ้าไม่มีข้อมูลวันที่ ให้ถือว่าข้ามไป
+                if (!log.created_at) return false;
+                const logTime = new Date(log.created_at).getTime();
+                return logTime >= threshold;
+            });
+        }
+
+        if (filteredLogs.length === 0) {
+            return container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">ไม่มีข้อมูลการค้นหาในช่วงเวลาที่กำหนด</div>';
+        }
+
         const pairCounts = {};
         let validSearchesCount = 0;
 
-        // 2. คำนวณแจกแจงคู่ยาจาก Array
-        logs.forEach(log => {
+        // 3. คำนวณแจกแจงคู่ยาจากข้อมูลที่กรองแล้ว
+        filteredLogs.forEach(log => {
             const drugs = log.search_drugs;
-            // นับเฉพาะที่มีการค้นหายา 2 ตัวขึ้นไป
             if (Array.isArray(drugs) && drugs.length >= 2) {
                 validSearchesCount++;
                 
-                // สร้างคู่ประสมทั้งหมด (Combination)
                 for (let i = 0; i < drugs.length; i++) {
                     for (let j = i + 1; j < drugs.length; j++) {
-                        // เรียงตัวอักษรเพื่อไม่ให้ A-B สลับกับ B-A
                         const d1 = drugs[i] < drugs[j] ? drugs[i] : drugs[j];
                         const d2 = drugs[i] < drugs[j] ? drugs[j] : drugs[i];
                         const pairName = `${d1} <span style="color:#94a3b8;">&</span> ${d2}`;
@@ -994,17 +1021,17 @@ const statusA = item.admixture_result === 'C' ? '🟢 C' : (item.admixture_resul
             }
         });
 
-        // 3. จัดเรียงข้อมูลจากมากไปน้อย และดึงมาเฉพาะ Top 50
+        // 4. จัดเรียงข้อมูลจากมากไปน้อย (Top 50)
         const sortedPairs = Object.keys(pairCounts).map(key => ({
             pair: key,
             count: pairCounts[key]
         })).sort((a, b) => b.count - a.count).slice(0, 50);
 
         if (sortedPairs.length === 0) {
-            return container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">ยังไม่มีการค้นหาแบบเข้าคู่ยา</div>';
+            return container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">ไม่มีการค้นหาแบบเข้าคู่ในช่วงเวลานี้</div>';
         }
 
-        // 4. สร้างตารางแสดงผล
+        // 5. สร้างตารางแสดงผล
         let html = `
         <div style="padding: 12px 15px; background: #f0fdf4; color: #166534; border-bottom: 1px solid #cbd5e1; font-size: 0.95rem; position: sticky; top: 0; z-index: 10;">
             📊 จำนวนครั้งที่มีการวิเคราะห์เข้าสาย (2 ชนิดขึ้นไป) รวมทั้งหมด: <b>${validSearchesCount}</b> ครั้ง
@@ -1017,7 +1044,6 @@ const statusA = item.admixture_result === 'C' ? '🟢 C' : (item.admixture_resul
             </tr>`;
 
         sortedPairs.forEach((item, index) => {
-            // ทำไฮไลท์ 3 อันดับแรกด้วยสีพิเศษ
             let rankStyle = "color:gray;";
             let medal = "";
             if (index === 0) { rankStyle = "color:#d97706; font-size:1.2rem;"; medal = "🥇"; }
