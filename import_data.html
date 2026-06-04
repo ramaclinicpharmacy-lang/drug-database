@@ -59,6 +59,24 @@
         return val.substring(0, 5); 
     }
 
+    function parseDateToISO(dateStr) {
+        if (!dateStr) return null;
+        
+        // ลบช่องว่างและแยกข้อความด้วย - หรือ /
+        const parts = dateStr.trim().split(/[-/]/); 
+        
+        // ตรวจสอบว่าแยกได้ 3 ส่วน (วัน, เดือน, ปี) หรือไม่
+        if (parts.length === 3) {
+            const day = parts.padStart(2, '0');   // เติม 0 ข้างหน้าถ้าเป็นเลขตัวเดียว
+            const month = parts.padStart(2, '0'); // เติม 0 ข้างหน้าถ้าเป็นเลขตัวเดียว
+            const year = parts;
+            
+            // ประกอบกลับเป็น YYYY-MM-DD
+            return `${year}-${month}-${day}`;
+        }
+        return null;
+    }
+
     function parseCSV(file) {
         return new Promise((resolve, reject) => {
             if (typeof Papa === 'undefined') return reject(new Error("โหลดตัวอ่าน CSV (PapaParse) ไม่สำเร็จ กรุณาเช็กอินเทอร์เน็ต"));
@@ -181,7 +199,7 @@
                     admixture_result: admixtureRes,
                     detail: details.length > 0 ? details.join('\n\n') : null,
                     reference: row['Ref']?.trim() || null,
-                    search_date: row['Update']?.trim() || null
+                    search_date: parseDateToISO(row['Update'])
                 };
             }).filter(r => {
                 if (!r.drug_a || !r.drug_b) return false;
