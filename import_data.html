@@ -62,20 +62,29 @@
     function parseDateToISO(dateStr) {
         if (!dateStr) return null;
         
-        // แปลงข้อมูลให้เป็น String แน่ๆ ก่อนเสมอ แล้วตัดช่องว่างทิ้ง
+        // 1. แปลงเป็น String แน่ๆ และตัดช่องว่างซ้ายขวา
         const str = String(dateStr).trim();
-        const parts = str.split(/[-/]/); 
         
-        // ตรวจสอบว่าแยกได้ 3 ส่วน (วัน, เดือน, ปี) หรือไม่
+        // 2. แยกข้อความ รองรับทั้งเครื่องหมาย -, /, ., ,, หรือช่องว่าง
+        const parts = str.split(/[-\/.,\s]+/); 
+        
+        // 3. ถ้าแยกออกมาได้ 3 ชิ้น (วัน, เดือน, ปี) ให้ทำการจัดเรียงใหม่
         if (parts.length === 3) {
-            // ✅ ต้องมี,, และครอบ String() เพื่อให้เรียกใช้ .padStart() ได้ชัวร์ๆ
-            const day = String(parts).trim().padStart(2, '0');   
-            const month = String(parts).trim().padStart(2, '0'); 
-            const year = String(parts).trim();
+            // ดึงข้อมูลแต่ละส่วนออกมาให้ชัดเจน
+            const dayPart = parts;
+            const monthPart = parts;
+            const yearPart = parts;
+            
+            // เติม 0 ด้านหน้าถ้าเป็นเลขหลักเดียว
+            const day = String(dayPart).padStart(2, '0');   
+            const month = String(monthPart).padStart(2, '0'); 
+            const year = String(yearPart);
             
             // ประกอบกลับเป็น YYYY-MM-DD
             return `${year}-${month}-${day}`;
         }
+        
+        // หากรูปแบบไม่ใช่ 3 ชิ้น ให้คืนค่าว่างเพื่อไม่ให้ Supabase Error
         return null;
     }
 
