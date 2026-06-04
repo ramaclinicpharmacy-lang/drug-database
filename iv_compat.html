@@ -62,7 +62,15 @@
         .form-control { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-family: 'Sarabun'; font-size: 0.95rem; }
         .form-control:focus { border-color: var(--primary); outline: none; }
         .admin-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-        .admin-table th { background: #f1f5f9; padding: 10px; text-align: left; border-bottom: 2px solid #cbd5e1; }
+        .admin-table th { 
+            background: #f1f5f9; 
+            padding: 10px; 
+            text-align: left; 
+            border-bottom: 2px solid #cbd5e1; 
+            position: sticky; 
+            top: 0; 
+            z-index: 10; 
+        }
         .admin-table td { padding: 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
 
         /* Tabs CSS */
@@ -154,7 +162,7 @@
                     <input type="text" id="admin-drug-search" class="form-control" placeholder="🔍 ค้นหาชื่อยา หรือ Alias..." onkeyup="fetchAdminDrugList(1)">
                     <button class="btn btn-success" onclick="openAdminDrugForm()">➕ เพิ่มยาใหม่</button>
                 </div>
-                <div style="max-height: 400px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px;">
+                <div style="max-height: 550px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px;">
                     <div id="admin-drug-table-container"></div>
                 </div>
             </div>
@@ -235,7 +243,7 @@
 
                     <button class="btn btn-primary" onclick="openAdminForm()">➕ เพิ่มคู่ยา</button>
                 </div>
-                <div style="max-height: 400px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px;">
+                <div style="max-height: 550px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px;">
                     <div id="admin-table-container"></div>
                 </div>
             </div>
