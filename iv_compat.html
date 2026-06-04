@@ -842,7 +842,8 @@
         if (isOutdatedOnly) {
             filteredData = filteredData.filter(item => {
                 const t = parseDateStrict(item.search_date);
-                return t > 0 && t < threshold;
+                // t === 0 คือไม่มีข้อมูลวันที่, t < threshold คือเก่ากว่า 1 ปี
+                return t === 0 || t < threshold; 
             });
         }
 
@@ -891,10 +892,15 @@
             const safeObj = JSON.stringify(item).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
             
             const itemTime = parseDateStrict(item.search_date);
-            const isOld = itemTime > 0 && itemTime < threshold;
+            const isOldOrEmpty = itemTime === 0 || itemTime < threshold;
             const dateDisplay = item.search_date ? encodeHTML(item.search_date) : '-';
-            const alertBadge = isOld ? `<br><span style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:bold; display:inline-block; margin-top:4px;">⚠️ เกิน 1 ปี</span>` : '';
-
+            
+            let alertBadge = '';
+            if (isOldOrEmpty) {
+                // แยกข้อความเตือนให้ชัดเจนว่าไม่มีข้อมูล หรือ ข้อมูลเก่าเกิน 1 ปี
+                const badgeText = itemTime === 0 ? '⚠️ ไม่มีข้อมูลวันที่' : '⚠️ เกิน 1 ปี';
+                alertBadge = `<br><span style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:bold; display:inline-block; margin-top:4px;">${badgeText}</span>`;
+            }
             html += `
             <tr>
                 <td><b>${encodeHTML(item.drug_a)}</b> <br><span style="color:gray; font-size:0.8rem;">กับ</span> <b>${encodeHTML(item.drug_b)}</b></td>
