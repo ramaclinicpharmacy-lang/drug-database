@@ -133,6 +133,7 @@
         <div class="admin-tabs">
             <button id="tab-btn-drugs" class="tab-btn active" onclick="switchAdminTab('drugs')">💊 จัดการรายชื่อยา</button>
             <button id="tab-btn-pairs" class="tab-btn" onclick="switchAdminTab('pairs')">🔗 จัดการคู่ยา (Pairs)</button>
+            <button id="tab-btn-stats" class="tab-btn" onclick="switchAdminTab('stats')">📊 สถิติการค้นหา</button>
         </div>
 
         <div id="tab-drugs">
@@ -248,7 +249,18 @@
                 </div>
             </div>
         </div>
-
+        <div id="tab-stats" style="display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="margin:0; color:var(--primary);">📈 50 อันดับคู่ยาที่ถูกค้นหาบ่อยที่สุด</h3>
+                <button class="btn btn-outline" style="border-color:var(--primary); color:var(--primary);" onclick="fetchSearchStats()">🔄 รีเฟรชข้อมูล</button>
+            </div>
+            <div style="max-height: 550px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px;">
+                <div id="admin-stats-container">
+                    <div style="padding:40px; text-align:center; color:gray;">คลิกที่แท็บเพื่อโหลดสถิติ</div>
+                </div>
+            </div>
+        </div>
+        
     </div>
 </div>
 
@@ -555,9 +567,11 @@
         
         document.getElementById('tab-drugs').style.display = tab === 'drugs' ? 'block' : 'none';
         document.getElementById('tab-pairs').style.display = tab === 'pairs' ? 'block' : 'none';
+        document.getElementById('tab-stats').style.display = tab === 'stats' ? 'block' : 'none';
         
-        if (tab === 'drugs') fetchAdminDrugList();
-        if (tab === 'pairs') fetchAdminList();
+        if (tab === 'drugs') fetchAdminDrugList(currentAdminDrugPage);
+        if (tab === 'pairs') fetchAdminList(currentAdminPage);
+        if (tab === 'stats') fetchSearchStats(); // ดึงข้อมูลเมื่อกดเข้าแท็บสถิติ
     }
 
     function openAdminModal() {
@@ -941,7 +955,86 @@ const statusA = item.admixture_result === 'C' ? '🟢 C' : (item.admixture_resul
     }
 
     function encodeHTML(str) { return !str ? '' : str.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+    // ==========================================
+    // 📊 ADMIN: SEARCH STATISTICS (TAB 3)
+    // ==========================================
+    async function fetchSearchStats() {
+        const container = document.getElementById('admin-stats-container');
+        container.innerHTML = '<div style="padding:40px; text-align:center; color:gray;">⏳ กำลังประมวลผลข้อมูลสถิติ...</div>';
 
+        // 1. โหลดข้อมูลการค้นหาทั้งหมดจากฐานข้อมูล
+        const logs = await fetchAllWithPagination('iv_search_logs', 'search_drugs');
+
+        if (!logs || logs.length === 0) {
+            return container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">ยังไม่มีข้อมูลการค้นหาในระบบ</div>';
+        }
+
+        const pairCounts = {};
+        let validSearchesCount = 0;
+
+        // 2. คำนวณแจกแจงคู่ยาจาก Array
+        logs.forEach(log => {
+            const drugs = log.search_drugs;
+            // นับเฉพาะที่มีการค้นหายา 2 ตัวขึ้นไป
+            if (Array.isArray(drugs) && drugs.length >= 2) {
+                validSearchesCount++;
+                
+                // สร้างคู่ประสมทั้งหมด (Combination)
+                for (let i = 0; i < drugs.length; i++) {
+                    for (let j = i + 1; j < drugs.length; j++) {
+                        // เรียงตัวอักษรเพื่อไม่ให้ A-B สลับกับ B-A
+                        const d1 = drugs[i] < drugs[j] ? drugs[i] : drugs[j];
+                        const d2 = drugs[i] < drugs[j] ? drugs[j] : drugs[i];
+                        const pairName = `${d1} <span style="color:#94a3b8;">&</span> ${d2}`;
+                        
+                        if (!pairCounts[pairName]) pairCounts[pairName] = 0;
+                        pairCounts[pairName]++;
+                    }
+                }
+            }
+        });
+
+        // 3. จัดเรียงข้อมูลจากมากไปน้อย และดึงมาเฉพาะ Top 50
+        const sortedPairs = Object.keys(pairCounts).map(key => ({
+            pair: key,
+            count: pairCounts[key]
+        })).sort((a, b) => b.count - a.count).slice(0, 50);
+
+        if (sortedPairs.length === 0) {
+            return container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">ยังไม่มีการค้นหาแบบเข้าคู่ยา</div>';
+        }
+
+        // 4. สร้างตารางแสดงผล
+        let html = `
+        <div style="padding: 12px 15px; background: #f0fdf4; color: #166534; border-bottom: 1px solid #cbd5e1; font-size: 0.95rem; position: sticky; top: 0; z-index: 10;">
+            📊 จำนวนครั้งที่มีการวิเคราะห์เข้าสาย (2 ชนิดขึ้นไป) รวมทั้งหมด: <b>${validSearchesCount}</b> ครั้ง
+        </div>
+        <table class="admin-table">
+            <tr>
+                <th style="width:15%; text-align:center;">อันดับ</th>
+                <th style="width:60%;">ชื่อคู่ยา (Pair)</th>
+                <th style="width:25%; text-align:center;">จำนวนครั้งที่ค้นพบ</th>
+            </tr>`;
+
+        sortedPairs.forEach((item, index) => {
+            // ทำไฮไลท์ 3 อันดับแรกด้วยสีพิเศษ
+            let rankStyle = "color:gray;";
+            let medal = "";
+            if (index === 0) { rankStyle = "color:#d97706; font-size:1.2rem;"; medal = "🥇"; }
+            else if (index === 1) { rankStyle = "color:#475569; font-size:1.1rem;"; medal = "🥈"; }
+            else if (index === 2) { rankStyle = "color:#b45309; font-size:1.1rem;"; medal = "🥉"; }
+
+            html += `
+            <tr>
+                <td style="text-align:center; font-weight:bold; ${rankStyle}">${medal} ${index + 1}</td>
+                <td><b>${item.pair}</b></td>
+                <td style="text-align:center; font-weight:bold; color:var(--primary); font-size:1.1rem;">${item.count}</td>
+            </tr>`;
+        });
+        
+        html += `</table>`;
+        container.innerHTML = html;
+    }
     init();
 </script>
 
