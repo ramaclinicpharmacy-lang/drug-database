@@ -62,14 +62,16 @@
     function parseDateToISO(dateStr) {
         if (!dateStr) return null;
         
-        // ลบช่องว่างและแยกข้อความด้วย - หรือ /
-        const parts = dateStr.trim().split(/[-/]/); 
+        // แปลงข้อมูลให้เป็น String แน่ๆ ก่อนเสมอ แล้วตัดช่องว่างทิ้ง
+        const str = String(dateStr).trim();
+        const parts = str.split(/[-/]/); 
         
         // ตรวจสอบว่าแยกได้ 3 ส่วน (วัน, เดือน, ปี) หรือไม่
         if (parts.length === 3) {
-            const day = parts.padStart(2, '0');   // เติม 0 ข้างหน้าถ้าเป็นเลขตัวเดียว
-            const month = parts.padStart(2, '0'); // เติม 0 ข้างหน้าถ้าเป็นเลขตัวเดียว
-            const year = parts;
+            // ✅ ต้องมี,, และครอบ String() เพื่อให้เรียกใช้ .padStart() ได้ชัวร์ๆ
+            const day = String(parts).trim().padStart(2, '0');   
+            const month = String(parts).trim().padStart(2, '0'); 
+            const year = String(parts).trim();
             
             // ประกอบกลับเป็น YYYY-MM-DD
             return `${year}-${month}-${day}`;
