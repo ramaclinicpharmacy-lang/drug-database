@@ -527,7 +527,7 @@
                 else if (resY === 'U') { cardClass = 'compat-U'; iconY = '⚠️ Uncertain'; }
                 else { iconY = '❓ No Data'; }
 
-                let iconA = resA === 'C' ? '✅ Compatible' : (resA === 'I' ? '❌ Incompatible' : (resA === 'U' ? '⚠️ Uncertain' : resA));
+                let iconA = resA === 'C' ? '✅ Compatible' : (resA === 'I' ? '❌ Incompatible' : (resA === 'U' ? '⚠️ Uncertain' : '❓ ไม่มีข้อมูล'));
 
                 pairsHtml += `
                 <div class="pair-card ${cardClass}">
@@ -887,8 +887,8 @@
             </tr>`;
 
         paginatedData.forEach(item => {
-            const statusY = item.y_site_result === 'C' ? '🟢 C' : (item.y_site_result === 'I' ? '🔴 I' : (item.y_site_result === 'U' ? '🟡 U' : '-'));
-            const statusA = item.admixture_result === 'C' ? '🟢 C' : (item.admixture_result === 'I' ? '🔴 I' : (item.admixture_result === 'U' ? '🟡 U' : '-'));
+            const statusY = item.y_site_result === 'C' ? '🟢 C' : (item.y_site_result === 'I' ? '🔴 I' : (item.y_site_result === 'U' ? '🟡 U' : '<span style="color:gray; font-size:0.85rem;">ไม่มีข้อมูล</span>'));
+const statusA = item.admixture_result === 'C' ? '🟢 C' : (item.admixture_result === 'I' ? '🔴 I' : (item.admixture_result === 'U' ? '🟡 U' : '<span style="color:gray; font-size:0.85rem;">ไม่มีข้อมูล</span>'));
             const safeObj = JSON.stringify(item).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
             
             const itemTime = parseDateStrict(item.search_date);
