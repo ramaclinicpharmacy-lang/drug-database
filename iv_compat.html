@@ -187,8 +187,8 @@
 
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:15px;">
                     <div>
-                        <label style="font-weight:bold; font-size:0.85rem;">ผล Y-Site</label>
-                        <select id="admin-ysite" class="form-control">
+                        <label style="font-weight:bold; font-size:0.85rem;">ผล Y-Site <span style="color:red;">*</span></label>
+                        <select id="admin-ysite" class="form-control" required>
                             <option value="N/A">ไม่มีข้อมูล (N/A)</option>
                             <option value="C">✅ Compatible (C)</option>
                             <option value="I">❌ Incompatible (I)</option>
@@ -196,31 +196,31 @@
                         </select>
                     </div>
                     <div>
-                        <label style="font-weight:bold; font-size:0.85rem;">ผล Admixture</label>
-                        <select id="admin-admix" class="form-control">
+                        <label style="font-weight:bold; font-size:0.85rem;">ผล Admixture <span style="color:red;">*</span></label>
+                        <select id="admin-admix" class="form-control" required>
                             <option value="N/A">ไม่มีข้อมูล (N/A)</option>
                             <option value="C">✅ Compatible (C)</option>
                             <option value="I">❌ Incompatible (I)</option>
                             <option value="U">⚠️ Uncertain (U)</option>
                         </select>
+                        </div>
                     </div>
-                </div>
-
-                <div style="margin-bottom:15px;">
-                    <label style="font-weight:bold; font-size:0.85rem;">รายละเอียด / หมายเหตุ (Detail)</label>
-                    <textarea id="admin-detail" class="form-control" rows="3" placeholder="เช่น การป้องกันแสง, สารละลายที่ห้ามใช้..."></textarea>
-                </div>
-
-                <div style="display:grid; grid-template-columns: 2fr 1fr; gap:15px; margin-bottom:20px;">
-                    <div>
-                        <label style="font-weight:bold; font-size:0.85rem;">อ้างอิง (Reference)</label>
-                        <input type="text" id="admin-ref" class="form-control" placeholder="เช่น Trissel's, Lexicomp">
+                    
+                    <div style="margin-bottom:15px;">
+                        <label style="font-weight:bold; font-size:0.85rem;">รายละเอียด / หมายเหตุ (Detail)</label>
+                        <textarea id="admin-detail" class="form-control" rows="3" placeholder="เช่น การป้องกันแสง, สารละลายที่ห้ามใช้..."></textarea>
                     </div>
-                    <div>
-                        <label style="font-weight:bold; font-size:0.85rem;">วันที่/ปี (Update Date)</label>
-                        <input type="date" id="admin-date" class="form-control">
+                    
+                    <div style="display:grid; grid-template-columns: 2fr 1fr; gap:15px; margin-bottom:20px;">
+                        <div>
+                            <label style="font-weight:bold; font-size:0.85rem;">อ้างอิง (Reference) <span style="color:red;">*</span></label>
+                            <input type="text" id="admin-ref" class="form-control" placeholder="เช่น Trissel's, Lexicomp" required>
+                        </div>
+                        <div>
+                            <label style="font-weight:bold; font-size:0.85rem;">วันที่/ปี (Update Date) <span style="color:red;">*</span></label>
+                            <input type="date" id="admin-date" class="form-control" required>
+                        </div>
                     </div>
-                </div>
 
                 <div style="display:flex; gap:10px;">
                     <button class="btn btn-primary" style="flex:1; height:45px;" onclick="saveCompatData()">💾 บันทึกคู่ยา</button>
@@ -764,7 +764,13 @@
     function openAdminForm(editData = null) {
         document.getElementById('admin-form-section').style.display = 'block';
         document.getElementById('admin-list-section').style.display = 'none';
-
+    
+        // สร้างตัวแปรเก็บวันที่ปัจจุบันในรูปแบบ YYYY-MM-DD
+        const d = new Date();
+        const todayStr = d.getFullYear() + '-' + 
+                         String(d.getMonth() + 1).padStart(2, '0') + '-' + 
+                         String(d.getDate()).padStart(2, '0');
+    
         if (editData) {
             document.getElementById('admin-form-title').innerHTML = '✏️ แก้ไขคู่ยา';
             document.getElementById('admin-id').value = editData.id;
@@ -774,7 +780,8 @@
             document.getElementById('admin-admix').value = editData.admixture_result || 'N/A';
             document.getElementById('admin-detail').value = editData.detail || '';
             document.getElementById('admin-ref').value = editData.reference || '';
-            document.getElementById('admin-date').value = editData.search_date || '';
+            // บังคับให้เป็นวันที่ปัจจุบันเสมอตาม Requirement
+            document.getElementById('admin-date').value = todayStr;
         } else {
             document.getElementById('admin-form-title').innerHTML = '➕ เพิ่มคู่ยาใหม่';
             document.getElementById('admin-id').value = '';
@@ -784,7 +791,8 @@
             document.getElementById('admin-admix').value = 'N/A';
             document.getElementById('admin-detail').value = '';
             document.getElementById('admin-ref').value = '';
-            document.getElementById('admin-date').value = '';
+            // เซ็ตวันที่เป็นปัจจุบัน
+            document.getElementById('admin-date').value = todayStr;
         }
     }
 
@@ -797,33 +805,46 @@
         const id = document.getElementById('admin-id').value;
         const drugA = document.getElementById('admin-drug-a').value;
         const drugB = document.getElementById('admin-drug-b').value;
-
+        
+        // ดึงค่ามาเพื่อ Validate
+        const ySiteVal = document.getElementById('admin-ysite').value;
+        const admixVal = document.getElementById('admin-admix').value;
+        const refVal = document.getElementById('admin-ref').value.trim();
+        const dateVal = document.getElementById('admin-date').value.trim();
+    
+        // 1. ตรวจสอบข้อมูลยา
         if (!drugA || !drugB) return alert('กรุณาเลือกยาให้ครบทั้ง 2 ชนิด');
         if (drugA === drugB) return alert('ไม่สามารถจับคู่ยาชนิดเดียวกันได้');
-
+    
+        // 2. ตรวจสอบฟิลด์ที่เป็น Required (ห้ามปล่อยว่าง หรือ ห้ามเป็น N/A)
+        if (ySiteVal === 'N/A') return alert('กรุณาระบุ ผล Y-Site');
+        if (admixVal === 'N/A') return alert('กรุณาระบุ ผล Admixture');
+        if (!refVal) return alert('กรุณาระบุ อ้างอิง (Reference)');
+        if (!dateVal) return alert('กรุณาระบุ วันที่/ปี (Update Date)');
+    
         const finalA = drugA < drugB ? drugA : drugB;
         const finalB = drugA < drugB ? drugB : drugA;
-
+    
         let query = supabaseClient.from('iv_compatibility').select('id').eq('drug_a', finalA).eq('drug_b', finalB);
         if (id) query = query.neq('id', id);
-
+    
         const { data: dupData } = await query;
         if (dupData && dupData.length > 0) return alert('⚠️ คู่ยานี้ถูกจับคู่ไว้ในระบบแล้ว กรุณากดค้นหาแล้วแก้ไขแทนครับ');
-
+    
         const payload = {
             drug_a: finalA,
             drug_b: finalB,
-            y_site_result: document.getElementById('admin-ysite').value === 'N/A' ? null : document.getElementById('admin-ysite').value,
-            admixture_result: document.getElementById('admin-admix').value === 'N/A' ? null : document.getElementById('admin-admix').value,
+            y_site_result: ySiteVal,
+            admixture_result: admixVal,
             detail: document.getElementById('admin-detail').value.trim() || null,
-            reference: document.getElementById('admin-ref').value.trim() || null,
-            search_date: document.getElementById('admin-date').value.trim() || null
+            reference: refVal,
+            search_date: dateVal
         };
-
+    
         const { error } = id 
             ? await supabaseClient.from('iv_compatibility').update(payload).eq('id', id)
             : await supabaseClient.from('iv_compatibility').insert(payload);
-
+    
         if (error) return alert("Error: " + error.message);
         
         alert(`✅ บันทึกคู่ ${finalA} - ${finalB} สำเร็จ`);
