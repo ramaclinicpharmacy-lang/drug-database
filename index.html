@@ -242,7 +242,7 @@
                 <button class="btn btn-sm" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; margin-left: auto; font-weight: bold; border-radius: 6px; padding: 6px 12px; cursor: pointer;" onclick="window.open('drug_compare.html', '_blank')">
                     💊 เปรียบเทียบยา
                 </button>
-                <button class="btn btn-sm" style="background:#8b5cf6; color:white; font-weight:bold; border-radius:6px; padding:6px 12px; cursor:pointer;" onclick="window.location.href='iv_compat.html'"
+                <button class="btn btn-sm" style="background:#8b5cf6; color:white; font-weight:bold; border-radius:6px; padding:6px 12px; cursor:pointer;" onclick="window.location.href='iv_compat.html'">
                     💉 จัดสายให้ยา (IV Compat)
                 </button>
             </div>
@@ -919,7 +919,7 @@
             <div style="display:flex; gap:10px; margin-top:15px;">
                 <button class="btn btn-success" style="flex:2; height:42px;" onclick="saveNutriConfig()">💾 บันทึกตั้งค่า</button>
                 <button class="btn btn-outline" style="flex:1; height:42px; color:red; border-color:red;" onclick="deleteNutriConfig()">🗑️ ลบค่า</button>
-                <button class="btn" style="flex:2; height:42px; background:#6366f1; color:white;" onclick="window.open('enteral_compare.html?code=' + document.getElementById('nutri-admin-code').value, '_blank')">📊 เทียบสารอาหารเชิงลึก</button>
+                <button class="btn" style="flex:2; height:42px; background:#6366f1; color:white;" onclick="window.location.href='enteral_compare.html?code=' + document.getElementById('nutri-admin-code').value">📊 เทียบสารอาหารเชิงลึก</button>
             </div>
         </div>
         <button class="btn btn-outline" style="width:100%; margin-top:10px; height: 42px;" onclick="closeModal('nutri-admin-modal')">ปิดหน้าต่าง</button>
@@ -995,7 +995,7 @@
             
             <div id="nutri-res-note" style="margin-top:10px; font-size:0.8rem; color:#065f46;"></div>
         </div>
-        <button class="btn" style="width:100%; margin-top:15px; height:42px; background:#6366f1; color:white;" onclick="window.open('enteral_compare.html?code=' + document.getElementById('nutri-calc-name').innerText, '_blank')">📊 เปรียบเทียบสารอาหารเชิงลึกกับสูตรอื่น</button>
+        <button class="btn" style="width:100%; margin-top:15px; height:42px; background:#6366f1; color:white;" onclick="window.location.href='enteral_compare.html?code=' + document.getElementById('nutri-calc-name').innerText">📊 เปรียบเทียบสารอาหารเชิงลึกกับสูตรอื่น</button>
         <button class="btn btn-outline" style="width:100%; margin-top:10px; height:42px;" onclick="closeModal('nutri-calc-modal')">ปิดหน้าต่าง</button>
     </div>
 </div>
