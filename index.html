@@ -1281,7 +1281,14 @@
 <script>
     const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+            storage: window.sessionStorage, // บังคับให้เก็บแค่ชั่วคราว ปิดแท็บ/ปิดเบราว์เซอร์ = หาย
+            autoRefreshToken: true,
+            persistSession: true,
+            detectSessionInUrl: true
+        }
+    });
 
     let isAdmin = false, allDrugsRaw = [], allGenerics = [], allRoutes = [], allFluids = [], allDosageForms = [], allTags = [], allNlem = [], allPharmClasses = [];
     let editingAdminId = null; let currentAdminsList = [];
