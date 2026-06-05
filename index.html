@@ -236,6 +236,9 @@
                 
             </div>
             <div style="display: flex; gap: 8px; align-items: center;">
+                <button class="btn btn-sm" style="background:#fef3c7; color:#d97706; border:1px solid #fde68a; margin-left: auto; font-weight: bold; border-radius: 6px; padding: 6px 12px; cursor: pointer;" onclick="openExternalLinksModal()">
+                    🔗 แหล่งอ้างอิง
+                </button>
                 <button class="btn btn-sm" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; margin-left: auto; font-weight: bold; border-radius: 6px; padding: 6px 12px; cursor: pointer;" onclick="window.open('drug_compare.html', '_blank')">
                     💊 เปรียบเทียบยา
                 </button>
@@ -1088,6 +1091,46 @@
         <button class="btn btn-primary" style="width:100%; margin-top:20px; height: 45px; font-size:1rem;" onclick="dismissChangelog()">รับทราบและเริ่มใช้งาน</button>
     </div>
 </div>
+<div id="external-links-modal" class="modal">
+    <div class="modal-content" style="max-width: 650px; border-top: 8px solid var(--warning);">
+        <h3 style="color:var(--warning); margin-top:0; display:flex; align-items:center; gap:8px;">
+            🔗 แหล่งข้อมูลอ้างอิง (External Links)
+        </h3>
+
+        <div id="admin-external-link-form" class="section-box hidden" style="background:#fffbeb; border-color:#fde68a;">
+            <input type="hidden" id="ext-link-id">
+            
+            <label style="font-size:0.85rem; font-weight:bold;">ชื่อลิงก์ / หัวข้อ (Title)</label>
+            <input type="text" id="ext-link-title" placeholder="เช่น Thai NLEM Guidelines 2024..." style="margin-bottom:10px;">
+
+            <label style="font-size:0.85rem; font-weight:bold;">URL (ลิงก์ปลายทาง)</label>
+            <input type="url" id="ext-link-url" placeholder="https://..." style="margin-bottom:10px;">
+
+            <label style="font-size:0.85rem; font-weight:bold;">หมวดหมู่ (Category)</label>
+            <input type="text" id="ext-link-category" placeholder="เช่น Guideline, Article, Tool (เว้นว่างได้)" list="ext-cat-list" style="margin-bottom:10px;">
+            <datalist id="ext-cat-list">
+                <option value="Guideline"></option>
+                <option value="Article"></option>
+                <option value="Tool"></option>
+                <option value="Reference"></option>
+            </datalist>
+            
+            <label style="font-size:0.85rem; font-weight:bold;">คำอธิบายเพิ่มเติม (Description)</label>
+            <textarea id="ext-link-desc" placeholder="อธิบายรายละเอียดสั้นๆ..." style="height:60px; margin-bottom:10px;"></textarea>
+
+            <div style="display:flex; gap:10px;">
+                <button class="btn btn-warning" id="btn-save-ext-link" style="background:var(--warning); color:white; border:none; flex:2; height:42px;" onclick="saveExternalLink()">💾 บันทึกลิงก์</button>
+                <button class="btn btn-outline hidden" id="btn-cancel-ext-link" style="flex:1; height:42px;" onclick="resetExternalLinkForm()">ยกเลิกแก้</button>
+            </div>
+        </div>
+
+        <input type="text" id="search-ext-link" placeholder="🔍 ค้นหาชื่อลิงก์, หมวดหมู่ หรือคำอธิบาย..." onkeyup="renderExternalLinks()" style="margin-top:10px; margin-bottom:10px;">
+        <div id="external-links-list" style="max-height: 400px; overflow-y: auto; padding-right:5px;">
+            </div>
+
+        <button class="btn btn-outline" style="width:100%; margin-top:15px; height:42px;" onclick="closeModal('external-links-modal')">ปิดหน้าต่าง</button>
+    </div>
+</div>
 <!-- 📢 Modal: Admin จัดการประกาศอัปเดต (Changelog) -->
 <div id="changelog-admin-modal" class="modal">
     <div class="modal-content" style="max-width: 600px;">
@@ -1292,7 +1335,8 @@
 
     let isAdmin = false, allDrugsRaw = [], allGenerics = [], allRoutes = [], allFluids = [], allDosageForms = [], allTags = [], allNlem = [], allPharmClasses = [];
     let editingAdminId = null; let currentAdminsList = [];
-    
+    let allExternalLinks = [];
+    let editingExtLinkId = null;
     let selectedPharmFilters = []; 
     let selectedFormFilters = []; 
     let selectedNlemFilters = [];
@@ -1380,8 +1424,8 @@
     async function loadAllData() { 
         await fetchAppSettings();
         await fetchChangelog();
-        await Promise.all([ fetchPharmClasses(), fetchGenerics(), fetchRoutes(), fetchFluids(), fetchDosageForms(), fetchTags(), fetchNlemMaster(), fetchLabelsMaster(), fetchAllGeneLabNames() ]); 
-        await fetchDrugs(); 
+        await Promise.all([ fetchPharmClasses(), fetchGenerics(), fetchRoutes(), fetchFluids(), fetchDosageForms(), fetchTags(), fetchNlemMaster(), fetchLabelsMaster(), fetchAllGeneLabNames(), fetchExternalLinks() ]); 
+        await fetchDrugs();
     }
 
     async function fetchAppSettings() {
@@ -5516,6 +5560,192 @@ async function fetchLogs() {
             btn.innerText = "✅ ยืนยันการคัดลอก";
             btn.disabled = false;
         }
+    }
+    // ==========================================
+    // 🔗 ระบบ External Links (แหล่งอ้างอิงทั่วไป)
+    // ==========================================
+
+    // ดึงข้อมูลลิงก์ทั้งหมดจาก Database
+    async function fetchExternalLinks() {
+        const { data, error } = await supabaseClient
+            .from('external_links')
+            .select('*')
+            .order('category', { ascending: true })
+            .order('title', { ascending: true });
+            
+        if (!error && data) {
+            allExternalLinks = data;
+        }
+    }
+
+    // เปิด Modal
+    function openExternalLinksModal() {
+        const formBox = document.getElementById('admin-external-link-form');
+        // แสดงฟอร์มจัดการเฉพาะตอนที่ Admin ล็อกอินอยู่
+        if (isAdmin) {
+            formBox.classList.remove('hidden');
+            resetExternalLinkForm();
+        } else {
+            formBox.classList.add('hidden');
+        }
+        
+        document.getElementById('search-ext-link').value = '';
+        renderExternalLinks();
+        openModal('external-links-modal');
+    }
+
+    // วาดรายการลิงก์ลง Modal
+    function renderExternalLinks() {
+        const listEl = document.getElementById('external-links-list');
+        const q = (document.getElementById('search-ext-link').value || '').toLowerCase();
+        
+        // กรองข้อมูลตามที่ค้นหา (เฉพาะตัวที่ Active หรือถ้าเป็น Admin ถึงเห็นทั้งหมดได้ตามดีไซน์ของคุณ ปัจจุบันดึงมาหมด)
+        const filtered = allExternalLinks.filter(l => 
+            (l.title||'').toLowerCase().includes(q) || 
+            (l.description||'').toLowerCase().includes(q) ||
+            (l.category||'').toLowerCase().includes(q)
+        );
+
+        if (filtered.length === 0) {
+            listEl.innerHTML = '<div style="color:gray; text-align:center; padding:20px; border:1px dashed #cbd5e1; border-radius:8px;">ไม่พบแหล่งอ้างอิงที่ค้นหา</div>';
+            return;
+        }
+
+        // จัดกลุ่มตาม Category (หมวดหมู่)
+        const grouped = {};
+        filtered.forEach(l => {
+            const cat = l.category || 'อื่นๆ';
+            if(!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push(l);
+        });
+
+        let html = '';
+        for(const cat in grouped) {
+            html += `<div style="font-weight:bold; color:var(--dark); margin-top:15px; margin-bottom:10px; padding-bottom:5px; border-bottom:2px solid #e2e8f0; font-size:1.05rem;">📂 ${encodeHTML(cat)}</div>`;
+            
+            grouped[cat].forEach(l => {
+                // ปุ่มแก้ไข/ลบ จะโผล่มาก็ต่อเมื่อ isAdmin = true
+                const adminActions = isAdmin ? `
+                    <div style="display:flex; gap:5px; align-items:center; margin-top:10px; border-top:1px dashed #e2e8f0; padding-top:8px;">
+                        <button class="btn btn-outline btn-sm" style="color:var(--primary);" onclick="prepareEditExternalLink(${l.id})">✏️ แก้ไข</button>
+                        <button class="btn btn-outline btn-sm" style="color:var(--danger);" onclick="deleteExternalLink(${l.id})">🗑️ ลบ</button>
+                    </div>
+                ` : '';
+
+                html += `
+                    <div class="list-item" style="border-left:3px solid var(--warning); align-items:stretch; flex-direction:column; background:white; border-radius:8px; padding:12px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,0.05); border:1px solid #e2e8f0;">
+                        <a href="${encodeHTML(l.url)}" target="_blank" style="font-weight:bold; color:var(--dark); text-decoration:none; display:flex; align-items:center; gap:8px; font-size:1rem; transition:0.2s;" onmouseover="this.style.color='var(--warning)'" onmouseout="this.style.color='var(--dark)'">
+                            <span>🌐</span> ${encodeHTML(l.title)}
+                        </a>
+                        ${l.description ? `<div style="font-size:0.85rem; color:#475569; margin-top:5px; padding-left:26px;">${encodeHTML(l.description).replace(/\n/g, '<br>')}</div>` : ''}
+                        ${adminActions}
+                    </div>
+                `;
+            });
+        }
+
+        listEl.innerHTML = html;
+    }
+
+    // ล้างฟอร์ม
+    function resetExternalLinkForm() {
+        editingExtLinkId = null;
+        document.getElementById('ext-link-id').value = '';
+        document.getElementById('ext-link-title').value = '';
+        document.getElementById('ext-link-url').value = '';
+        document.getElementById('ext-link-category').value = '';
+        document.getElementById('ext-link-desc').value = '';
+        
+        document.getElementById('btn-save-ext-link').innerText = "💾 บันทึกลิงก์";
+        document.getElementById('btn-cancel-ext-link').classList.add('hidden');
+    }
+
+    // เตรียมฟอร์มสำหรับการแก้ไข (Edit)
+    function prepareEditExternalLink(id) {
+        const link = allExternalLinks.find(l => l.id === id);
+        if (!link) return;
+        
+        editingExtLinkId = id;
+        document.getElementById('ext-link-id').value = id;
+        document.getElementById('ext-link-title').value = link.title || '';
+        document.getElementById('ext-link-url').value = link.url || '';
+        document.getElementById('ext-link-category').value = link.category || '';
+        document.getElementById('ext-link-desc').value = link.description || '';
+        
+        document.getElementById('btn-save-ext-link').innerText = "💾 ยืนยันการแก้ไข";
+        document.getElementById('btn-cancel-ext-link').classList.remove('hidden');
+        
+        // เลื่อน Scroll กลับขึ้นไปที่ฟอร์ม
+        document.querySelector('#external-links-modal .modal-content').scrollTop = 0;
+    }
+
+    // บันทึก/อัปเดตข้อมูล
+    async function saveExternalLink() {
+        const title = document.getElementById('ext-link-title').value.trim();
+        const url = document.getElementById('ext-link-url').value.trim();
+        const category = document.getElementById('ext-link-category').value.trim() || null;
+        const description = document.getElementById('ext-link-desc').value.trim() || null;
+
+        if (!title || !url) return alert('กรุณาระบุชื่อลิงก์และ URL ให้ครบถ้วน');
+        if (!url.startsWith('http://') && !url.startsWith('https://')) return alert('URL ต้องขึ้นต้นด้วย http:// หรือ https://');
+
+        const payload = { title, url, category, description };
+
+        const btn = document.getElementById('btn-save-ext-link');
+        const oldText = btn.innerText;
+        btn.innerText = "⏳ กำลังบันทึก...";
+        btn.disabled = true;
+
+        let error;
+        if (editingExtLinkId) {
+            // อัปเดตของเดิม
+            const res = await supabaseClient.from('external_links').update(payload).eq('id', editingExtLinkId);
+            error = res.error;
+        } else {
+            // สร้างใหม่
+            const res = await supabaseClient.from('external_links').insert(payload);
+            error = res.error;
+        }
+
+        btn.innerText = oldText;
+        btn.disabled = false;
+
+        if (error) {
+            const msg = error.message.toLowerCase();
+            // ดักจับ Session หลุด (PDPA/Security)
+            if (msg.includes('jwt') || msg.includes('rls') || msg.includes('policy') || error.code === '401' || error.code === '403') {
+                promptRelogin();
+                return;
+            }
+            return alert("เกิดข้อผิดพลาดในการบันทึก: " + error.message);
+        }
+
+        alert('✅ บันทึกลิงก์อ้างอิงสำเร็จ!');
+        resetExternalLinkForm();
+        
+        // รีเฟรชข้อมูลแล้ววาดหน้าจอใหม่
+        await fetchExternalLinks();
+        renderExternalLinks();
+    }
+
+    // ลบข้อมูล
+    async function deleteExternalLink(id) {
+        if (!confirm('ยืนยันลบลิงก์อ้างอิงนี้ออกจากระบบ?')) return;
+        
+        const { error } = await supabaseClient.from('external_links').delete().eq('id', id);
+        
+        if (error) {
+             const msg = error.message.toLowerCase();
+             if (msg.includes('jwt') || msg.includes('rls') || error.code === '401' || error.code === '403') {
+                 promptRelogin();
+                 return;
+             }
+             return alert("เกิดข้อผิดพลาดในการลบ: " + error.message);
+        }
+        
+        // โหลดข้อมูลใหม่หลังจากลบสำเร็จ
+        await fetchExternalLinks();
+        renderExternalLinks();
     }
 </script>
 </body>
