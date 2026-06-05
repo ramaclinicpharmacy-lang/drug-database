@@ -12,126 +12,37 @@
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
         .form-group { margin-bottom: 15px; }
         label { font-weight: bold; display: block; margin-bottom: 5px; color: #4f46e5; }
-        input[type="file"], input[type="email"], input[type="password"] { border: 1px solid #cbd5e1; padding: 10px; border-radius: 8px; width: 100%; box-sizing: border-box; }
-        button { background: #4f46e5; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 1.1rem; transition: 0.2s; }
-        button:hover { opacity: 0.9; }
+        input[type="file"] { border: 1px solid #cbd5e1; padding: 10px; border-radius: 8px; width: 100%; box-sizing: border-box; }
+        button { background: #4f46e5; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 1.1rem; }
         button:disabled { background: #94a3b8; cursor: not-allowed; }
         #log { background: #1e293b; color: #10b981; padding: 15px; border-radius: 8px; height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.9rem; white-space: pre-wrap; }
     </style>
 </head>
 <body>
 
-    <div id="login-section" class="card" style="border-top: 5px solid #f59e0b;">
-        <h2 style="margin-top: 0; color: #d97706;">🔐 เข้าสู่ระบบ (Admin)</h2>
-        <p style="color: gray; font-size: 0.9rem; margin-top: -10px;">กรุณายืนยันตัวตนก่อนนำเข้าข้อมูลเพื่อความปลอดภัย</p>
-        
+    <div class="card" style="border-top: 5px solid #4f46e5;">
+        <h2 style="margin-top: 0;">🚀 เครื่องมือนำเข้าข้อมูล IV Compat</h2>
+        <p style="color: gray; font-size: 0.9rem; margin-top: -10px;">โปรแกรมจะแปลงข้อความและนำเข้าฐานข้อมูล Supabase อัตโนมัติ</p>
+
         <div class="form-group">
-            <label style="color:#b45309;">Email</label>
-            <input type="email" id="auth-email" placeholder="admin@example.com" onkeydown="if(event.key === 'Enter') handleLogin()">
+            <label>1. อัปโหลดไฟล์ "Name And Alias.csv"</label>
+            <input type="file" id="file-alias" accept=".csv">
         </div>
+
         <div class="form-group">
-            <label style="color:#b45309;">Password</label>
-            <input type="password" id="auth-pw" placeholder="••••••••" onkeydown="if(event.key === 'Enter') handleLogin()">
+            <label>2. อัปโหลดไฟล์ "Compat.csv"</label>
+            <input type="file" id="file-compat" accept=".csv">
         </div>
-        <button id="btn-login" onclick="handleLogin()" style="background: #f59e0b;">เข้าสู่ระบบ</button>
+
+        <button id="btn-import" onclick="startImport()">▶️ เริ่มนำเข้าข้อมูล</button>
     </div>
 
-    <div id="import-section" style="display: none;">
-        <div class="card" style="border-top: 5px solid #4f46e5;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div>
-                    <h2 style="margin-top: 0;">🚀 เครื่องมือนำเข้าข้อมูล IV Compat</h2>
-                    <p style="color: gray; font-size: 0.9rem; margin-top: -10px;">โปรแกรมจะแปลงข้อความและนำเข้าฐานข้อมูล Supabase อัตโนมัติ</p>
-                </div>
-                <button onclick="handleLogout()" style="background: #ef4444; width: auto; padding: 6px 12px; font-size: 0.85rem;">ออกจากระบบ</button>
-            </div>
-
-            <div class="form-group">
-                <label>1. อัปโหลดไฟล์ "Name And Alias.csv"</label>
-                <input type="file" id="file-alias" accept=".csv">
-            </div>
-
-            <div class="form-group">
-                <label>2. อัปโหลดไฟล์ "Compat.csv"</label>
-                <input type="file" id="file-compat" accept=".csv">
-            </div>
-
-            <button id="btn-import" onclick="startImport()">▶️ เริ่มนำเข้าข้อมูล</button>
-        </div>
-
-        <div class="card">
-            <label style="color:#1e293b;">📜 Log การทำงาน:</label>
-            <div id="log">รอการสั่งงาน...</div>
-        </div>
+    <div class="card">
+        <label style="color:#1e293b;">📜 Log การทำงาน:</label>
+        <div id="log">รอการสั่งงาน...</div>
     </div>
 
 <script>
-    // ==========================================
-    // 🔗 ตั้งค่า Supabase (Global Scope)
-    // ==========================================
-    const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: {
-            storage: window.sessionStorage, // บังคับให้เก็บแค่ชั่วคราว
-            autoRefreshToken: true,
-            persistSession: true
-        }
-    });
-
-    // ==========================================
-    // 🔐 ระบบ Login & Session
-    // ==========================================
-    async function checkSession() {
-        const { data: { session } } = await supabase.auth.getSession();
-        const loginSec = document.getElementById('login-section');
-        const importSec = document.getElementById('import-section');
-        
-        if (session) {
-            loginSec.style.display = 'none';
-            importSec.style.display = 'block';
-            logMessage(`✅ ยืนยันตัวตนสำเร็จ: ${session.user.email}`);
-        } else {
-            loginSec.style.display = 'block';
-            importSec.style.display = 'none';
-        }
-    }
-
-    async function handleLogin() {
-        const email = document.getElementById('auth-email').value;
-        const pw = document.getElementById('auth-pw').value;
-        if (!email || !pw) return alert("กรุณากรอกอีเมลและรหัสผ่าน");
-
-        const btn = document.getElementById('btn-login');
-        btn.innerText = "⏳ กำลังตรวจสอบ...";
-        btn.disabled = true;
-
-        const { error } = await supabase.auth.signInWithPassword({ email: email, password: pw });
-
-        btn.innerText = "เข้าสู่ระบบ";
-        btn.disabled = false;
-
-        if (error) {
-            alert("❌ เข้าสู่ระบบไม่สำเร็จ: " + error.message);
-        } else {
-            document.getElementById('auth-pw').value = '';
-            checkSession();
-        }
-    }
-
-    async function handleLogout() {
-        await supabase.auth.signOut();
-        document.getElementById('log').innerHTML = 'รอการสั่งงาน...';
-        checkSession();
-    }
-
-    // ทำงานทันทีเมื่อโหลดหน้าเว็บ
-    window.onload = checkSession;
-
-
-    // ==========================================
-    // ⚙️ ระบบนำเข้าข้อมูล (Import Logic)
-    // ==========================================
     function logMessage(msg) {
         const logEl = document.getElementById('log');
         logEl.innerHTML += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
@@ -150,21 +61,37 @@
 
     function parseDateToISO(dateStr) {
         if (!dateStr) return null;
+        
+        // 1. แปลงเป็นข้อความและตัดช่องว่างหัวท้าย
         const str = String(dateStr).trim();
-        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+        
+        // ตัวช่วย: ถ้าในอนาคตข้อมูลเป็นรูปแบบ YYYY-MM-DD อยู่แล้ว ให้ส่งกลับได้เลย
+        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+            return str;
+        }
         
         let formattedDate = null;
+        
+        // 2. ใช้คำสั่ง replace ร่วมกับฟังก์ชันดึง วัน (d), เดือน (m), ปี (y) ออกมาโดยตรง 
+        // (วิธีนี้ไม่ต้องใช้เครื่องหมาย [ ] ป้องกันปัญหาโค้ดตกหล่นได้ 100%)
         str.replace(/^(\d{1,2})[-\/.,\s]+(\d{1,2})[-\/.,\s]+(\d{4})$/, function(match, d, m, y) {
-            if (d.length === 1) d = "0" + d;
-            if (m.length === 1) m = "0" + m;
+            // เติมเลข 0 ข้างหน้าถ้ามีหลักเดียว
+            if (d.length === 1) {
+                d = "0" + d;
+            }
+            if (m.length === 1) {
+                m = "0" + m;
+            }
+            // ประกอบเป็นรูปแบบ YYYY-MM-DD ตามที่ฐานข้อมูลต้องการ
             formattedDate = y + "-" + m + "-" + d;
         });
+        
         return formattedDate;
     }
 
     function parseCSV(file) {
         return new Promise((resolve, reject) => {
-            if (typeof Papa === 'undefined') return reject(new Error("โหลดตัวอ่าน CSV (PapaParse) ไม่สำเร็จ"));
+            if (typeof Papa === 'undefined') return reject(new Error("โหลดตัวอ่าน CSV (PapaParse) ไม่สำเร็จ กรุณาเช็กอินเทอร์เน็ต"));
             Papa.parse(file, {
                 header: true,
                 skipEmptyLines: true,
@@ -197,11 +124,21 @@
             btn.innerText = "⏳ กำลังทำงาน ห้ามปิดหน้าจอนี้...";
             document.getElementById('log').innerHTML = '';
 
+            // 🌟 สลับบรรทัด: ให้อ่านไฟล์ให้เสร็จตั้งแต่แรกสุด เพื่อป้องกันปัญหา Blob Error
             logMessage("📂 กำลังอ่านไฟล์ Name And Alias.csv...");
             const aliasData = await parseCSV(fileAlias);
             
             logMessage("📂 กำลังอ่านไฟล์ Compat.csv...");
             const compatData = await parseCSV(fileCompat);
+
+            // เช็กการเชื่อมต่อ Supabase
+            if (typeof window.supabase === 'undefined') {
+                throw new Error("ไม่สามารถเชื่อมต่อฐานข้อมูลได้ (ระบบเครือข่ายอาจบล็อก Supabase CDN)");
+            }
+
+            const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
+            const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
+            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
             // เริ่มลบข้อมูลเก่า
             logMessage("🗑️ กำลังลบข้อมูลเก่าในตาราง iv_compatibility...");
@@ -237,12 +174,14 @@
 
             const compatPayload = compatData.map(row => {
                 let details = [];
+                // 🌟 ดึงข้อมูลคอลัมน์ใหม่มารวมใน detail
                 if (row['Conc Rate Stability Protect from light']) details.push('🧪 ' + row['Conc Rate Stability Protect from light'].trim());
                 if (row['Irritant Vesicant and other detail']) details.push('⚠️ ' + row['Irritant Vesicant and other detail'].trim());
                 if (row['Note']) details.push('📝 Note: ' + row['Note'].trim());
                 if (row['LOE/Credibility']) details.push('📊 ความน่าเชื่อถือ: ' + row['LOE/Credibility'].trim());
                 if (row['Confirm data']) details.push('✅ ข้อมูลการตรวจสอบ: ' + row['Confirm data'].trim());
 
+                // ประมวลผลลัพธ์หลัก
                 const mainResult = mapResultCode(row['compatibility_result']);
                 let ySiteRes = mainResult; 
                 let admixtureRes = null;
@@ -250,16 +189,19 @@
                 const ySiteFlag = row['Y-site'] ? row['Y-site'].trim().toUpperCase() : '';
                 const admixtureFlag = row['Admixture'] ? row['Admixture'].trim().toUpperCase() : '';
 
+                // 🌟 [แก้ไขใหม่] เช็กเงื่อนไขให้ครอบคลุมคำว่า 'VARIABLE' ด้วย
                 if (ySiteFlag || admixtureFlag) {
+                    // ประมวลผล Y-Site
                     if (ySiteFlag === 'YES') ySiteRes = mainResult || 'C';
                     else if (ySiteFlag === 'NO') ySiteRes = 'I';
                     else if (ySiteFlag === 'VARIABLE' || ySiteFlag === 'U') ySiteRes = 'U';
-                    else ySiteRes = null; 
+                    else ySiteRes = null; // ปล่อยว่างถ้าไม่ได้ระบุ
 
+                    // ประมวลผล Admixture
                     if (admixtureFlag === 'YES') admixtureRes = mainResult || 'C';
                     else if (admixtureFlag === 'NO') admixtureRes = 'I';
                     else if (admixtureFlag === 'VARIABLE' || admixtureFlag === 'U') admixtureRes = 'U';
-                    else admixtureRes = null; 
+                    else admixtureRes = null; // ปล่อยว่างถ้าไม่ได้ระบุ
                 }
                 
                 return {
