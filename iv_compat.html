@@ -177,18 +177,18 @@
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:15px;">
                     <div>
                         <label style="font-weight:bold; font-size:0.85rem;">ยา A (Drug A)</label>
-                        <select id="admin-drug-a" class="form-control"></select>
+                        <select id="admin-drug-a" class="form-control" required></select>
                     </div>
                     <div>
                         <label style="font-weight:bold; font-size:0.85rem;">ยา B (Drug B)</label>
-                        <select id="admin-drug-b" class="form-control"></select>
+                        <select id="admin-drug-b" class="form-control" required></select>
                     </div>
                 </div>
 
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:15px;">
                     <div>
                         <label style="font-weight:bold; font-size:0.85rem;">ผล Y-Site</label>
-                        <select id="admin-ysite" class="form-control">
+                        <select id="admin-ysite" class="form-control" required>
                             <option value="N/A">ไม่มีข้อมูล (N/A)</option>
                             <option value="C">✅ Compatible (C)</option>
                             <option value="I">❌ Incompatible (I)</option>
@@ -197,7 +197,7 @@
                     </div>
                     <div>
                         <label style="font-weight:bold; font-size:0.85rem;">ผล Admixture</label>
-                        <select id="admin-admix" class="form-control">
+                        <select id="admin-admix" class="form-control" required>
                             <option value="N/A">ไม่มีข้อมูล (N/A)</option>
                             <option value="C">✅ Compatible (C)</option>
                             <option value="I">❌ Incompatible (I)</option>
@@ -214,12 +214,20 @@
                 <div style="display:grid; grid-template-columns: 2fr 1fr; gap:15px; margin-bottom:20px;">
                     <div>
                         <label style="font-weight:bold; font-size:0.85rem;">อ้างอิง (Reference)</label>
-                        <input type="text" id="admin-ref" class="form-control" placeholder="เช่น Trissel's, Lexicomp">
+                        <input type="text" id="admin-ref" class="form-control" placeholder="เช่น Trissel's, Lexicomp" required>
                     </div>
                     <div>
                         <label style="font-weight:bold; font-size:0.85rem;">วันที่/ปี (Update Date)</label>
-                        <input type="date" id="admin-date" class="form-control">
+                        <input type="date" id="admin-date" class="form-control" required>
                     </div>
+
+                    <script>
+                        // สคริปต์ตั้งค่าวันที่ปัจจุบันอัตโนมัติ
+                        window.addEventListener('DOMContentLoaded', (event) => {
+                            const today = new Date().toISOString().split('T')[0];
+                            document.getElementById('admin-date').value = today;
+                        });
+                    </script>
                 </div>
 
                 <div style="display:flex; gap:10px;">
