@@ -73,7 +73,7 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_k_m3LIwgWpaboP148KYATQ_s1sh-64Z';
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         auth: {
-            storage: window.sessionStorage, // บังคับให้เก็บแค่ชั่วคราว
+            storage: window.sessionStorage, // 🌟 ใช้ sessionStorage เพื่อแยกการล็อกอินเป็นเอกเทศเฉพาะแท็บนี้
             autoRefreshToken: true,
             persistSession: true
         }
@@ -82,18 +82,25 @@
     // ==========================================
     // 🔐 ระบบ Login & Session
     // ==========================================
-    async function checkSession() {
-        const { data: { session } } = await supabase.auth.getSession();
+    
+    // ดักจับการเปลี่ยนแปลงสถานะ Login อัตโนมัติ เพื่อให้ UI สลับทันที
+    supabase.auth.onAuthStateChange((event, session) => {
         const loginSec = document.getElementById('login-section');
         const importSec = document.getElementById('import-section');
         
         if (session) {
             loginSec.style.display = 'none';
             importSec.style.display = 'block';
-            logMessage(`✅ ยืนยันตัวตนสำเร็จ: ${session.user.email}`);
         } else {
             loginSec.style.display = 'block';
             importSec.style.display = 'none';
+        }
+    });
+
+    async function checkSession() {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && !document.getElementById('log').innerHTML.includes('ยืนยันตัวตนสำเร็จ')) {
+            logMessage(`✅ ยืนยันตัวตนสำเร็จ: ${session.user.email}`);
         }
     }
 
@@ -106,7 +113,7 @@
         btn.innerText = "⏳ กำลังตรวจสอบ...";
         btn.disabled = true;
 
-        const { error } = await supabase.auth.signInWithPassword({ email: email, password: pw });
+        const { data, error } = await supabase.auth.signInWithPassword({ email: email, password: pw });
 
         btn.innerText = "เข้าสู่ระบบ";
         btn.disabled = false;
@@ -115,14 +122,13 @@
             alert("❌ เข้าสู่ระบบไม่สำเร็จ: " + error.message);
         } else {
             document.getElementById('auth-pw').value = '';
-            checkSession();
+            logMessage(`✅ ยืนยันตัวตนสำเร็จ: ${data.user.email}`);
         }
     }
 
     async function handleLogout() {
         await supabase.auth.signOut();
         document.getElementById('log').innerHTML = 'รอการสั่งงาน...';
-        checkSession();
     }
 
     // ทำงานทันทีเมื่อโหลดหน้าเว็บ
@@ -184,8 +190,8 @@
                 return;
             }
 
-            const fileAlias = inputAlias.files[0];
-            const fileCompat = inputCompat.files[0];
+            const fileAlias = inputAlias.files;
+            const fileCompat = inputCompat.files;
 
             if (!fileAlias || !fileCompat) {
                 alert("⚠️ กรุณาอัปโหลดไฟล์ CSV ให้ครบทั้ง 2 ไฟล์ครับ!");
