@@ -1097,30 +1097,38 @@
             🔗 แหล่งข้อมูลอ้างอิง (External Links)
         </h3>
 
-        <div id="admin-external-link-form" class="section-box hidden" style="background:#fffbeb; border-color:#fde68a;">
-            <input type="hidden" id="ext-link-id">
+        <div id="admin-ext-link-container" class="hidden" style="margin-bottom: 15px;">
             
-            <label style="font-size:0.85rem; font-weight:bold;">ชื่อลิงก์ / หัวข้อ (Title)</label>
-            <input type="text" id="ext-link-title" placeholder="เช่น Thai NLEM Guidelines 2024..." style="margin-bottom:10px;">
-
-            <label style="font-size:0.85rem; font-weight:bold;">URL (ลิงก์ปลายทาง)</label>
-            <input type="url" id="ext-link-url" placeholder="https://..." style="margin-bottom:10px;">
-
-            <label style="font-size:0.85rem; font-weight:bold;">หมวดหมู่ (Category)</label>
-            <input type="text" id="ext-link-category" placeholder="เช่น Guideline, Article, Tool (เว้นว่างได้)" list="ext-cat-list" style="margin-bottom:10px;">
-            <datalist id="ext-cat-list">
-                <option value="Guideline"></option>
-                <option value="Article"></option>
-                <option value="Tool"></option>
-                <option value="Reference"></option>
-            </datalist>
+            <div class="clickable-header" onclick="toggleExtLinkForm()" style="background: #fffbeb; border: 1px solid #fde68a; padding: 10px 15px; border-radius: 8px; display: flex; align-items: center; gap: 8px; user-select: none;">
+                <span class="toggle-icon" id="icon-ext-form" style="transform: rotate(0deg); color: #d97706; font-size: 0.9rem;">▶</span>
+                <span style="font-weight: bold; color: #b45309;">➕ เพิ่ม / แก้ไขแหล่งอ้างอิงใหม่</span>
+            </div>
             
-            <label style="font-size:0.85rem; font-weight:bold;">คำอธิบายเพิ่มเติม (Description)</label>
-            <textarea id="ext-link-desc" placeholder="อธิบายรายละเอียดสั้นๆ..." style="height:60px; margin-bottom:10px;"></textarea>
+            <div id="admin-external-link-form" class="section-box" style="display: none; background: #fffbeb; border-color: #fde68a; border-top: none; border-radius: 0 0 8px 8px; margin-top: -5px; padding-top: 15px;">
+                <input type="hidden" id="ext-link-id">
+                
+                <label style="font-size:0.85rem; font-weight:bold;">ชื่อลิงก์ / หัวข้อ (Title)</label>
+                <input type="text" id="ext-link-title" placeholder="เช่น Thai NLEM Guidelines 2024..." style="margin-bottom:10px;">
 
-            <div style="display:flex; gap:10px;">
-                <button class="btn btn-warning" id="btn-save-ext-link" style="background:var(--warning); color:white; border:none; flex:2; height:42px;" onclick="saveExternalLink()">💾 บันทึกลิงก์</button>
-                <button class="btn btn-outline hidden" id="btn-cancel-ext-link" style="flex:1; height:42px;" onclick="resetExternalLinkForm()">ยกเลิกแก้</button>
+                <label style="font-size:0.85rem; font-weight:bold;">URL (ลิงก์ปลายทาง)</label>
+                <input type="url" id="ext-link-url" placeholder="https://..." style="margin-bottom:10px;">
+
+                <label style="font-size:0.85rem; font-weight:bold;">หมวดหมู่ (Category)</label>
+                <input type="text" id="ext-link-category" placeholder="เช่น Guideline, Article, Tool (เว้นว่างได้)" list="ext-cat-list" style="margin-bottom:10px;">
+                <datalist id="ext-cat-list">
+                    <option value="Guideline"></option>
+                    <option value="Article"></option>
+                    <option value="Tool"></option>
+                    <option value="Reference"></option>
+                </datalist>
+                
+                <label style="font-size:0.85rem; font-weight:bold;">คำอธิบายเพิ่มเติม (Description)</label>
+                <textarea id="ext-link-desc" placeholder="อธิบายรายละเอียดสั้นๆ..." style="height:60px; margin-bottom:10px;"></textarea>
+
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-warning" id="btn-save-ext-link" style="background:var(--warning); color:white; border:none; flex:2; height:42px;" onclick="saveExternalLink()">💾 บันทึกลิงก์</button>
+                    <button class="btn btn-outline hidden" id="btn-cancel-ext-link" style="flex:1; height:42px;" onclick="resetExternalLinkForm(true)">ยกเลิกแก้</button>
+                </div>
             </div>
         </div>
 
@@ -5578,15 +5586,31 @@ async function fetchLogs() {
         }
     }
 
-    // เปิด Modal
-    function openExternalLinksModal() {
-        const formBox = document.getElementById('admin-external-link-form');
-        // แสดงฟอร์มจัดการเฉพาะตอนที่ Admin ล็อกอินอยู่
-        if (isAdmin) {
-            formBox.classList.remove('hidden');
-            resetExternalLinkForm();
+    // 🌟 ฟังก์ชันใหม่: สำหรับเปิด/ปิด (ยุบ/ขยาย) ฟอร์ม
+    function toggleExtLinkForm(forceOpen = false) {
+        const form = document.getElementById('admin-external-link-form');
+        const icon = document.getElementById('icon-ext-form');
+        const header = form.previousElementSibling;
+
+        if (forceOpen || form.style.display === 'none') {
+            form.style.display = 'block';
+            icon.style.transform = 'rotate(90deg)';
+            header.style.borderRadius = '8px 8px 0 0'; // ขอบล่างเหลี่ยมให้เชื่อมกับฟอร์ม
         } else {
-            formBox.classList.add('hidden');
+            form.style.display = 'none';
+            icon.style.transform = 'rotate(0deg)';
+            header.style.borderRadius = '8px'; // คืนขอบมน
+        }
+    }
+    
+    // อัปเดต: ให้ตั้งค่าเริ่มต้นเป็น "ยุบปิดไว้" ตอนเปิดหน้าต่างขึ้นมา
+    function openExternalLinksModal() {
+        const container = document.getElementById('admin-ext-link-container');
+        if (isAdmin) {
+            container.classList.remove('hidden');
+            resetExternalLinkForm(true); // ล้างฟอร์มและพับเก็บ
+        } else {
+            container.classList.add('hidden');
         }
         
         document.getElementById('search-ext-link').value = '';
@@ -5647,8 +5671,8 @@ async function fetchLogs() {
         listEl.innerHTML = html;
     }
 
-    // ล้างฟอร์ม
-    function resetExternalLinkForm() {
+    // อัปเดต: เพิ่มพารามิเตอร์เพื่อสั่งพับเก็บได้
+    function resetExternalLinkForm(collapseForm = false) {
         editingExtLinkId = null;
         document.getElementById('ext-link-id').value = '';
         document.getElementById('ext-link-title').value = '';
@@ -5658,9 +5682,18 @@ async function fetchLogs() {
         
         document.getElementById('btn-save-ext-link').innerText = "💾 บันทึกลิงก์";
         document.getElementById('btn-cancel-ext-link').classList.add('hidden');
+
+        if (collapseForm) {
+            const form = document.getElementById('admin-external-link-form');
+            if (form) form.style.display = 'none';
+            const icon = document.getElementById('icon-ext-form');
+            if (icon) icon.style.transform = 'rotate(0deg)';
+            const header = form.previousElementSibling;
+            if (header) header.style.borderRadius = '8px';
+        }
     }
 
-    // เตรียมฟอร์มสำหรับการแก้ไข (Edit)
+    // อัปเดต: ให้ "กางฟอร์มออกอัตโนมัติ" เมื่อแอดมินกดปุ่มดินสอ (แก้ไข) ในรายการ
     function prepareEditExternalLink(id) {
         const link = allExternalLinks.find(l => l.id === id);
         if (!link) return;
@@ -5675,7 +5708,10 @@ async function fetchLogs() {
         document.getElementById('btn-save-ext-link').innerText = "💾 ยืนยันการแก้ไข";
         document.getElementById('btn-cancel-ext-link').classList.remove('hidden');
         
-        // เลื่อน Scroll กลับขึ้นไปที่ฟอร์ม
+        // 🌟 สั่งกางกล่องฟอร์มออกทันที
+        toggleExtLinkForm(true);
+        
+        // เลื่อนหน้าจอขึ้นไปบนสุดเพื่อให้แอดมินเห็นฟอร์มที่เปิดออก
         document.querySelector('#external-links-modal .modal-content').scrollTop = 0;
     }
 
@@ -5721,9 +5757,8 @@ async function fetchLogs() {
         }
 
         alert('✅ บันทึกลิงก์อ้างอิงสำเร็จ!');
-        resetExternalLinkForm();
+        resetExternalLinkForm(true); // 🌟 บันทึกเสร็จให้ล้างค่าและพับฟอร์มเก็บทันที
         
-        // รีเฟรชข้อมูลแล้ววาดหน้าจอใหม่
         await fetchExternalLinks();
         renderExternalLinks();
     }
