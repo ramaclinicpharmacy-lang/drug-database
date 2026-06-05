@@ -170,98 +170,56 @@
         </div>
 
         <div id="tab-pairs" style="display:none;">
-    
-        <form id="admin-form-section" onsubmit="event.preventDefault(); saveCompatData();" style="display:none; background:#f8fafc; padding:20px; border-radius:10px; border:1px solid #cbd5e1; margin-bottom:20px;">
-            <h3 id="admin-form-title" style="margin-top:0; color:var(--primary);">➕ เพิ่มคู่ยาใหม่</h3>
-            <input type="hidden" id="admin-id">
-            
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:15px;">
-                <div>
-                    <label for="admin-drug-a" style="font-weight:bold; font-size:0.85rem;">ยา A (Drug A)</label>
-                    <select id="admin-drug-a" class="form-control" required>
-                        <option value="">-- กรุณาเลือกยา A --</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="admin-drug-b" style="font-weight:bold; font-size:0.85rem;">ยา B (Drug B)</label>
-                    <select id="admin-drug-b" class="form-control" required>
-                        <option value="">-- กรุณาเลือกยา B --</option>
-                    </select>
-                </div>
-            </div>
-    
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:15px;">
-                <div>
-                    <label for="admin-ysite" style="font-weight:bold; font-size:0.85rem;">ผล Y-Site</label>
-                    <select id="admin-ysite" class="form-control" required>
-                        <option value="N/A">ไม่มีข้อมูล (N/A)</option>
-                        <option value="C">✅ Compatible (C)</option>
-                        <option value="I">❌ Incompatible (I)</option>
-                        <option value="U">⚠️ Uncertain (U)</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="admin-admix" style="font-weight:bold; font-size:0.85rem;">ผล Admixture</label>
-                    <select id="admin-admix" class="form-control" required>
-                        <option value="N/A">ไม่มีข้อมูล (N/A)</option>
-                        <option value="C">✅ Compatible (C)</option>
-                        <option value="I">❌ Incompatible (I)</option>
-                        <option value="U">⚠️ Uncertain (U)</option>
-                    </select>
-                </div>
-            </div>
-    
-            <div style="margin-bottom:15px;">
-                <label for="admin-detail" style="font-weight:bold; font-size:0.85rem;">รายละเอียด / หมายเหตุ (Detail)</label>
-                <textarea id="admin-detail" class="form-control" rows="3" placeholder="เช่น การป้องกันแสง, สารละลายที่ห้ามใช้..."></textarea>
-            </div>
-    
-            <div style="display:grid; grid-template-columns: 2fr 1fr; gap:15px; margin-bottom:20px;">
-                <div>
-                    <label for="admin-ref" style="font-weight:bold; font-size:0.85rem;">อ้างอิง (Reference)</label>
-                    <input type="text" id="admin-ref" class="form-control" placeholder="เช่น Trissel's, Lexicomp" required>
-                </div>
-                <div>
-                    <label for="admin-date" style="font-weight:bold; font-size:0.85rem;">วันที่/ปี (Update Date)</label>
-                    <input type="date" id="admin-date" class="form-control" required>
-                </div>
-            </div> <div style="display:flex; gap:10px;">
-                <button type="submit" class="btn btn-primary" style="flex:1; height:45px;">💾 บันทึกคู่ยา</button>
-                <button type="button" class="btn btn-outline" style="flex:1; height:45px;" onclick="closeAdminForm()">❌ ยกเลิก</button>
-            </div>
-        </form>
-    
-        <div id="admin-list-section">
-            <div style="display:flex; gap:10px; margin-bottom:15px; flex-wrap:wrap; align-items:center;">
-                <input type="text" id="admin-search" class="form-control" style="flex:1; min-width:150px;" placeholder="🔍 ค้นหาชื่อยาในคู่..." onkeyup="fetchAdminList(1)">
+            <div id="admin-form-section" style="display:none; background:#f8fafc; padding:20px; border-radius:10px; border:1px solid #cbd5e1; margin-bottom:20px;">
+                <h3 id="admin-form-title" style="margin-top:0; color:var(--primary);">➕ เพิ่มคู่ยาใหม่</h3>
+                <input type="hidden" id="admin-id">
                 
-                <label style="font-size:0.9rem; display:flex; align-items:center; gap:5px; background:white; padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer; white-space:nowrap;">
-                    <input type="checkbox" id="admin-filter-outdate" onchange="fetchAdminList(1)"> ⚠️ เกิน 1 ปี
-                </label>
-                
-                <select id="admin-sort" class="form-control" style="width:auto; padding:8px;" onchange="fetchAdminList(1)">
-                    <option value="name">🔤 เรียงตามชื่อยา (A-Z)</option>
-                    <option value="date_desc">📅 อัปเดตล่าสุด -> เก่า</option>
-                    <option value="date_asc">📅 อัปเดตเก่าสุด -> ใหม่</option>
-                </select>
-    
-                <button type="button" class="btn btn-primary" onclick="openAdminForm()">➕ เพิ่มคู่ยา</button>
-            </div>
-            
-            <div style="max-height: 550px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px;">
-                <div id="admin-table-container"></div>
-            </div>
-        </div>
-    </div>
-    
-    <script>
-        // สคริปต์ตั้งค่าวันที่ปัจจุบันอัตโนมัติ
-        window.addEventListener('DOMContentLoaded', (event) => {
-            const today = new Date().toISOString().split('T')[0];
-            const dateInput = document.getElementById('admin-date');
-            if(dateInput) dateInput.value = today;
-        });
-    </script>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:15px;">
+                    <div>
+                        <label style="font-weight:bold; font-size:0.85rem;">ยา A (Drug A)</label>
+                        <select id="admin-drug-a" class="form-control"></select>
+                    </div>
+                    <div>
+                        <label style="font-weight:bold; font-size:0.85rem;">ยา B (Drug B)</label>
+                        <select id="admin-drug-b" class="form-control"></select>
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:15px;">
+                    <div>
+                        <label style="font-weight:bold; font-size:0.85rem;">ผล Y-Site</label>
+                        <select id="admin-ysite" class="form-control">
+                            <option value="N/A">ไม่มีข้อมูล (N/A)</option>
+                            <option value="C">✅ Compatible (C)</option>
+                            <option value="I">❌ Incompatible (I)</option>
+                            <option value="U">⚠️ Uncertain (U)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-weight:bold; font-size:0.85rem;">ผล Admixture</label>
+                        <select id="admin-admix" class="form-control">
+                            <option value="N/A">ไม่มีข้อมูล (N/A)</option>
+                            <option value="C">✅ Compatible (C)</option>
+                            <option value="I">❌ Incompatible (I)</option>
+                            <option value="U">⚠️ Uncertain (U)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="margin-bottom:15px;">
+                    <label style="font-weight:bold; font-size:0.85rem;">รายละเอียด / หมายเหตุ (Detail)</label>
+                    <textarea id="admin-detail" class="form-control" rows="3" placeholder="เช่น การป้องกันแสง, สารละลายที่ห้ามใช้..."></textarea>
+                </div>
+
+                <div style="display:grid; grid-template-columns: 2fr 1fr; gap:15px; margin-bottom:20px;">
+                    <div>
+                        <label style="font-weight:bold; font-size:0.85rem;">อ้างอิง (Reference)</label>
+                        <input type="text" id="admin-ref" class="form-control" placeholder="เช่น Trissel's, Lexicomp">
+                    </div>
+                    <div>
+                        <label style="font-weight:bold; font-size:0.85rem;">วันที่/ปี (Update Date)</label>
+                        <input type="date" id="admin-date" class="form-control">
+                    </div>
                 </div>
 
                 <div style="display:flex; gap:10px;">
