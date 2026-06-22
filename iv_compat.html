@@ -538,13 +538,20 @@
         `).join('');
 
         let pairsHtml = '';
+        let foundAnyPair = false; // ตัวแปรสำหรับเช็คว่าเจอข้อมูลคู่ยาในระบบบ้างหรือไม่
+
         for (let i = 0; i < ivSelectedDrugs.length; i++) {
             for (let j = i + 1; j < ivSelectedDrugs.length; j++) {
                 let d1 = ivSelectedDrugs[i]; let d2 = ivSelectedDrugs[j];
                 let pair = compatData.find(d => (d.drug_a === d1.code && d.drug_b === d2.code) || (d.drug_a === d2.code && d.drug_b === d1.code));
                 
-                let resY = pair ? pair.y_site_result : 'No Data';
-                let resA = pair ? pair.admixture_result : '-';
+                // 🛑 จุดสำคัญ: ถ้าไม่มีข้อมูลคู่ยานี้ใน Database ให้ข้ามการสร้าง Card ไปเลย
+                if (!pair) continue;
+
+                foundAnyPair = true; // พบข้อมูลอย่างน้อย 1 คู่
+
+                let resY = pair.y_site_result;
+                let resA = pair.admixture_result || '-';
                 
                 let cardClass = ''; let iconY = '❓';
                 if (resY === 'C') { cardClass = 'compat-C'; iconY = '✅ Compatible'; }
@@ -554,6 +561,7 @@
 
                 let iconA = resA === 'C' ? '✅ Compatible' : (resA === 'I' ? '❌ Incompatible' : (resA === 'U' ? '⚠️ Uncertain' : '❓ ไม่มีข้อมูล'));
 
+                // สร้าง Card เฉพาะคู่ที่มีข้อมูล
                 pairsHtml += `
                 <div class="pair-card ${cardClass}">
                     <div class="pair-header">${d1.name} <span style="color:#94a3b8; font-weight:normal; font-size:0.9rem;">&</span> ${d2.name}</div>
@@ -561,11 +569,17 @@
                         <div><span style="color:gray; font-size:0.8rem;">Y-Site:</span><br><b>${iconY}</b></div>
                         <div><span style="color:gray; font-size:0.8rem;">Admixture:</span><br><b>${iconA}</b></div>
                     </div>
-                    ${pair && pair.detail ? `<div style="margin-top:10px; font-size:0.9rem; color:#334155;"><b>📝 Note:</b> ${pair.detail.replace(/\n/g, '<br>')}</div>` : ''}
-                    ${pair && pair.reference ? `<div style="margin-top:8px; font-size:0.8rem; color:#94a3b8;">📚 Ref: ${pair.reference} ${pair.search_date ? `(${pair.search_date})` : ''}</div>` : ''}
+                    ${pair.detail ? `<div style="margin-top:10px; font-size:0.9rem; color:#334155;"><b>📝 Note:</b> ${pair.detail.replace(/\n/g, '<br>')}</div>` : ''}
+                    ${pair.reference ? `<div style="margin-top:8px; font-size:0.8rem; color:#94a3b8;">📚 Ref: ${pair.reference} ${pair.search_date ? `(${pair.search_date})` : ''}</div>` : ''}
                 </div>`;
             }
         }
+
+        // หากวิเคราะห์แล้วไม่พบข้อมูลคู่ยาในฐานข้อมูลเลย ให้แสดงข้อความแจ้งเตือน
+        if (!foundAnyPair) {
+            pairsHtml = '<div style="padding: 20px; text-align: center; color: #64748b; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px;">ไม่พบข้อมูลการเข้ากันได้ของคู่ยาที่ท่านเลือกในฐานข้อมูล</div>';
+        }
+
         document.getElementById('iv-pairs-container').innerHTML = pairsHtml;
         document.getElementById('iv-result-section').style.display = 'block';
     }
