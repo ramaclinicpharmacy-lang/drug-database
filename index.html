@@ -1524,7 +1524,7 @@
             if (admin.updated_at) {
                 const aDate = new Date(admin.updated_at).toLocaleDateString('th-TH', { year: '2-digit', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
                 const aUser = admin.updated_by ? admin.updated_by.split('@')[0] : 'System';
-                updateInfoBox.innerHTML = `🕒 last edited: ${aDate} น. by ${aUser}/n`;
+                updateInfoBox.innerHTML = `🕒 last edited: ${aDate} น. by ${aUser}\n`;
                 updateInfoBox.style.display = 'block';
             } else {
                 updateInfoBox.style.display = 'none';
