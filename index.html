@@ -2447,11 +2447,15 @@ async function fetchLogs() {
         if (drugs.length === 0) return container.innerHTML = '<div style="text-align:center; padding:50px; color:gray;">❌ ไม่พบข้อมูลที่ตรงกับเงื่อนไข</div>';
 
         container.innerHTML = drugs.map(drug => {
-            const safeCode = encodeHTML(drug.drug_code); const safeName = encodeHTML(drug.drug_name);
+            const safeCode = encodeHTML(drug.drug_code); 
+            const safeName = encodeHTML(drug.drug_name);
             const isExpanded = expandedCards.has(safeCode);
             const genericNotes = (drug.drug_contents || []).filter(c => c.generics?.special_note).map(c => `<div class="note-box generic-note"><b>📌 ยาสามัญ (${c.generics.generic_name}):</b> ${c.generics.special_note}</div>`).join('');
             
-            const pharmClasses = new Set(); (drug.drug_contents || []).forEach(c => { (c.generics?.generic_pharm_mapping || []).forEach(pm => pharmClasses.add(pm.class_name)); });
+            const pharmClasses = new Set(); 
+            (drug.drug_contents || []).forEach(c => { 
+                (c.generics?.generic_pharm_mapping || []).forEach(pm => pharmClasses.add(pm.class_name)); 
+            });
             
             const pharmHtml = Array.from(pharmClasses).map(pc => {
                 const lowerPc = pc.toLowerCase();
@@ -2545,9 +2549,18 @@ async function fetchLogs() {
             
             const labelSection = labelsHtml ? `<div style="margin-top:10px; padding:10px; background:#f0f9ff; border:1px dashed #7dd3fc; border-radius:8px;"><strong>🏷️ ฉลากยา (Labels):</strong><br>${labelsHtml}</div>` : '';
 
+            // 🌟 สร้าง adminHtml พร้อมเวลาอัปเดตของวิธีใช้ยา
             const adminHtml = (drug.drug_administrations || [])
                 .sort((a, b) => (a.rank || 99) - (b.rank || 99))
-                .map(a => `<div style="background:white; padding:10px; border-radius:8px; margin-top:8px; border:1px solid #edf2f7; font-size:0.9rem;"><span class="badge badge-route">${a.routes?.route_name || 'Unknown'}</span> <span style="white-space: pre-line;">${a.instructions || '-'}</span> ${formatConc(a.min_conc, a.max_conc, a.conc_unit)} ${a.administration_fluids?.length > 0 ? `<div style="margin-top:5px;"><b>สารน้ำ:</b> ${a.administration_fluids.map(f => `<span class="badge badge-fluid">${f.fluid_short_name}</span>`).join('')}</div>` : ''}</div>`)
+                .map(a => {
+                    let adminEditInfo = '';
+                    if (a.updated_at) {
+                        const aDate = new Date(a.updated_at).toLocaleDateString('th-TH', { year: '2-digit', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                        const aUser = a.updated_by ? a.updated_by.split('@')[0] : 'System';
+                        adminEditInfo = `<div style="font-size:0.7rem; color:#94a3b8; margin-top:8px; text-align:right; border-top:1px dashed #e2e8f0; padding-top:4px;">🕒 แก้ไขวิธีใช้ล่าสุด: ${aDate} น. โดย ${aUser}</div>`;
+                    }
+                    return `<div style="background:white; padding:10px; border-radius:8px; margin-top:8px; border:1px solid #edf2f7; font-size:0.9rem;"><span class="badge badge-route">${a.routes?.route_name || 'Unknown'}</span> <span style="white-space: pre-line;">${a.instructions || '-'}</span> ${formatConc(a.min_conc, a.max_conc, a.conc_unit)} ${a.administration_fluids?.length > 0 ? `<div style="margin-top:5px;"><b>สารน้ำ:</b> ${a.administration_fluids.map(f => `<span class="badge badge-fluid">${f.fluid_short_name}</span>`).join('')}</div>` : ''}${adminEditInfo}</div>`;
+                })
                 .join('') || '<br>ไม่มีข้อมูล';
 
             const img1 = formatDriveImg(drug.image_url_1);
@@ -2560,7 +2573,6 @@ async function fetchLogs() {
                 imagesHtml += `</div>`;
             }
 
-            // 🌟 สร้าง HTML กล่องข้อความ Gene/Lab
             let geneLabHtml = '';
             const allGeneLabs = [];
             (drug.drug_contents || []).forEach(c => {
@@ -2584,10 +2596,17 @@ async function fetchLogs() {
                 </div>`;
             }
 
+            // 🌟 3. สร้างเวลาอัปเดตของตัวยาหลักเพื่อเตรียมไว้แปะล่างสุด
+            let drugEditInfo = '';
+            if (drug.updated_at) {
+                const dDate = new Date(drug.updated_at).toLocaleDateString('th-TH', { year: '2-digit', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                const dUser = drug.updated_by ? drug.updated_by.split('@')[0] : 'System';
+                drugEditInfo = `<div style="font-size:0.75rem; color:#94a3b8; margin-top:15px; padding-top:10px; border-top:1px dashed #cbd5e1; text-align:right;">🕒 อัปเดตข้อมูลยาล่าสุด: ${dDate} น. โดย ${dUser}</div>`;
+            }
+
             return `
             <div class="drug-card ${cardThemeClass}" data-code="${safeCode}">
                 <div class="card-header-flex" style="flex-wrap: wrap; align-items: flex-start; gap: 15px;">
-                    <!-- ด้านซ้าย: ข้อมูลหลักและปุ่มแอดมิน -->
                     <div style="flex: 1; min-width: 250px; display: flex; flex-direction: column;">
                         <div class="clickable-header" onclick="toggleCard('${safeCode}')">
                             <h2>
@@ -2612,12 +2631,9 @@ async function fetchLogs() {
                             <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:red" onclick="event.stopPropagation(); deleteDrug('${safeCode}')">🗑️</button>
                         </div>` : ''}
                     </div>
-                    
-                    <!-- ด้านขวา: แสดงรูปภาพ 2 กล่อง -->
                     ${imagesHtml}
                 </div>
 
-                <!-- เนื้อหาแบบขยาย (Expanded Body) -->
                 <div id="body-${safeCode}" class="card-body ${isExpanded ? 'expanded' : ''}">
                     <small>ID: ${drug.drug_code} | ${safeName}</small>
                     
@@ -2646,15 +2662,15 @@ async function fetchLogs() {
                     }).join('') || '-'}</div>
                     ${nlemNotes} ${drug.special_note ? `<div class="note-box drug-note"><b>💡 Note:</b> ${drug.special_note}</div>` : ''} ${genericNotes}
                     
-                    <!-- 🌟 แทรกกล่อง Gene/Lab ตรงนี้เลยครับ -->
                     ${geneLabHtml}
-                    
                     ${labelSection}
                     <div style="margin-top:10px;"><strong>💉 วิธีบริหารยา:</strong>
                         ${adminHtml}
                     </div>
 
                     ${needsAdj ? `<div id="inline-adj-container-${safeCode}" style="display:none; margin-top:15px; padding:15px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px;"></div>` : ''}
+                    
+                    ${drugEditInfo}
                 </div>
             </div>`;
         }).join('');
