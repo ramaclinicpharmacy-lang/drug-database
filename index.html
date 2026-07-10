@@ -5895,8 +5895,20 @@ async function fetchLogs() {
             return;
         }
 
-        // หากอัปเดตสำเร็จ โหลดข้อมูลมาวาดใหม่ให้สีปุ่มอัปเดตตามสถานะปัจจุบัน
-        fetchDrugs();
+        // 🌟 ถ้ายิง API ผ่าน ให้อัปเดตข้อมูลในตัวแปร Local ทันที เพื่อให้การ์ดเปลี่ยนสีไวๆ
+        const drugIndex = allDrugsRaw.findIndex(d => d.drug_code === code);
+        if (drugIndex !== -1) {
+            allDrugsRaw[drugIndex].statuscode = newStatus;
+            allDrugsRaw[drugIndex].updated_at = new Date().toISOString();
+            
+            // ถ้ามีอีเมลเก็บไว้ในระบบให้ใส่ชื่อคนแก้ด้วย
+            if (typeof currentAdminEmail !== 'undefined' && currentAdminEmail) {
+                allDrugsRaw[drugIndex].updated_by = currentAdminEmail;
+            }
+        }
+        
+        // สั่งให้จัดเรียงและวาดหน้าจอใหม่ทันที (ปุ่มจะถูกเปลี่ยนสีและข้อความอัตโนมัติ)
+        updateBaseVisibilityAndFilter();
     }
 </script>
 </body>
