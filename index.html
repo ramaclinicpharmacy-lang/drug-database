@@ -742,7 +742,7 @@
     <label style="font-size:0.9rem; font-weight:bold; margin-top:10px; display:block;">ชนิดยา</label><select id="form-drug-type"></select>
     <label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">ลักษณะยา (สี / Imprint / รูปแบบ)</label><input type="text" id="form-drug-remarks" placeholder="เช่น เม็ดกลมสีขาว มีรอยบาก, Tylenol 500">
     <label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">รหัสสถานะ (Status Code - เฉพาะ Admin)</label>
-    <input type="text" id="form-drug-statuscode" list="status-code-list" placeholder="เช่น online, offline, Active (เว้นว่างได้)">
+    <input type="text" id="form-drug-statuscode" list="status-code-list" placeholder="เช่น Online, Offline (เว้นว่างได้)">
     <datalist id="status-code-list">
         <option value="Online"></option>
         <option value="Offline"></option>
@@ -2587,13 +2587,13 @@ async function fetchLogs() {
             
             if (isAdmin) {
                 const currentStatus = (drug.statuscode || '').toLowerCase();
-                const isOnline = currentStatus === 'online'; 
+                const isOnline = currentStatus === 'Online'; 
                 
                 const btnBg = isOnline ? '#dcfce7' : '#fee2e2';
                 const btnColor = isOnline ? '#166534' : '#b91c1c';
                 const btnBorder = isOnline ? '#bbf7d0' : '#fca5a5';
                 const btnText = isOnline ? '🟢 Online' : '🔴 Offline';
-                const nextStatus = isOnline ? 'offline' : 'online';
+                const nextStatus = isOnline ? 'Offline' : 'Online';
                 
                 rightContainerHtml += `<button class="btn btn-sm" style="background:${btnBg}; color:${btnColor}; border:1px solid ${btnBorder}; border-radius:20px; font-size:0.75rem; font-weight:bold; padding:4px 12px; box-shadow:0 1px 2px rgba(0,0,0,0.05); transition: 0.2s; z-index:10;" onclick="event.stopPropagation(); toggleQuickStatus(this, '${safeCode}', '${nextStatus}')">🔄 ${btnText}</button>`;
             }
