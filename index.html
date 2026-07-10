@@ -2565,7 +2565,7 @@ async function fetchLogs() {
             
             const labelSection = labelsHtml ? `<div style="margin-top:10px; padding:10px; background:#f0f9ff; border:1px dashed #7dd3fc; border-radius:8px;"><strong>🏷️ ฉลากยา (Labels):</strong><br>${labelsHtml}</div>` : '';
 
-            // 🌟 สร้าง adminHtml พร้อมเวลาอัปเดตของวิธีใช้ยา
+            // 🌟 1. สร้าง adminHtml พร้อมเวลาอัปเดตของวิธีใช้ยา
             const adminHtml = (drug.drug_administrations || [])
                 .sort((a, b) => (a.rank || 99) - (b.rank || 99))
                 .map(a => {
@@ -2579,16 +2579,34 @@ async function fetchLogs() {
                 })
                 .join('') || '<br>ไม่มีข้อมูล';
 
+            // 🌟 2. ดึงรูปภาพ และสร้างปุ่ม Quick Status
             const img1 = formatDriveImg(drug.image_url_1);
             const img2 = formatDriveImg(drug.image_url_2);
-            let imagesHtml = '';
-            if (img1 || img2) {
-                imagesHtml = `<div style="display:flex; gap:10px; flex-shrink:0; justify-content:flex-end;">`;
-                if (img1) imagesHtml += `<img src="${encodeHTML(img1)}" onerror="this.onerror=null; this.src='https://placehold.co/80x80/fee2e2/ef4444?text=Error';" style="width:80px; height:80px; object-fit:cover; border-radius:8px; border:1px solid #cbd5e1; box-shadow:0 2px 4px rgba(0,0,0,0.1); cursor:pointer;" onclick="event.stopPropagation(); openImageViewer('${encodeHTML(img1)}')" title="คลิกเพื่อดูรูปขยาย">`;
-                if (img2) imagesHtml += `<img src="${encodeHTML(img2)}" onerror="this.onerror=null; this.src='https://placehold.co/80x80/fee2e2/ef4444?text=Error';" style="width:80px; height:80px; object-fit:cover; border-radius:8px; border:1px solid #cbd5e1; box-shadow:0 2px 4px rgba(0,0,0,0.1); cursor:pointer;" onclick="event.stopPropagation(); openImageViewer('${encodeHTML(img2)}')" title="คลิกเพื่อดูรูปขยาย">`;
-                imagesHtml += `</div>`;
+            
+            let rightContainerHtml = `<div style="display:flex; flex-direction:column; align-items:flex-end; gap:10px; flex-shrink:0;">`;
+            
+            if (isAdmin) {
+                const currentStatus = (drug.statuscode || '').toLowerCase();
+                const isOnline = currentStatus === 'online'; 
+                
+                const btnBg = isOnline ? '#dcfce7' : '#fee2e2';
+                const btnColor = isOnline ? '#166534' : '#b91c1c';
+                const btnBorder = isOnline ? '#bbf7d0' : '#fca5a5';
+                const btnText = isOnline ? '🟢 Online' : '🔴 Offline';
+                const nextStatus = isOnline ? 'offline' : 'online';
+                
+                rightContainerHtml += `<button class="btn btn-sm" style="background:${btnBg}; color:${btnColor}; border:1px solid ${btnBorder}; border-radius:20px; font-size:0.75rem; font-weight:bold; padding:4px 12px; box-shadow:0 1px 2px rgba(0,0,0,0.05); transition: 0.2s; z-index:10;" onclick="event.stopPropagation(); toggleQuickStatus(this, '${safeCode}', '${nextStatus}')">🔄 ${btnText}</button>`;
             }
 
+            if (img1 || img2) {
+                rightContainerHtml += `<div style="display:flex; gap:10px; justify-content:flex-end;">`;
+                if (img1) rightContainerHtml += `<img src="${encodeHTML(img1)}" onerror="this.onerror=null; this.src='https://placehold.co/80x80/fee2e2/ef4444?text=Error';" style="width:80px; height:80px; object-fit:cover; border-radius:8px; border:1px solid #cbd5e1; box-shadow:0 2px 4px rgba(0,0,0,0.1); cursor:pointer;" onclick="event.stopPropagation(); openImageViewer('${encodeHTML(img1)}')" title="คลิกเพื่อดูรูปขยาย">`;
+                if (img2) rightContainerHtml += `<img src="${encodeHTML(img2)}" onerror="this.onerror=null; this.src='https://placehold.co/80x80/fee2e2/ef4444?text=Error';" style="width:80px; height:80px; object-fit:cover; border-radius:8px; border:1px solid #cbd5e1; box-shadow:0 2px 4px rgba(0,0,0,0.1); cursor:pointer;" onclick="event.stopPropagation(); openImageViewer('${encodeHTML(img2)}')" title="คลิกเพื่อดูรูปขยาย">`;
+                rightContainerHtml += `</div>`;
+            }
+            rightContainerHtml += `</div>`;
+
+            // 🌟 3. ข้อมูล Gene/Lab
             let geneLabHtml = '';
             const allGeneLabs = [];
             (drug.drug_contents || []).forEach(c => {
@@ -2612,7 +2630,7 @@ async function fetchLogs() {
                 </div>`;
             }
 
-            // 🌟 3. สร้างเวลาอัปเดตของตัวยาหลักเพื่อเตรียมไว้แปะล่างสุด
+            // 🌟 4. สร้างเวลาอัปเดตของตัวยาหลัก
             let drugEditInfo = '';
             if (drug.updated_at) {
                 const dDate = new Date(drug.updated_at).toLocaleDateString('th-TH', { year: '2-digit', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -2620,6 +2638,7 @@ async function fetchLogs() {
                 drugEditInfo = `<div style="font-size:0.75rem; color:#94a3b8; margin-top:15px; padding-top:10px; border-top:1px dashed #cbd5e1; text-align:right;">🕒 อัปเดตข้อมูลยาล่าสุด: ${dDate} น. โดย ${dUser}</div>`;
             }
 
+            // 🌟 5. คืนค่า HTML โครงสร้าง Card
             return `
             <div class="drug-card ${cardThemeClass}" data-code="${safeCode}">
                 <div class="card-header-flex" style="flex-wrap: wrap; align-items: flex-start; gap: 15px;">
@@ -2643,11 +2662,12 @@ async function fetchLogs() {
                             <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--pink); border-color:var(--pink);" onclick="event.stopPropagation(); openNlemManager('${safeCode}', '${safeName}')">📋 บัญชี</button>
                             <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openAdminManager('${safeCode}', '${safeName}')">💉 วิธีใช้</button>
                             <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openIngredientManager('${safeCode}', '${safeName}')">🧪 ส่วนผสม</button>
-                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openEditDrug('${safeCode}')">✏️แก้ไข card ยาหลัก</button>
+                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openEditDrug('${safeCode}')">✏️แก้ไข</button>
                             <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:red" onclick="event.stopPropagation(); deleteDrug('${safeCode}')">🗑️</button>
                         </div>` : ''}
                     </div>
-                    ${imagesHtml}
+                    
+                    ${rightContainerHtml}
                 </div>
 
                 <div id="body-${safeCode}" class="card-body ${isExpanded ? 'expanded' : ''}">
@@ -5849,6 +5869,34 @@ async function fetchLogs() {
         // โหลดข้อมูลใหม่หลังจากลบสำเร็จ
         await fetchExternalLinks();
         renderExternalLinks();
+    }
+
+    // 🌟 ฟังก์ชันสำหรับสลับสถานะ Online / Offline จากหน้า Card โดยตรง (เฉพาะ Admin)
+    async function toggleQuickStatus(btnElement, code, newStatus) {
+        const originalText = btnElement.innerHTML;
+        btnElement.innerHTML = '⏳...';
+        btnElement.disabled = true;
+
+        const { error } = await supabaseClient
+            .from('drugs')
+            .update({ statuscode: newStatus })
+            .eq('drug_code', code);
+
+        if (error) {
+            const msg = error.message.toLowerCase();
+            // ดักจับกรณี Session หมดอายุ หรือหลุด RLS
+            if (msg.includes('jwt') || msg.includes('rls')) {
+                promptRelogin();
+            } else {
+                alert("เกิดข้อผิดพลาดในการเปลี่ยนสถานะ: " + error.message);
+            }
+            btnElement.innerHTML = originalText;
+            btnElement.disabled = false;
+            return;
+        }
+
+        // หากอัปเดตสำเร็จ โหลดข้อมูลมาวาดใหม่ให้สีปุ่มอัปเดตตามสถานะปัจจุบัน
+        fetchDrugs();
     }
 </script>
 </body>
