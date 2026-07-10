@@ -737,7 +737,18 @@
         <option value="fluid">สารน้ำ (Fluid)</option>
         <option value="supply">เวชภัณฑ์ (Supply)</option>
     </select>
-    <label style="font-size:0.9rem; font-weight:bold; margin-top:10px; display:block;">ชนิดยา</label><select id="form-drug-type"></select><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">ลักษณะยา (สี / Imprint / รูปแบบ)</label><input type="text" id="form-drug-remarks" placeholder="เช่น เม็ดกลมสีขาว มีรอยบาก, Tylenol 500"><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">รหัสสถานะ (Status Code - เฉพาะ Admin)</label><input type="text" id="form-drug-statuscode" placeholder="เช่น Active, Inactive, เลิกผลิต (เว้นว่างได้)"><label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">สถานะเตือน (Tags)</label><div id="drug-tags-checkbox-group" class="chip-container"></div>
+    <label style="font-size:0.9rem; font-weight:bold; margin-top:10px; display:block;">ชนิดยา</label><select id="form-drug-type"></select>
+    <label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">ลักษณะยา (สี / Imprint / รูปแบบ)</label><input type="text" id="form-drug-remarks" placeholder="เช่น เม็ดกลมสีขาว มีรอยบาก, Tylenol 500">
+    <label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">รหัสสถานะ (Status Code - เฉพาะ Admin)</label>
+    <input type="text" id="form-drug-statuscode" list="status-code-list" placeholder="เช่น online, offline, Active (เว้นว่างได้)">
+    <datalist id="status-code-list">
+        <option value="online"></option>
+        <option value="offline"></option>
+        <option value="Active"></option>
+        <option value="Inactive"></option>
+        <option value="เลิกผลิต"></option>
+    </datalist>
+    <label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">สถานะเตือน (Tags)</label><div id="drug-tags-checkbox-group" class="chip-container"></div>
 <div style="background:#fef2f2; border:1px dashed #fca5a5; padding:10px; border-radius:8px; margin-top:15px; margin-bottom:15px;">
     <label style="cursor:pointer; display:flex; align-items:center; gap:8px; color:var(--danger); font-weight:bold;">
     <input type="checkbox" id="form-drug-high-risk" style="transform: scale(1.3); margin:0;"> 
