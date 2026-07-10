@@ -831,8 +831,6 @@
         if (drugA === drugB) return alert('ไม่สามารถจับคู่ยาชนิดเดียวกันได้');
     
         // 2. ตรวจสอบฟิลด์ที่เป็น Required (ห้ามปล่อยว่าง หรือ ห้ามเป็น N/A)
-        if (ySiteVal === 'N/A') return alert('กรุณาระบุ ผล Y-Site');
-        if (admixVal === 'N/A') return alert('กรุณาระบุ ผล Admixture');
         if (!refVal) return alert('กรุณาระบุ อ้างอิง (Reference)');
         if (!dateVal) return alert('กรุณาระบุ วันที่/ปี (Update Date)');
     
