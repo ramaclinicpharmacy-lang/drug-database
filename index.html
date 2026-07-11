@@ -3982,7 +3982,6 @@ async function fetchLogs() {
                 <input type="number" id="manual-egfr-${drugCode}" placeholder="mL/min/1.73m²" oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px; border-color:var(--indigo); flex:1;">
             </div>
 
-            <!-- แสดงผล 4 ค่า -->
             <div style="margin-top:12px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                 <div style="background:#fef08a; border:1px solid #facc15; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
                     🟡 <b>CrCl (Cockcroft-Gault):</b><br><b id="result-crcl-${drugCode}" style="color:#92400e; font-size:1.1rem;">-</b> <small>mL/min</small>
@@ -3998,10 +3997,8 @@ async function fetchLogs() {
                 </div>
             </div>
 
-            <!-- 🌟 Dynamic Alert (เตือนเมื่อใช้ค่าที่ไม่ตรงกับ Ref) -->
             <div id="dynamic-warning-${drugCode}" style="display:none; margin-top:10px; background:#fff7ed; border:1px solid #fdba74; padding:10px 12px; border-radius:6px; font-size:0.85rem; color:#c2410c; line-height:1.5;"></div>
             
-            <!-- 🚩 Disclaimer Section อัปเกรดใหม่ 100% -->
             <div style="margin-top:10px; background:#fef2f2; border:1px solid #fee2e2; padding:10px 12px; border-radius:6px; font-size:0.75rem; color:#991b1b; line-height:1.5;">
                 <b style="font-size:0.8rem;">⚠️ ข้อจำกัดทางคลินิก (SCr-based equations):</b>
                 <ul style="margin: 5px 0 0 0; padding-left: 15px;">
@@ -4045,6 +4042,25 @@ async function fetchLogs() {
             html += buildTable('🟡 Hepatic Impairment / Child-Pugh', genAdjs.filter(d => d.adj_type === 'hepatic'));
             html += `</div>`;
         });
+
+        // 🌟 เพิ่มส่วนแสดงวันที่และผู้ที่อัปเดตล่าสุด
+        let latestUpdate = null;
+        let latestUser = null;
+        adjData.forEach(adj => {
+            const dt = adj.updated_at || adj.created_at;
+            if (dt) {
+                if (!latestUpdate || new Date(dt) > new Date(latestUpdate)) {
+                    latestUpdate = dt;
+                    latestUser = adj.updated_by || adj.created_by;
+                }
+            }
+        });
+
+        if (latestUpdate) {
+            const aDate = new Date(latestUpdate).toLocaleDateString('th-TH', { year: '2-digit', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const aUser = latestUser ? latestUser.split('@')[0] : 'System';
+            html += `<div style="font-size:0.75rem; color:#94a3b8; margin-top:10px; text-align:right; border-top:1px dashed #cbd5e1; padding-top:8px;">🕒 อัปเดตข้อมูลปรับขนาดยาล่าสุด: ${aDate} น. โดย ${aUser}</div>`;
+        }
         return html;
     }
     
