@@ -3079,7 +3079,9 @@ async function fetchLogs() {
             min_value: minVal === '' ? null : parseFloat(minVal),
             max_value: maxVal === '' ? null : parseFloat(maxVal),
             recommendation: rec,
-            note: note === '' ? null : note
+            note: note === '' ? null : note,
+            updated_by: currentAdminEmail,
+            updated_at: new Date().toISOString()
         };
     
         let error;
@@ -3493,7 +3495,9 @@ async function fetchLogs() {
             min_conc: document.getElementById('input-min-conc').value||null, 
             max_conc: document.getElementById('input-max-conc').value||null, 
             conc_unit: document.getElementById('input-conc-unit').value||null,
-            rank: editingAdminId ? undefined : 99 // 🌟 กำหนด 99 ไปต่อท้ายหากเพิ่มใหม่
+            rank: editingAdminId ? undefined : 99,
+            updated_by: currentAdminEmail,
+            updated_at: new Date().toISOString()
         }; 
         let response = editingAdminId ? await supabaseClient.from('drug_administrations').update(payload).eq('id', editingAdminId).select().single() : await supabaseClient.from('drug_administrations').insert(payload).select().single(); 
         if (response.error) return alert("Error: " + response.error.message); 
@@ -3567,7 +3571,9 @@ async function fetchLogs() {
                     instructions: sourceAdmin.instructions || null, 
                     min_conc: sourceAdmin.min_conc === '' ? null : sourceAdmin.min_conc, 
                     max_conc: sourceAdmin.max_conc === '' ? null : sourceAdmin.max_conc, 
-                    conc_unit: sourceAdmin.conc_unit || null 
+                    conc_unit: sourceAdmin.conc_unit || null,
+                    updated_by: currentAdminEmail,
+                    updated_at: new Date().toISOString()
                 }; 
                 
                 const { data: newAdmin, error } = await supabaseClient.from('drug_administrations').insert(payload).select().single(); 
