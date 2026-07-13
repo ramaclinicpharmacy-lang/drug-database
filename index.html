@@ -3773,6 +3773,13 @@ async function fetchLogs() {
         const container = document.getElementById('adj-content-container');
         container.innerHTML = '<div style="text-align:center; padding:20px; color:gray;">กำลังดึงข้อมูล Clinical Guideline...</div>';
         
+        // 🚨 ซ่อน/แสดง กล่องเครื่องคิดเลขของ Modal หากไม่มียาตัวไหนต้องประเมินไตเลย 🚨
+        const needsAnyRenal = (drug.drug_contents || []).some(c => c.generics?.needs_renal_adj);
+        const calcSection = document.querySelector('#adjustment-modal .section-box');
+        if (calcSection) {
+            calcSection.style.display = needsAnyRenal ? 'block' : 'none';
+        }
+
         openModal('adjustment-modal');
     
         // ดึง Generic Code ทั้งหมดที่เป็นส่วนประกอบของยานี้
@@ -3783,7 +3790,7 @@ async function fetchLogs() {
             return;
         }
     
-        // 🌟 ดึงข้อมูลจากฐานข้อมูลแบบ Lazy
+        // ดึงข้อมูลจากฐานข้อมูลแบบ Lazy
         const { data, error } = await supabaseClient
             .from('generic_adjustments')
             .select('*')
@@ -3857,10 +3864,15 @@ async function fetchLogs() {
                 </div>`;
             };
     
-            html += buildTable('🛑 Renal Impairment (CrCl mL/min)', crclData, true, false);
-            html += buildTable('🛑 Renal Impairment (eGFR mL/min/1.73m²)', egfrData, false, false);
-            html += buildTable('🛑 Renal Replacement Therapy (RRT)', rrtData, false, true); // สร้างตารางสำหรับ RRT แยก
-            html += buildTable('🟡 Hepatic Impairment / Child-Pugh', hepaticData, false, false);
+            // 🚨 เลือกโชว์ตามค่า Flag ของยาสามัญ 🚨
+            if (c.generics.needs_renal_adj) {
+                html += buildTable('🛑 Renal Impairment (CrCl mL/min)', crclData, true, false);
+                html += buildTable('🛑 Renal Impairment (eGFR mL/min/1.73m²)', egfrData, false, false);
+                html += buildTable('🛑 Renal Replacement Therapy (RRT)', rrtData, false, true);
+            }
+            if (c.generics.needs_hepatic_adj) {
+                html += buildTable('🟡 Hepatic Impairment / Child-Pugh', hepaticData, false, false);
+            }
     
             html += `</div>`;
         });
@@ -3958,58 +3970,66 @@ async function fetchLogs() {
     }
     
     function buildInlineAdjHTML(drugCode, adjData, drugContents) {
+        // เช็คว่ายาตัวนี้มีส่วนประกอบไหนที่ต้องประเมินไตหรือไม่ (เพื่อซ่อนเครื่องคิดเลขถ้าไม่ต้องใช้)
+        const needsAnyRenal = drugContents.some(c => c.generics?.needs_renal_adj);
+        
         let html = `
         <div style="font-weight:bold; color:var(--danger); margin-bottom:10px; display:flex; align-items:center; gap:8px; font-size: 1.1rem;">
-            ⚠️ แนวทางการปรับขนาดยา (Clinical Kidney Function)
-        </div>
-        
-        <div style="background:white; border:1px solid #e2e8f0; padding:12px; border-radius:8px; margin-bottom:15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-            <div style="font-size:0.85rem; font-weight:bold; color:var(--primary); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
-                <span>🧮 ประเมินการทำงานไต (CG & CKD-EPI 2021)</span>
-                <button class="btn btn-outline btn-sm" onclick="clearInlineCrCl('${drugCode}')" style="font-size:0.75rem; padding:2px 8px; height:auto; min-height:24px;">ล้างค่า</button>
-            </div>
-            
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px;">
-                <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">เพศ</label><select id="calc-gender-${drugCode}" onchange="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"><option value="M">ชาย</option><option value="F">หญิง</option></select></div>
-                <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">อายุ (ปี)</label><input type="number" id="calc-age-${drugCode}" placeholder="ปี" oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
-                <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">น้ำหนัก (kg)</label><input type="number" id="calc-wt-${drugCode}" placeholder="กก." oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
-                <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">ส่วนสูง (cm)</label><input type="number" id="calc-ht-${drugCode}" placeholder="ซม." oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
-                <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">SCr (mg/dL)</label><input type="number" id="calc-scr-${drugCode}" placeholder="SCr" oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
-            </div>
-            
-            <div style="margin-top:12px; padding:10px; border-radius:8px; border:1px dashed #cbd5e1; background:#f8fafc; display:flex; align-items:center; gap:10px;">
-                <label style="font-size:0.75rem; font-weight:bold; color:#475569; margin:0;">หรือระบุ eGFR จาก Lab โดยตรง:</label>
-                <input type="number" id="manual-egfr-${drugCode}" placeholder="mL/min/1.73m²" oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px; border-color:var(--indigo); flex:1;">
-            </div>
-
-            <div style="margin-top:12px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                <div style="background:#fef08a; border:1px solid #facc15; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
-                    🟡 <b>CrCl (Cockcroft-Gault):</b><br><b id="result-crcl-${drugCode}" style="color:#92400e; font-size:1.1rem;">-</b> <small>mL/min</small>
-                </div>
-                <div style="background:#dcfce7; border:1px solid #bbf7d0; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
-                    🟢 <b>eGFR (Normalized):</b><br><b id="result-egfr-${drugCode}" style="color:#166534; font-size:1.1rem;">-</b> <small>mL/min/1.73m²</small>
-                </div>
-                <div style="background:#f1f5f9; border:1px solid #cbd5e1; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
-                    📐 <b>BSA (Mosteller):</b><br><b id="result-bsa-${drugCode}" style="color:#334155; font-size:1.1rem;">-</b> <small>m²</small>
-                </div>
-                <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
-                    🔄 <b>Absolute GFR:</b><br><b id="result-abs-gfr-${drugCode}" style="color:#1e40af; font-size:1.1rem;">-</b> <small>mL/min</small>
-                </div>
-            </div>
-
-            <div id="dynamic-warning-${drugCode}" style="display:none; margin-top:10px; background:#fff7ed; border:1px solid #fdba74; padding:10px 12px; border-radius:6px; font-size:0.85rem; color:#c2410c; line-height:1.5;"></div>
-            
-            <div style="margin-top:10px; background:#fef2f2; border:1px solid #fee2e2; padding:10px 12px; border-radius:6px; font-size:0.75rem; color:#991b1b; line-height:1.5;">
-                <b style="font-size:0.8rem;">⚠️ ข้อจำกัดทางคลินิก (SCr-based equations):</b>
-                <ul style="margin: 5px 0 0 0; padding-left: 15px;">
-                    <li><b>AKI & Unstable Cr:</b> ห้ามใช้ในภาวะ Acute Kidney Injury หรือ SCr ไม่คงที่ (Non-steady state)</li>
-                    <li><b>Extreme Body Size:</b> คลาดเคลื่อนสูงในผู้ป่วย Cachexia, ตัดอวัยวะ (Amputation), ทานมังสวิรัติ หรือผู้ป่วยโรคอ้วน (อาจต้องพิจารณา IBW/AdjBW หรือ TDM)</li>
-                    <li><b>Interference:</b> ยาบางชนิด (เช่น <i>Trimethoprim, Cimetidine, Cobicistat</i>) หรืออาหาร (<i>Creatine</i>) อาจทำให้ SCr สูงปลอม</li>
-                    <li><b>Reference Mismatch:</b> การสลับใช้ค่าข้ามเกณฑ์ (eGFR แทน CrCl หรือในทางกลับกัน) อาจทำให้เกิด Over/Under-dosing โดยเฉพาะในยา Narrow Therapeutic Index</li>
-                </ul>
-            </div>
+            ⚠️ แนวทางการปรับขนาดยา ${needsAnyRenal ? '(Clinical Kidney Function)' : '(Hepatic Impairment)'}
         </div>
         `;
+        
+        // ซ่อนกล่องเครื่องคิดเลขถ้าไม่ต้องปรับตามไต
+        if (needsAnyRenal) {
+            html += `
+            <div style="background:white; border:1px solid #e2e8f0; padding:12px; border-radius:8px; margin-bottom:15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <div style="font-size:0.85rem; font-weight:bold; color:var(--primary); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>🧮 ประเมินการทำงานไต (CG & CKD-EPI 2021)</span>
+                    <button class="btn btn-outline btn-sm" onclick="clearInlineCrCl('${drugCode}')" style="font-size:0.75rem; padding:2px 8px; height:auto; min-height:24px;">ล้างค่า</button>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px;">
+                    <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">เพศ</label><select id="calc-gender-${drugCode}" onchange="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"><option value="M">ชาย</option><option value="F">หญิง</option></select></div>
+                    <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">อายุ (ปี)</label><input type="number" id="calc-age-${drugCode}" placeholder="ปี" oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
+                    <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">น้ำหนัก (kg)</label><input type="number" id="calc-wt-${drugCode}" placeholder="กก." oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
+                    <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">ส่วนสูง (cm)</label><input type="number" id="calc-ht-${drugCode}" placeholder="ซม." oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
+                    <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">SCr (mg/dL)</label><input type="number" id="calc-scr-${drugCode}" placeholder="SCr" oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
+                </div>
+                
+                <div style="margin-top:12px; padding:10px; border-radius:8px; border:1px dashed #cbd5e1; background:#f8fafc; display:flex; align-items:center; gap:10px;">
+                    <label style="font-size:0.75rem; font-weight:bold; color:#475569; margin:0;">หรือระบุ eGFR จาก Lab โดยตรง:</label>
+                    <input type="number" id="manual-egfr-${drugCode}" placeholder="mL/min/1.73m²" oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px; border-color:var(--indigo); flex:1;">
+                </div>
+
+                <div style="margin-top:12px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <div style="background:#fef08a; border:1px solid #facc15; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
+                        🟡 <b>CrCl (Cockcroft-Gault):</b><br><b id="result-crcl-${drugCode}" style="color:#92400e; font-size:1.1rem;">-</b> <small>mL/min</small>
+                    </div>
+                    <div style="background:#dcfce7; border:1px solid #bbf7d0; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
+                        🟢 <b>eGFR (Normalized):</b><br><b id="result-egfr-${drugCode}" style="color:#166534; font-size:1.1rem;">-</b> <small>mL/min/1.73m²</small>
+                    </div>
+                    <div style="background:#f1f5f9; border:1px solid #cbd5e1; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
+                        📐 <b>BSA (Mosteller):</b><br><b id="result-bsa-${drugCode}" style="color:#334155; font-size:1.1rem;">-</b> <small>m²</small>
+                    </div>
+                    <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
+                        🔄 <b>Absolute GFR:</b><br><b id="result-abs-gfr-${drugCode}" style="color:#1e40af; font-size:1.1rem;">-</b> <small>mL/min</small>
+                    </div>
+                </div>
+
+                <div id="dynamic-warning-${drugCode}" style="display:none; margin-top:10px; background:#fff7ed; border:1px solid #fdba74; padding:10px 12px; border-radius:6px; font-size:0.85rem; color:#c2410c; line-height:1.5;"></div>
+                
+                <div style="margin-top:10px; background:#fef2f2; border:1px solid #fee2e2; padding:10px 12px; border-radius:6px; font-size:0.75rem; color:#991b1b; line-height:1.5;">
+                    <b style="font-size:0.8rem;">⚠️ ข้อจำกัดทางคลินิก (SCr-based equations):</b>
+                    <ul style="margin: 5px 0 0 0; padding-left: 15px;">
+                        <li><b>AKI & Unstable Cr:</b> ห้ามใช้ในภาวะ Acute Kidney Injury หรือ SCr ไม่คงที่ (Non-steady state)</li>
+                        <li><b>Extreme Body Size:</b> คลาดเคลื่อนสูงในผู้ป่วย Cachexia, ตัดอวัยวะ (Amputation), ทานมังสวิรัติ หรือผู้ป่วยโรคอ้วน (อาจต้องพิจารณา IBW/AdjBW หรือ TDM)</li>
+                        <li><b>Interference:</b> ยาบางชนิด (เช่น <i>Trimethoprim, Cimetidine, Cobicistat</i>) หรืออาหาร (<i>Creatine</i>) อาจทำให้ SCr สูงปลอม</li>
+                        <li><b>Reference Mismatch:</b> การสลับใช้ค่าข้ามเกณฑ์ (eGFR แทน CrCl หรือในทางกลับกัน) อาจทำให้เกิด Over/Under-dosing โดยเฉพาะในยา Narrow Therapeutic Index</li>
+                    </ul>
+                </div>
+            </div>
+            `;
+        }
 
         drugContents.forEach(c => {
             if (!c.generics) return;
@@ -4036,14 +4056,19 @@ async function fetchLogs() {
                 return `<div style="margin-bottom:12px;"><div style="font-size:0.85rem; font-weight:bold; background:#e2e8f0; padding:6px 10px; border-radius:6px 6px 0 0; color:var(--dark);">${title}</div><table style="width:100%; border-collapse:collapse; font-size:0.85rem; border:1px solid #e2e8f0; background:white;">${rows}</table></div>`;
             };
 
-            html += buildTable('🛑 Renal Impairment (CrCl mL/min)', genAdjs.filter(d => d.criterion_type === 'CrCl').sort((a,b) => (b.max_value || 999) - (a.max_value || 999)));
-            html += buildTable('🛑 Renal Impairment (eGFR mL/min/1.73m²)', genAdjs.filter(d => d.criterion_type === 'eGFR').sort((a,b) => (b.max_value || 999) - (a.max_value || 999)));
-            html += buildTable('🛑 RRT (HD, CAPD, CRRT)', genAdjs.filter(d => d.adj_type === 'renal' && !['CrCl', 'eGFR'].includes(d.criterion_type)));
-            html += buildTable('🟡 Hepatic Impairment / Child-Pugh', genAdjs.filter(d => d.adj_type === 'hepatic'));
+            // 🚨 เลือกโชว์ตามค่า Flag ของยาสามัญ 🚨
+            if (c.generics.needs_renal_adj) {
+                html += buildTable('🛑 Renal Impairment (CrCl mL/min)', genAdjs.filter(d => d.criterion_type === 'CrCl').sort((a,b) => (b.max_value || 999) - (a.max_value || 999)));
+                html += buildTable('🛑 Renal Impairment (eGFR mL/min/1.73m²)', genAdjs.filter(d => d.criterion_type === 'eGFR').sort((a,b) => (b.max_value || 999) - (a.max_value || 999)));
+                html += buildTable('🛑 RRT (HD, CAPD, CRRT)', genAdjs.filter(d => d.adj_type === 'renal' && !['CrCl', 'eGFR'].includes(d.criterion_type)));
+            }
+            if (c.generics.needs_hepatic_adj) {
+                html += buildTable('🟡 Hepatic Impairment / Child-Pugh', genAdjs.filter(d => d.adj_type === 'hepatic'));
+            }
             html += `</div>`;
         });
 
-        // 🌟 เพิ่มส่วนแสดงวันที่และผู้ที่อัปเดตล่าสุด
+        // ส่วนแสดงวันที่และผู้ที่อัปเดตล่าสุด
         let latestUpdate = null;
         let latestUser = null;
         adjData.forEach(adj => {
