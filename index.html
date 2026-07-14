@@ -244,22 +244,25 @@
         
         <div style="display: flex; gap: 10px; flex-wrap: wrap; background: #f8fafc; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; align-items: center;">
             <span style="font-size: 0.9rem; font-weight: bold; color: var(--dark); margin-right: 5px;">🛠️ เครื่องมือเสริม:</span>
-            <button class="btn btn-sm" style="background:#fef3c7; color:#d97706; border:1px solid #fde68a; font-weight: bold; border-radius: 6px; padding: 6px 12px; cursor: pointer;" onclick="openExternalLinksModal()">
-                🔗 อ้างอิง
-            </button>
-            <button class="btn btn-sm" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; font-weight: bold; border-radius: 6px; padding: 6px 12px; cursor: pointer;" onclick="window.open('drug_compare.html', '_blank')">
-                💊 เทียบยา
-            </button>
-            <button class="btn btn-sm" style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; font-weight:bold; border-radius:6px; padding:6px 12px; cursor:pointer;" onclick="openGeneViewer()">
-                🧬 Gene/Lab
-            </button>
-            <button class="btn btn-sm" style="background:#8b5cf6; color:white; font-weight:bold; border-radius:6px; padding:6px 12px; cursor:pointer;" onclick="window.open('iv_compat.html', '_blank')">
-                💉 Y-site
-            </button>
+            <button class="btn btn-sm" style="background:#fef3c7; color:#d97706; border:1px solid #fde68a; font-weight: bold; border-radius: 6px; padding: 6px 12px; cursor: pointer;" onclick="openExternalLinksModal()">🔗 อ้างอิง</button>
+            <button class="btn btn-sm" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; font-weight: bold; border-radius: 6px; padding: 6px 12px; cursor: pointer;" onclick="window.open('drug_compare.html', '_blank')">💊 เทียบยา</button>
+            <button class="btn btn-sm" style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; font-weight:bold; border-radius:6px; padding:6px 12px; cursor:pointer;" onclick="openGeneViewer()">🧬 Gene/Lab</button>
+            <button class="btn btn-sm" style="background:#8b5cf6; color:white; font-weight:bold; border-radius:6px; padding:6px 12px; cursor:pointer;" onclick="window.open('iv_compat.html', '_blank')">💉 Y-site</button>
         </div>
         
         <div id="search-stats" style="font-size: 0.85rem; color: #64748b; margin-top: 10px;"></div>
     </div>
+
+<div id="gene-viewer-modal" class="modal">
+    <div class="modal-content" style="max-width: 700px; border-top: 8px solid #059669;">
+        <h3 style="color:#059669; margin-top:0; display:flex; align-items:center; gap:8px;">
+            🧬 ข้อมูล Gene และรายการยาที่เกี่ยวข้อง
+        </h3>
+        <input type="text" id="search-gene-viewer" placeholder="🔍 ค้นหาชื่อ Gene หรือชื่อยา..." onkeyup="renderGeneViewer()" style="margin-bottom:15px;" autocomplete="search">
+        <div id="gene-viewer-list" style="max-height: 450px; overflow-y: auto; padding-right: 5px;"></div>
+        <button class="btn btn-outline" style="width:100%; margin-top:15px; height:42px;" onclick="closeModal('gene-viewer-modal')">ปิดหน้าต่าง</button>
+    </div>
+</div>
 
     <div class="filter-panel" id="filter-panel-dropdown">
         <div class="filter-grid">
