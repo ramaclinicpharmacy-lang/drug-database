@@ -6009,13 +6009,27 @@ async function fetchLogs() {
         const q = (document.getElementById('search-gene-viewer').value || '').toLowerCase();
         const listEl = document.getElementById('gene-viewer-list');
         
-        // 1. จัดกลุ่มข้อมูล (Group By Test Name)
+        // 1. ดึงข้อมูล Gene ทั้งหมดในระบบจาก Master Data (allGenerics) เพื่อให้ได้รายการที่ครบถ้วน
         const geneMap = {};
-        
+        allGenerics.forEach(g => {
+            if (g.generic_gene_lab && g.generic_gene_lab.length > 0) {
+                g.generic_gene_lab.forEach(gl => {
+                    const testName = gl.test_name;
+                    if (!geneMap[testName]) {
+                        geneMap[testName] = {
+                            description: gl.description,
+                            drugs: []
+                        };
+                    }
+                });
+            }
+        });
+
+        // 2. จับคู่กับยาในระบบ (เฉพาะยาที่ Status ถูกอนุญาตให้แสดงบนหน้าเว็บ)
+        const adminBypassEl = document.getElementById('admin-view-all-cb');
+        const adminBypass = isAdmin && adminBypassEl && adminBypassEl.checked;
+
         allDrugsRaw.forEach(drug => {
-            // เช็กสถานะการแสดงผลยา (ให้ User เห็นแค่ยาที่เปิดใช้)
-            const adminBypassEl = document.getElementById('admin-view-all-cb');
-            const adminBypass = isAdmin && adminBypassEl && adminBypassEl.checked;
             if (!adminBypass && globalVisibleStatuses.length > 0) {
                 const dStatus = drug.statuscode || 'NO_STATUS';
                 if (!globalVisibleStatuses.includes(dStatus)) return;
@@ -6025,25 +6039,21 @@ async function fetchLogs() {
                 if (c.generics && c.generics.generic_gene_lab && c.generics.generic_gene_lab.length > 0) {
                     c.generics.generic_gene_lab.forEach(gl => {
                         const testName = gl.test_name;
-                        if (!geneMap[testName]) {
-                            geneMap[testName] = {
-                                description: gl.description,
-                                drugs: []
-                            };
-                        }
-                        // ป้องกันชื่อยาซ้ำใน Gene เดียวกัน
-                        if (!geneMap[testName].drugs.some(d => d.code === drug.drug_code)) {
-                            geneMap[testName].drugs.push({
-                                code: drug.drug_code,
-                                name: drug.drug_name
-                            });
+                        if (geneMap[testName]) {
+                            // ป้องกันชื่อยาโผล่ซ้ำใน Gene เดียวกัน
+                            if (!geneMap[testName].drugs.some(d => d.code === drug.drug_code)) {
+                                geneMap[testName].drugs.push({
+                                    code: drug.drug_code,
+                                    name: drug.drug_name
+                                });
+                            }
                         }
                     });
                 }
             });
         });
 
-        // 2. แปลง Map เป็น Array เพื่อกรองค้นหา
+        // 3. แปลง Object Map ให้เป็น Array และทำการกรองด้วยคำค้นหา
         let geneArray = Object.keys(geneMap).map(testName => ({
             testName: testName,
             description: geneMap[testName].description,
@@ -6058,21 +6068,28 @@ async function fetchLogs() {
             );
         }
 
-        // 3. วาด HTML ลง Modal
+        // 4. วาด HTML ลง Modal
         if (geneArray.length === 0) {
             listEl.innerHTML = '<div style="color:gray; text-align:center; padding:20px; border:1px dashed #cbd5e1; border-radius:8px;">ไม่พบข้อมูล Gene หรือยาที่ค้นหา</div>';
             return;
         }
 
-        // เรียงตามชื่อ Gene A-Z
+        // เรียงลำดับชื่อ Gene ตามตัวอักษร A-Z
         geneArray.sort((a, b) => a.testName.localeCompare(b.testName));
 
         listEl.innerHTML = geneArray.map(g => {
-            const drugListHtml = g.drugs.map(d => 
-                `<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-size:0.8rem; padding:4px 8px; margin-bottom:4px; margin-right:4px;">
-                    <b>${encodeHTML(d.code)}</b> : ${encodeHTML(d.name)}
-                </span>`
-            ).join('');
+            let drugListHtml = '';
+            
+            // เช็กว่ามียาที่เกี่ยวข้องไหม ถ้าไม่มีให้ขึ้นข้อความบอก
+            if (g.drugs.length > 0) {
+                drugListHtml = g.drugs.map(d => 
+                    `<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-size:0.8rem; padding:4px 8px; margin-bottom:4px; margin-right:4px;">
+                        <b>${encodeHTML(d.code)}</b> : ${encodeHTML(d.name)}
+                    </span>`
+                ).join('');
+            } else {
+                drugListHtml = '<span style="color:gray; font-size:0.85rem; font-style:italic;">(ยังไม่มียาในระบบที่ผูกกับ Gene นี้)</span>';
+            }
 
             return `
             <div class="list-item" style="border-left:4px solid #059669; align-items:stretch; flex-direction:column; background:white; border-radius:8px; padding:15px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.05); border:1px solid #e2e8f0;">
