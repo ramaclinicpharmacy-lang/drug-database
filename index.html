@@ -250,6 +250,9 @@
             <button class="btn btn-sm" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; font-weight: bold; border-radius: 6px; padding: 6px 12px; cursor: pointer;" onclick="window.open('drug_compare.html', '_blank')">
                 💊 เทียบยา
             </button>
+            <button class="btn btn-sm" style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; font-weight:bold; border-radius:6px; padding:6px 12px; cursor:pointer;" onclick="openGeneViewer()">
+                🧬 Gene/Lab
+            </button>
             <button class="btn btn-sm" style="background:#8b5cf6; color:white; font-weight:bold; border-radius:6px; padding:6px 12px; cursor:pointer;" onclick="window.open('iv_compat.html', '_blank')">
                 💉 Y-site
             </button>
@@ -1165,7 +1168,20 @@
                 </div>
             </div>
         </div>
-
+        <div id="gene-viewer-modal" class="modal">
+    <div class="modal-content" style="max-width: 700px; border-top: 8px solid #059669;">
+        <h3 style="color:#059669; margin-top:0; display:flex; align-items:center; gap:8px;">
+            🧬 ข้อมูล Gene และรายการยาที่เกี่ยวข้อง
+        </h3>
+        
+        <input type="text" id="search-gene-viewer" placeholder="🔍 ค้นหาชื่อ Gene หรือชื่อยา..." onkeyup="renderGeneViewer()" style="margin-bottom:15px;">
+        
+        <div id="gene-viewer-list" style="max-height: 450px; overflow-y: auto; padding-right: 5px;">
+            </div>
+        
+        <button class="btn btn-outline" style="width:100%; margin-top:15px; height:42px;" onclick="closeModal('gene-viewer-modal')">ปิดหน้าต่าง</button>
+    </div>
+</div>
         <input type="text" id="search-ext-link" placeholder="🔍 ค้นหาชื่อลิงก์, หมวดหมู่ หรือคำอธิบาย..." onkeyup="renderExternalLinks()" style="margin-top:10px; margin-bottom:10px;">
         <div id="external-links-list" style="max-height: 400px; overflow-y: auto; padding-right:5px;">
             </div>
@@ -5978,6 +5994,97 @@ async function fetchLogs() {
         
         // สั่งให้จัดเรียงและวาดหน้าจอใหม่ทันที (ปุ่มจะถูกเปลี่ยนสีและข้อความอัตโนมัติ)
         updateBaseVisibilityAndFilter();
+    }
+
+    // ==========================================
+    // 🧬 ระบบดูข้อมูล Gene / Lab (ฝั่ง User)
+    // ==========================================
+    function openGeneViewer() {
+        document.getElementById('search-gene-viewer').value = '';
+        renderGeneViewer();
+        openModal('gene-viewer-modal');
+    }
+
+    function renderGeneViewer() {
+        const q = (document.getElementById('search-gene-viewer').value || '').toLowerCase();
+        const listEl = document.getElementById('gene-viewer-list');
+        
+        // 1. จัดกลุ่มข้อมูล (Group By Test Name)
+        const geneMap = {};
+        
+        allDrugsRaw.forEach(drug => {
+            // เช็กสถานะการแสดงผลยา (ให้ User เห็นแค่ยาที่เปิดใช้)
+            const adminBypassEl = document.getElementById('admin-view-all-cb');
+            const adminBypass = isAdmin && adminBypassEl && adminBypassEl.checked;
+            if (!adminBypass && globalVisibleStatuses.length > 0) {
+                const dStatus = drug.statuscode || 'NO_STATUS';
+                if (!globalVisibleStatuses.includes(dStatus)) return;
+            }
+
+            (drug.drug_contents || []).forEach(c => {
+                if (c.generics && c.generics.generic_gene_lab && c.generics.generic_gene_lab.length > 0) {
+                    c.generics.generic_gene_lab.forEach(gl => {
+                        const testName = gl.test_name;
+                        if (!geneMap[testName]) {
+                            geneMap[testName] = {
+                                description: gl.description,
+                                drugs: []
+                            };
+                        }
+                        // ป้องกันชื่อยาซ้ำใน Gene เดียวกัน
+                        if (!geneMap[testName].drugs.some(d => d.code === drug.drug_code)) {
+                            geneMap[testName].drugs.push({
+                                code: drug.drug_code,
+                                name: drug.drug_name
+                            });
+                        }
+                    });
+                }
+            });
+        });
+
+        // 2. แปลง Map เป็น Array เพื่อกรองค้นหา
+        let geneArray = Object.keys(geneMap).map(testName => ({
+            testName: testName,
+            description: geneMap[testName].description,
+            drugs: geneMap[testName].drugs
+        }));
+
+        if (q) {
+            geneArray = geneArray.filter(g => 
+                g.testName.toLowerCase().includes(q) || 
+                (g.description || '').toLowerCase().includes(q) ||
+                g.drugs.some(d => d.name.toLowerCase().includes(q) || d.code.toLowerCase().includes(q))
+            );
+        }
+
+        // 3. วาด HTML ลง Modal
+        if (geneArray.length === 0) {
+            listEl.innerHTML = '<div style="color:gray; text-align:center; padding:20px; border:1px dashed #cbd5e1; border-radius:8px;">ไม่พบข้อมูล Gene หรือยาที่ค้นหา</div>';
+            return;
+        }
+
+        // เรียงตามชื่อ Gene A-Z
+        geneArray.sort((a, b) => a.testName.localeCompare(b.testName));
+
+        listEl.innerHTML = geneArray.map(g => {
+            const drugListHtml = g.drugs.map(d => 
+                `<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-size:0.8rem; padding:4px 8px; margin-bottom:4px; margin-right:4px;">
+                    <b>${encodeHTML(d.code)}</b> : ${encodeHTML(d.name)}
+                </span>`
+            ).join('');
+
+            return `
+            <div class="list-item" style="border-left:4px solid #059669; align-items:stretch; flex-direction:column; background:white; border-radius:8px; padding:15px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.05); border:1px solid #e2e8f0;">
+                <div style="font-weight:bold; color:#059669; font-size:1.1rem; margin-bottom:8px;">🧬 ${encodeHTML(g.testName)}</div>
+                ${g.description ? `<div style="font-size:0.85rem; color:#065f46; margin-bottom:12px; padding:10px; background:#ecfdf5; border-radius:6px; border: 1px dashed #a7f3d0; line-height:1.4;">${encodeHTML(g.description).replace(/\n/g, '<br>')}</div>` : ''}
+                <div style="font-size:0.85rem; font-weight:bold; color:var(--dark); margin-bottom:8px;">💊 ยาที่ต้องระวัง:</div>
+                <div style="display:flex; flex-wrap:wrap;">
+                    ${drugListHtml}
+                </div>
+            </div>
+            `;
+        }).join('');
     }
 </script>
 </body>
