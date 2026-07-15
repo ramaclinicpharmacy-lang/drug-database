@@ -89,6 +89,8 @@
     <nav class="navbar">
         <h2>💉 ระบบจัดสายให้ยา (IV Compatibility)</h2>
         <div style="display:flex; gap:10px;">
+            <button class="btn btn-outline" style="border-color:var(--purple); color:var(--purple);" onclick="openQRModal()">📱 QR Code</button>
+            
             <button class="btn btn-outline" style="border-color:var(--info); color:var(--info);" onclick="openAdminModal()">🛠️ จัดการข้อมูล</button>
             <button class="btn btn-outline" onclick="window.close()">⬅️ กลับหน้าหลัก</button>
         </div>
@@ -279,6 +281,24 @@
     </div>
 </div>
 
+<div id="qr-modal" class="modal">
+    <div class="modal-content" style="max-width: 400px; text-align: center;">
+        <span class="close-btn" onclick="closeQRModal()">&times;</span>
+        <h2 style="margin-top:0; color:var(--purple);">📱 สแกน QR Code</h2>
+        <p style="color: gray; font-size: 0.95rem;">เพื่อเข้าใช้งานหน้านี้บนอุปกรณ์มือถือ</p>
+        
+        <div style="margin: 20px auto; background: #f8fafc; padding: 20px; border-radius: 12px; display: inline-block; border: 1px solid #e2e8f0;">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://ramaclinicpharmacy-lang.github.io/drug-database/iv_compat.html" alt="QR Code" style="width: 200px; height: 200px; display: block;">
+        </div>
+        
+        <p style="font-size: 0.85rem; color: #64748b; word-break: break-all; margin-bottom: 20px;">
+            https://ramaclinicpharmacy-lang.github.io/drug-database/iv_compat.html
+        </p>
+        
+        <button class="btn btn-purple" style="width: 100%; height: 45px;" onclick="closeQRModal()">ปิดหน้าต่าง</button>
+    </div>
+</div>
+    
 <script>
     // 🔗 ตั้งค่า Supabase
     const SUPABASE_URL = 'https://ykszirezwwiedhvmbssi.supabase.co';
@@ -1134,6 +1154,29 @@ const statusA = item.admixture_result === 'C' ? '🟢 C' : (item.admixture_resul
         container.innerHTML = html;
     }
     init();
+    // ==========================================
+    // 📱 QR CODE MODAL LOGIC
+    // ==========================================
+    function openQRModal() {
+        document.getElementById('qr-modal').style.display = 'block';
+    }
+
+    function closeQRModal() {
+        document.getElementById('qr-modal').style.display = 'none';
+    }
+
+    // หากต้องการให้คลิกพื้นที่ว่างข้างนอก Modal แล้วปิดด้วย (รวมกับ Admin Modal ของเดิม)
+    window.onclick = function(event) {
+        const adminModal = document.getElementById('admin-modal');
+        const qrModal = document.getElementById('qr-modal');
+        if (event.target === adminModal) {
+            closeAdminModal();
+        }
+        if (event.target === qrModal) {
+            closeQRModal();
+        }
+    }
+    
 </script>
 
 </body>
