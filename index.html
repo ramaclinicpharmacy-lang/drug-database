@@ -5213,7 +5213,7 @@ async function fetchLogs() {
         const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
         // ถ้าเป็นลิงก์ Google Drive ให้จับเอาแค่ ID มาต่อท้ายลิงก์ตรงของ Google (lh3)
         if (match && match[1] && url.includes('drive.google.com')) {
-            return `https://lh3.googleusercontent.com/d/$${match[1]}`;
+            return `https://lh3.googleusercontent.com/d/${match[1]}`;
         }
         return url; // ถ้าเป็นลิงก์เว็บอื่น ก็ปล่อยผ่านเลย
     }
