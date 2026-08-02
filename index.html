@@ -2442,7 +2442,7 @@ async function fetchLogs() {
         while (hasMore) { 
             const { data, error } = await supabaseClient.from('drugs')
                 // 🌟 เพิ่ม generic_gene_lab เข้าไปในบรรทัด select ด้านล่างนี้ครับ
-                .select(`*, drug_tag_mapping(tag_name), drug_label_mapping(label_code, labels(label_name)), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, generic_type, special_note, needs_renal_adj, needs_hepatic_adj, generic_pharm_mapping(class_name), generic_gene_lab(test_name, description), generic_links(id, link_title, url))), drug_administrations(id, instructions, min_conc, max_conc, conc_unit, updated_at, updated_by, routes(route_name, route_code), administration_fluids(fluid_short_name)), nutrition_configs(product_type, grams_per_scoop, scoops_per_serving, serving_volume_ml, serving_kcal, protein_per_serving, carb_per_serving, fat_per_serving, preparation_note), med_error_knowledge(*), drug_links(id, link_title, url), drug_nickname(nickname)`)
+                .select(`*, drug_tag_mapping(tag_name), drug_label_mapping(label_code, labels(label_name)), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, generic_type, special_note, needs_renal_adj, needs_hepatic_adj, generic_pharm_mapping(class_name), generic_gene_lab(test_name, description), generic_links(id, link_title, url))), drug_administrations(id, rank, instructions, min_conc, max_conc, conc_unit, updated_at, updated_by, routes(route_name, route_code), administration_fluids(fluid_short_name)), nutrition_configs(product_type, grams_per_scoop, scoops_per_serving, serving_volume_ml, serving_kcal, protein_per_serving, carb_per_serving, fat_per_serving, preparation_note), med_error_knowledge(*), drug_links(id, link_title, url), drug_nickname(nickname)`)
                 .eq('is_active', true) 
                 .order('drug_name')
                 .range(from, from + step - 1);
@@ -3490,31 +3490,37 @@ async function fetchLogs() {
     }
 
     // 🌟 ฟังก์ชันสลับลำดับ
+    // 🌟 ฟังก์ชันสลับลำดับ (ฉบับแก้ไขตรรกะ)
     async function moveAdminRank(id, direction, drugCode) {
         const currentIndex = currentAdminsList.findIndex(a => a.id === id);
         if (currentIndex < 0) return;
         
         const targetIndex = currentIndex + direction;
         if (targetIndex < 0 || targetIndex >= currentAdminsList.length) return; 
-
-        const currentItem = currentAdminsList[currentIndex];
-        const targetItem = currentAdminsList[targetIndex];
-
-        // สลับเลข
-        const tempRank = currentItem.rank;
-        currentItem.rank = targetItem.rank;
-        targetItem.rank = tempRank;
-
+    
+        // สลับตำแหน่งใน Array ก่อน
+        const temp = currentAdminsList[currentIndex];
+        currentAdminsList[currentIndex] = currentAdminsList[targetIndex];
+        currentAdminsList[targetIndex] = temp;
+    
         const listEl = document.getElementById('current-admin-list');
-        listEl.style.opacity = '0.5'; listEl.style.pointerEvents = 'none';
-
-        // บันทึกลงฐานข้อมูล
-        await supabaseClient.from('drug_administrations').update({ rank: currentItem.rank }).eq('id', currentItem.id);
-        await supabaseClient.from('drug_administrations').update({ rank: targetItem.rank }).eq('id', targetItem.id);
-
-        // ดึงข้อมูลมาแสดงใหม่
+        listEl.style.opacity = '0.5'; 
+        listEl.style.pointerEvents = 'none';
+    
+        // วนลูปเพื่อให้เลข rank ใหม่เรียงกันแบบ 1, 2, 3... เสมอ (ล้างปัญหาเลข 99 ซ้ำกัน)
+        const updatePromises = currentAdminsList.map((item, index) => {
+            const newRank = index + 1;
+            item.rank = newRank; // อัปเดตใน local array ด้วย
+            return supabaseClient.from('drug_administrations').update({ rank: newRank }).eq('id', item.id);
+        });
+    
+        // รอให้การอัปเดตลง Database ทุกแถวเสร็จสมบูรณ์
+        await Promise.all(updatePromises);
+    
+        // ดึงข้อมูลมาแสดงใหม่และปลดล็อกหน้าจอ
         await fetchCurrentAdmins(drugCode);
-        listEl.style.opacity = '1'; listEl.style.pointerEvents = 'auto';
+        listEl.style.opacity = '1'; 
+        listEl.style.pointerEvents = 'auto';
         
         fetchDrugs(); // อัปเดตหน้าบ้านด้วย
     }
