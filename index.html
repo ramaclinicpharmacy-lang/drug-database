@@ -2541,7 +2541,7 @@ async function fetchLogs() {
             const tagsHtml = (drug.drug_tag_mapping || []).map(t => { 
                 let bg = 'var(--dark)'; 
                 if (t.tag_name.includes('ห้าม')) bg = 'var(--danger)'; 
-                else if (tagName.includes('พ้นแสง') || tagName.includes('Warn')) bg = 'var(--warning)';
+                else if (t.tag_name.includes('พ้นแสง') || t.tag_name.includes('Warn')) bg = 'var(--warning)';
                 else if (t.tag_name.includes('ตู้เย็น')) bg = 'var(--info)'; 
                 else if (t.tag_name.includes('หยุดก่อนผ่าตัด')) bg = 'var(--purple)'; 
                 else if (t.tag_name.includes('ได้')) bg = 'var(--success)'; 
