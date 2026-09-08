@@ -364,14 +364,13 @@
         </div>
     </div>
 
-    <div class="pagination-container" id="pagination-wrapper" style="display:none;">
+    <!-- Pagination (ด้านบน) -->
+    <div class="pagination-container pagination-wrapper-class" style="display:none;">
         <div style="display: flex; align-items: center; gap: 15px; white-space: nowrap;">
-            
-            <button class="btn btn-outline btn-sm" id="btn-toggle-all" onclick="toggleAllCards()" style="background:#f8fafc; border-color:#cbd5e1; color:#475569; white-space: nowrap; flex-shrink: 0; min-height: 32px;">🔽 ขยาย</button>
-            
+            <button class="btn btn-outline btn-sm btn-toggle-all-class" onclick="toggleAllCards()" style="background:#f8fafc; border-color:#cbd5e1; color:#475569; white-space: nowrap; flex-shrink: 0; min-height: 32px;">🔽 ขยาย</button>
             <div style="display: flex; align-items: center;">
                 <label style="font-size: 0.9rem; font-weight: bold; color: var(--dark); margin: 0;">แสดง:</label>
-                <select id="items-per-page-select" onchange="changeItemsPerPage()" style="padding: 2px 8px; border-radius: 6px; border: 1px solid #ddd; margin: 0 5px; width: auto; height: 32px; font-size: 0.85rem;">
+                <select class="items-per-page-select" onchange="changeItemsPerPage(this)" style="padding: 2px 8px; border-radius: 6px; border: 1px solid #ddd; margin: 0 5px; width: auto; height: 32px; font-size: 0.85rem;">
                     <option value="10" selected>10</option>
                     <option value="25">25</option>
                     <option value="50">50</option>
@@ -382,9 +381,37 @@
             </div>
         </div>
         <div style="display: flex; gap: 5px; align-items: center; white-space: nowrap; margin-left: auto;">
-            <button id="btn-prev-page" class="btn btn-outline btn-sm" onclick="changePage(-1)">◀</button>
-            <span id="page-info" style="font-size: 0.9rem; font-weight: bold; min-width: 45px; text-align: center;">1/1</span>
-            <button id="btn-next-page" class="btn btn-outline btn-sm" onclick="changePage(1)">▶</button>
+            <button class="btn btn-outline btn-sm btn-prev-page-class" onclick="changePage(-1)">◀</button>
+            <span class="page-info-class" style="font-size: 0.9rem; font-weight: bold; min-width: 45px; text-align: center;">1/1</span>
+            <button class="btn btn-outline btn-sm btn-next-page-class" onclick="changePage(1)">▶</button>
+        </div>
+    </div>
+
+    <!-- คอนเทนเนอร์รายการยา -->
+    <div id="drug-list-container">
+        <div style="text-align:center; padding:50px; color:gray;">🔄 กำลังโหลดข้อมูล...</div>
+    </div>
+    
+    <!-- Pagination (ด้านล่าง) เพิ่มใหม่ -->
+    <div class="pagination-container pagination-wrapper-class" style="display:none; margin-top: 15px;">
+        <div style="display: flex; align-items: center; gap: 15px; white-space: nowrap;">
+            <button class="btn btn-outline btn-sm btn-toggle-all-class" onclick="toggleAllCards()" style="background:#f8fafc; border-color:#cbd5e1; color:#475569; white-space: nowrap; flex-shrink: 0; min-height: 32px;">🔽 ขยาย</button>
+            <div style="display: flex; align-items: center;">
+                <label style="font-size: 0.9rem; font-weight: bold; color: var(--dark); margin: 0;">แสดง:</label>
+                <select class="items-per-page-select" onchange="changeItemsPerPage(this)" style="padding: 2px 8px; border-radius: 6px; border: 1px solid #ddd; margin: 0 5px; width: auto; height: 32px; font-size: 0.85rem;">
+                    <option value="10" selected>10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="75">75</option>
+                    <option value="100">100</option>
+                </select>
+                <span style="font-size: 0.85rem; color: gray;">รายการ</span>
+            </div>
+        </div>
+        <div style="display: flex; gap: 5px; align-items: center; white-space: nowrap; margin-left: auto;">
+            <button class="btn btn-outline btn-sm btn-prev-page-class" onclick="changePage(-1)">◀</button>
+            <span class="page-info-class" style="font-size: 0.9rem; font-weight: bold; min-width: 45px; text-align: center;">1/1</span>
+            <button class="btn btn-outline btn-sm btn-next-page-class" onclick="changePage(1)">▶</button>
         </div>
     </div>
 
@@ -1834,8 +1861,15 @@ async function fetchLogs() {
     function toggleFilterPanel() { const panel = document.getElementById('filter-panel-dropdown'); panel.classList.toggle('active'); }
     function toggleCard(code) { const body = document.getElementById('body-' + code); const icon = document.getElementById('icon-' + code); if (expandedCards.has(code)) { expandedCards.delete(code); body.classList.remove('expanded'); icon.style.transform = "rotate(0deg)"; } else { expandedCards.add(code); body.classList.add('expanded'); icon.style.transform = "rotate(90deg)"; } updateToggleAllButton(); }
     function toggleAllCards() { const totalCards = document.querySelectorAll('.drug-card').length; const expandedCount = document.querySelectorAll('.card-body.expanded').length; const isExpanding = expandedCount < totalCards; document.querySelectorAll('.drug-card').forEach(card => { const code = card.dataset.code; const body = card.querySelector('.card-body'); const icon = card.querySelector('.toggle-icon'); if (isExpanding) { expandedCards.add(code); body.classList.add('expanded'); icon.style.transform = "rotate(90deg)"; } else { expandedCards.delete(code); body.classList.remove('expanded'); icon.style.transform = "rotate(0deg)"; } }); updateToggleAllButton(); }
-    function updateToggleAllButton() { const totalCards = document.querySelectorAll('.drug-card').length; const expandedCount = document.querySelectorAll('.card-body.expanded').length; const btn = document.getElementById('btn-toggle-all'); if (totalCards > 0 && expandedCount === totalCards) btn.innerHTML = "🔼 ขยาย"; else btn.innerHTML = "🔽 ขยาย"; }
-
+    function updateToggleAllButton() { 
+        const totalCards = document.querySelectorAll('.drug-card').length; 
+        const expandedCount = document.querySelectorAll('.card-body.expanded').length; 
+        const btns = document.querySelectorAll('.btn-toggle-all-class'); 
+        btns.forEach(btn => {
+            if (totalCards > 0 && expandedCount === totalCards) btn.innerHTML = "🔼 ขยาย"; 
+            else btn.innerHTML = "🔽 ขยาย"; 
+        });
+    }
     function toggleFilterGroup(groupId) {
         const body = document.getElementById('body-' + groupId);
         const icon = document.getElementById('icon-' + groupId);
@@ -2331,12 +2365,37 @@ async function fetchLogs() {
         filterSidebarLabels(); 
     }
 
+    function changeItemsPerPage(selectEl) { 
+        itemsPerPage = parseInt(selectEl.value); 
+        // อัปเดต dropdown ทุกอันให้มีค่าตรงกัน
+        document.querySelectorAll('.items-per-page-select').forEach(el => el.value = itemsPerPage);
+        currentPage = 1; 
+        updatePaginationUI(); 
+    }
 
-
-    function changeItemsPerPage() { itemsPerPage = parseInt(document.getElementById('items-per-page-select').value); currentPage = 1; updatePaginationUI(); }
+    
     function changePage(delta) { const totalPages = Math.ceil(filteredDrugsList.length / itemsPerPage) || 1; currentPage += delta; if (currentPage < 1) currentPage = 1; if (currentPage > totalPages) currentPage = totalPages; updatePaginationUI(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-    function updatePaginationUI() { if (filteredDrugsList.length === 0) { document.getElementById('pagination-wrapper').style.display = 'none'; renderDrugs([]); return; } document.getElementById('pagination-wrapper').style.display = 'flex'; const totalPages = Math.ceil(filteredDrugsList.length / itemsPerPage) || 1; if (currentPage > totalPages) currentPage = totalPages; const startIndex = (currentPage - 1) * itemsPerPage; const endIndex = startIndex + itemsPerPage; const slicedDrugs = filteredDrugsList.slice(startIndex, endIndex); renderDrugs(slicedDrugs); document.getElementById('page-info').innerText = `${currentPage} / ${totalPages}`; document.getElementById('btn-prev-page').disabled = currentPage === 1; document.getElementById('btn-next-page').disabled = currentPage === totalPages; }
-
+    function updatePaginationUI() { 
+        const wrappers = document.querySelectorAll('.pagination-wrapper-class');
+        if (filteredDrugsList.length === 0) { 
+            wrappers.forEach(w => w.style.display = 'none');
+            renderDrugs([]); 
+            return; 
+        } 
+        wrappers.forEach(w => w.style.display = 'flex');
+        
+        const totalPages = Math.ceil(filteredDrugsList.length / itemsPerPage) || 1; 
+        if (currentPage > totalPages) currentPage = totalPages; 
+        
+        const startIndex = (currentPage - 1) * itemsPerPage; 
+        const endIndex = startIndex + itemsPerPage; 
+        const slicedDrugs = filteredDrugsList.slice(startIndex, endIndex); 
+        renderDrugs(slicedDrugs); 
+        
+        document.querySelectorAll('.page-info-class').forEach(el => el.innerText = `${currentPage} / ${totalPages}`); 
+        document.querySelectorAll('.btn-prev-page-class').forEach(btn => btn.disabled = currentPage === 1); 
+        document.querySelectorAll('.btn-next-page-class').forEach(btn => btn.disabled = currentPage === totalPages); 
+    }
     function filterDrugs() {
         const q = (document.getElementById('main-search').value || '').toLowerCase();
         const baseDrugs = getBaseDrugs();
