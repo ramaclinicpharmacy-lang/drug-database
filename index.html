@@ -391,30 +391,6 @@
     <div id="drug-list-container">
         <div style="text-align:center; padding:50px; color:gray;">🔄 กำลังโหลดข้อมูล...</div>
     </div>
-
-    <div class="pagination-container" id="pagination-wrapper" style="display:none;">
-        <div style="display: flex; align-items: center; gap: 15px; white-space: nowrap;">
-            
-            <button class="btn btn-outline btn-sm" id="btn-toggle-all" onclick="toggleAllCards()" style="background:#f8fafc; border-color:#cbd5e1; color:#475569; white-space: nowrap; flex-shrink: 0; min-height: 32px;">🔽 ขยาย</button>
-            
-            <div style="display: flex; align-items: center;">
-                <label style="font-size: 0.9rem; font-weight: bold; color: var(--dark); margin: 0;">แสดง:</label>
-                <select id="items-per-page-select" onchange="changeItemsPerPage()" style="padding: 2px 8px; border-radius: 6px; border: 1px solid #ddd; margin: 0 5px; width: auto; height: 32px; font-size: 0.85rem;">
-                    <option value="10" selected>10</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                    <option value="75">75</option>
-                    <option value="100">100</option>
-                </select>
-                <span style="font-size: 0.85rem; color: gray;">รายการ</span>
-            </div>
-        </div>
-        <div style="display: flex; gap: 5px; align-items: center; white-space: nowrap; margin-left: auto;">
-            <button id="btn-prev-page" class="btn btn-outline btn-sm" onclick="changePage(-1)">◀</button>
-            <span id="page-info" style="font-size: 0.9rem; font-weight: bold; min-width: 45px; text-align: center;">1/1</span>
-            <button id="btn-next-page" class="btn btn-outline btn-sm" onclick="changePage(1)">▶</button>
-        </div>
-    </div>
     
     <footer class="app-footer">
         <div>
