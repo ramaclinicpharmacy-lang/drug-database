@@ -391,36 +391,7 @@
     <div id="drug-list-container">
         <div style="text-align:center; padding:50px; color:gray;">🔄 กำลังโหลดข้อมูล...</div>
     </div>
-    
-    <!-- Pagination (ด้านล่าง) เพิ่มใหม่ -->
-    <!-- 1. Pagination (ด้านบน) -->
-    <div class="pagination-container pagination-wrapper-class" style="display:none;">
-        <div style="display: flex; align-items: center; gap: 15px; white-space: nowrap;">
-            <button class="btn btn-outline btn-sm btn-toggle-all-class" onclick="toggleAllCards()" style="background:#f8fafc; border-color:#cbd5e1; color:#475569; white-space: nowrap; flex-shrink: 0; min-height: 32px;">🔽 ขยาย</button>
-            <div style="display: flex; align-items: center;">
-                <label style="font-size: 0.9rem; font-weight: bold; color: var(--dark); margin: 0;">แสดง:</label>
-                <select class="items-per-page-select" onchange="changeItemsPerPage(this)" style="padding: 2px 8px; border-radius: 6px; border: 1px solid #ddd; margin: 0 5px; width: auto; height: 32px; font-size: 0.85rem;">
-                    <option value="10" selected>10</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                    <option value="75">75</option>
-                    <option value="100">100</option>
-                </select>
-                <span style="font-size: 0.85rem; color: gray;">รายการ</span>
-            </div>
-        </div>
-        <div style="display: flex; gap: 5px; align-items: center; white-space: nowrap; margin-left: auto;">
-            <button class="btn btn-outline btn-sm btn-prev-page-class" onclick="changePage(-1)">◀</button>
-            <span class="page-info-class" style="font-size: 0.9rem; font-weight: bold; min-width: 45px; text-align: center;">1/1</span>
-            <button class="btn btn-outline btn-sm btn-next-page-class" onclick="changePage(1)">▶</button>
-        </div>
-    </div>
-
-    <!-- 2. คอนเทนเนอร์รายการยา (มีแค่อันเดียว) -->
-    <div id="drug-list-container">
-        <div style="text-align:center; padding:50px; color:gray;">🔄 กำลังโหลดข้อมูล...</div>
-    </div>
-    
+         
     <!-- 3. Pagination (ด้านล่าง) -->
     <div class="pagination-container pagination-wrapper-class" style="display:none; margin-top: 15px;">
         <div style="display: flex; align-items: center; gap: 15px; white-space: nowrap;">
