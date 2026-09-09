@@ -97,7 +97,16 @@
 </head>
 <body>
 
-<div class="layout-wrapper">
+<!-- 📍 Geo-blocking Overlay -->
+<div id="geo-overlay" style="position: fixed; inset: 0; background: var(--bg); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Sarabun', sans-serif;">
+    <div style="text-align: center; padding: 30px; background: white; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 90%;">
+        <div style="font-size: 3rem; margin-bottom: 10px;">📍</div>
+        <h2 style="color: var(--purple); margin: 0 0 10px 0;">กำลังตรวจสอบพื้นที่ให้บริการ...</h2>
+        <p style="color: #64748b; font-size: 0.95rem;">กรุณากด <b>"Allow"</b> หรือ <b>"อนุญาต"</b><br>เพื่อให้ระบบตรวจสอบพิกัดการใช้งานของคุณ</p>
+    </div>
+</div>
+    
+<div class="layout-wrapper" id="main-layout" style="display: none;">
     <nav class="navbar">
         <h2>💉 ระบบจัดสายให้ยา (IV Compatibility)</h2>
         <div style="display:flex; gap:10px;">
@@ -1292,7 +1301,88 @@ const statusA = item.admixture_result === 'C' ? '🟢 C' : (item.admixture_resul
             }
         });
     }
-    init();
+
+    // ==========================================
+    // 📍 GEOFENCING LOGIC (จำกัดพื้นที่ 3 กม.)
+    // ==========================================
+    const TARGET_LAT = 13.7665; // พิกัดละติจูด QG8G+PQ Bangkok
+    const TARGET_LNG = 100.5272; // พิกัดลองจิจูด QG8G+PQ Bangkok
+    const MAX_DISTANCE_KM = 3.0; // ระยะทางสูงสุด 3 กิโลเมตร
+    
+    function checkLocationAndInit() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const userLat = position.coords.latitude;
+                    const userLng = position.coords.longitude;
+                    const distance = calculateDistance(TARGET_LAT, TARGET_LNG, userLat, userLng);
+                    
+                    if (distance <= MAX_DISTANCE_KM) {
+                        // อยู่ในระยะ 3 กม. -> ซ่อนหน้าต่างแจ้งเตือน เปิดให้ใช้งาน และโหลดฐานข้อมูล
+                        document.getElementById('geo-overlay').style.display = 'none';
+                        document.getElementById('main-layout').style.display = 'block';
+                        init(); 
+                    } else {
+                        // อยู่นอกระยะ -> แสดงข้อความปฏิเสธ
+                        showGeoError(`
+                            <div style="font-size: 3rem; margin-bottom: 15px;">🛑</div>
+                            <h2 style="color: var(--danger); margin: 0 0 10px 0;">ไม่อนุญาตให้เข้าถึงระบบ</h2>
+                            <p style="color: #475569; font-size: 1rem; line-height: 1.6;">
+                                คุณอยู่นอกพื้นที่ให้บริการ<br>
+                                <small style="color: gray;">(ห่างจากจุดศูนย์กลาง ${distance.toFixed(2)} กิโลเมตร)</small><br><br>
+                                ระบบจำกัดการเข้าถึงเฉพาะรัศมี 3 กม.<br>จากจุดที่กำหนดเท่านั้น
+                            </p>
+                        `);
+                    }
+                },
+                (error) => {
+                    // ผู้ใช้ไม่อนุญาตให้เข้าถึง GPS หรือระบบหาพิกัดไม่ได้
+                    showGeoError(`
+                        <div style="font-size: 3rem; margin-bottom: 15px;">⚠️</div>
+                        <h2 style="color: var(--warning); margin: 0 0 10px 0;">ไม่สามารถระบุตำแหน่งได้</h2>
+                        <p style="color: #475569; font-size: 1rem; line-height: 1.6;">
+                            กรุณาอนุญาตการเข้าถึง Location (GPS)<br>
+                            เพื่อเข้าใช้งานฐานข้อมูล
+                        </p>
+                        <button class="btn btn-primary" style="margin-top: 15px;" onclick="location.reload()">🔄 ลองใหม่อีกครั้ง</button>
+                    `);
+                },
+                {
+                    enableHighAccuracy: true, // บังคับใช้ความแม่นยำสูง (สำคัญมากสำหรับการทำ Geofence)
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        } else {
+            showGeoError("<h2>เบราว์เซอร์ของคุณไม่รองรับการระบุตำแหน่ง (GPS)</h2>");
+        }
+    }
+    
+    // สูตรคำนวณระยะทาง Haversine Formula
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; // รัศมีโลก (กิโลเมตร)
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = 
+            Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+        return R * c; 
+    }
+    
+    function showGeoError(htmlContent) {
+        const overlay = document.getElementById('geo-overlay');
+        overlay.innerHTML = `
+            <div style="text-align: center; padding: 30px; background: white; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 90%;">
+                ${htmlContent}
+            </div>
+        `;
+    }
+    
+    // 🚀 เปลี่ยนคำสั่งล่างสุดจาก init(); เป็นเรียกฟังก์ชันนี้แทน
+    checkLocationAndInit();
+    
     // ==========================================
     // 📱 QR CODE MODAL LOGIC
     // ==========================================
