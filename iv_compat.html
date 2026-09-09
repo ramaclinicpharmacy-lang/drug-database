@@ -1307,7 +1307,7 @@ const statusA = item.admixture_result === 'C' ? '🟢 C' : (item.admixture_resul
     // ==========================================
     const TARGET_LAT = 13.7665; // พิกัดละติจูด QG8G+PQ Bangkok
     const TARGET_LNG = 100.5272; // พิกัดลองจิจูด QG8G+PQ Bangkok
-    const MAX_DISTANCE_KM = 3.0; // ระยะทางสูงสุด 1 กิโลเมตร
+    const MAX_DISTANCE_KM = 2.0; // ระยะทางสูงสุด 2 กิโลเมตร
     
     function checkLocationAndInit() {
         if (navigator.geolocation) {
@@ -1330,7 +1330,7 @@ const statusA = item.admixture_result === 'C' ? '🟢 C' : (item.admixture_resul
                             <p style="color: #475569; font-size: 1rem; line-height: 1.6;">
                                 คุณอยู่นอกพื้นที่ให้บริการ<br>
                                 <small style="color: gray;">(ห่างจากจุดศูนย์กลาง ${distance.toFixed(2)} กิโลเมตร)</small><br><br>
-                                ระบบจำกัดการเข้าถึงเฉพาะรัศมี 3 กม.<br>จากจุดที่กำหนดเท่านั้น
+                                ระบบจำกัดการเข้าถึงเฉพาะรัศมี 2 กม.<br>จากจุดที่กำหนดเท่านั้น
                             </p>
                         `);
                     }
