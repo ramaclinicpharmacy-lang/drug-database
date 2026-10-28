@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>เปรียบเทียบข้อมูลยา (Drug Comparable) | Rama Clinic DB</title>
+    <script src="vendor/purify.min.js"></script>
+    <script src="ui-safety.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -177,27 +179,27 @@
             document.getElementById('search-count').innerText = `พบ ${matches.length} รายการ`;
             
             if (matches.length > 0) {
-                listContainer.innerHTML = matches.map(d => {
+                setHTML(listContainer, matches.map(d => {
                     const isAlreadySelected = selectedDrugCodes.includes(d.drug_code);
                     // 🌟 ถ้ามีชื่อพ้อง ให้โชว์ชื่อพ้องแถมไปในวงเล็บด้วย จะได้รู้ว่าเจอจากไหน
-                    const nicknameBadge = d.nickname_display ? `<br><small style="color:var(--purple);">🏷️ ชื่อพ้อง: ${d.nickname_display}</small>` : '';
+                    const nicknameBadge = d.nickname_display ? `<br><small style="color:var(--purple);">🏷️ ชื่อพ้อง: ${encodeHTML(d.nickname_display)}</small>` : '';
                     
                     return `
-                    <div class="search-item" onclick="toggleCheckbox('cb-${d.drug_code}')">
-                        <input type="checkbox" id="cb-${d.drug_code}" class="search-cb" value="${d.drug_code}" 
-                               ${isAlreadySelected ? 'disabled' : ''} onclick="event.stopPropagation()">
+                    <div class="search-item" ${bindHTMLAction("click", function(event) { toggleCheckbox(`cb-${d.drug_code}`) })}>
+                        <input type="checkbox" id="cb-${encodeHTML(d.drug_code)}" class="search-cb" value="${encodeHTML(d.drug_code)}" 
+                               ${isAlreadySelected ? 'disabled' : ''} ${bindHTMLAction("click", function(event) { event.stopPropagation() })}>
                         <label>
-                            <b style="color:var(--primary);">${d.drug_name}</b>
-                            <span style="font-size:0.8rem; color:gray;">Generic: ${d.generic_display} | Code: ${d.drug_code}</span>
+                            <b style="color:var(--primary);">${encodeHTML(d.drug_name)}</b>
+                            <span style="font-size:0.8rem; color:gray;">Generic: ${encodeHTML(d.generic_display)} | Code: ${encodeHTML(d.drug_code)}</span>
                             ${nicknameBadge}
                             ${isAlreadySelected ? '<small style="color:var(--success);">✅ เลือกไว้แล้ว</small>' : ''}
                         </label>
                     </div>
                     `;
-                }).join('');
+                }).join(''));
                 resultsBox.style.display = 'block';
             } else {
-                listContainer.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">ไม่พบข้อมูล</div>';
+                setHTML(listContainer, '<div style="padding:20px; text-align:center; color:gray;">ไม่พบข้อมูล</div>');
                 resultsBox.style.display = 'block';
             }
         }
@@ -268,23 +270,23 @@
             const clearBtn = document.getElementById('btn-clear-all');
             
             if (selectedDrugCodes.length === 0) {
-                container.innerHTML = '<span style="color:gray; font-size:0.9rem;">ยังไม่ได้เลือกยา พิมพ์ค้นหาด้านบนเพื่อเริ่มเปรียบเทียบ</span>';
+                setHTML(container, '<span style="color:gray; font-size:0.9rem;">ยังไม่ได้เลือกยา พิมพ์ค้นหาด้านบนเพื่อเริ่มเปรียบเทียบ</span>');
                 clearBtn.style.display = 'none';
                 return;
             }
 
             clearBtn.style.display = 'block';
-            container.innerHTML = selectedDrugCodes.map(code => {
+            setHTML(container, selectedDrugCodes.map(code => {
                 const name = detailedDrugCache[code]?.drug_name || code;
-                return `<div class="chip">${name} <button class="chip-remove" onclick="removeDrug('${code}')">×</button></div>`;
-            }).join('');
+                return `<div class="chip">${encodeHTML(name)} <button class="chip-remove" ${bindHTMLAction("click", function(event) { removeDrug((code)) })}>×</button></div>`;
+            }).join(''));
         }
 
         // 4. วาดตารางเปรียบเทียบ (แบบ Generic เป็นแถว)
         function renderTable() {
             const table = document.getElementById('compare-table');
             if (selectedDrugCodes.length === 0) {
-                table.innerHTML = '<tr><td style="padding:40px; color:gray; text-align:center;">👆 ค้นหาและเลือกยาด้านบนเพื่อเริ่มเปรียบเทียบ</td></tr>';
+                setHTML(table, '<tr><td style="padding:40px; color:gray; text-align:center;">👆 ค้นหาและเลือกยาด้านบนเพื่อเริ่มเปรียบเทียบ</td></tr>');
                 return;
             }
 
@@ -294,8 +296,8 @@
             drugs.forEach(d => {
                 html += `
                 <th style="text-align:center;">
-                    <div style="cursor:pointer;" onclick="openDrugCard('${d.drug_code}')">
-                        <b style="color:var(--primary); border-bottom:1px dashed var(--primary);">${d.drug_name}</b><br>
+                    <div style="cursor:pointer;" ${bindHTMLAction("click", function(event) { openDrugCard((d.drug_code)) })}>
+                        <b style="color:var(--primary); border-bottom:1px dashed var(--primary);">${encodeHTML(d.drug_name)}</b><br>
                         <small style="color:gray;">(คลิกดูรายละเอียด)</small>
                     </div>
                 </th>`;
@@ -307,14 +309,14 @@
             drugs.forEach(d => (d.drug_contents || []).forEach(c => { if(c.generics?.generic_name) allGenerics.add(c.generics.generic_name); }));
             
             Array.from(allGenerics).sort().forEach(genName => {
-                html += `<tr><td class="row-header" style="color:var(--primary);">${genName}</td>`;
+                html += `<tr><td class="row-header" style="color:var(--primary);">${encodeHTML(genName)}</td>`;
                 drugs.forEach(d => {
                     const content = (d.drug_contents || []).find(c => c.generics?.generic_name === genName);
                     let val = '-';
                     if (content) {
                         const amt = (content.amount !== null) ? content.amount : '';
                         const unit = content.unit || '';
-                        val = (amt || unit) ? `<b>${amt} ${unit}</b>` : '✅ มีส่วนผสม';
+                        val = (amt || unit) ? `<b>${encodeHTML(amt)} ${encodeHTML(unit)}</b>` : '✅ มีส่วนผสม';
                     }
                     html += `<td style="text-align:center; font-size:1rem;">${val}</td>`;
                 });
@@ -322,7 +324,7 @@
             });
 
             html += `</tbody>`;
-            table.innerHTML = html;
+            setHTML(table, html);
         }
 
         // 5. Drug Card Popup
@@ -334,23 +336,23 @@
             document.getElementById('card-generic-name').innerText = d.generic_display;
 
             let body = `
-                <div class="info-group"><b style="color:var(--primary);">รหัสยา:</b> ${d.drug_code}</div>
-                <div class="info-group"><b style="color:var(--primary);">ชื่อการค้า:</b> ${d.trade_name || '-'}</div>
-                <div class="info-group"><b style="color:var(--primary);">ชนิด/ความแรง:</b> ${d.dosage_form || '-'} ${d.strength || ''}</div>
-                <div class="info-group"><b style="color:var(--primary);">Note พิเศษ:</b> ${d.special_note || '-'}</div>
+                <div class="info-group"><b style="color:var(--primary);">รหัสยา:</b> ${encodeHTML(d.drug_code)}</div>
+                <div class="info-group"><b style="color:var(--primary);">ชื่อการค้า:</b> ${encodeHTML(d.trade_name) || '-'}</div>
+                <div class="info-group"><b style="color:var(--primary);">ชนิด/ความแรง:</b> ${encodeHTML(d.dosage_form) || '-'} ${encodeHTML(d.strength) || ''}</div>
+                <div class="info-group"><b style="color:var(--primary);">Note พิเศษ:</b> ${encodeHTML(d.special_note) || '-'}</div>
             `;
 
             if(d.drug_nlem_mapping?.length > 0) {
-                const nlem = d.drug_nlem_mapping.map(n => `• ${n.nlem_code} ${n.condition_note ? `(${n.condition_note})` : ''}`).join('<br>');
+                const nlem = d.drug_nlem_mapping.map(n => `• ${encodeHTML(n.nlem_code)} ${n.condition_note ? `(${encodeHTML(n.condition_note)})` : ''}`).join('<br>');
                 body += `<div class="info-group" style="background:#fffbeb; padding:10px; border-radius:8px;"><b style="color:#b45309;">🏥 บัญชียาหลัก (NLEM):</b><br>${nlem}</div>`;
             }
 
             if(d.drug_administrations?.length > 0) {
-                const admin = d.drug_administrations.map(a => `• <b>${a.routes?.route_name}:</b> ${a.instructions || '-'}`).join('<br>');
+                const admin = d.drug_administrations.map(a => `• <b>${encodeHTML(a.routes?.route_name)}:</b> ${encodeHTML(a.instructions) || '-'}`).join('<br>');
                 body += `<div class="info-group" style="background:#f0fdf4; padding:10px; border-radius:8px;"><b style="color:#15803d;">💉 วิธีให้ยา:</b><br>${admin}</div>`;
             }
 
-            document.getElementById('card-body-content').innerHTML = body;
+            setHTML(document.getElementById('card-body-content'), body);
             document.getElementById('drug-card-modal').style.display = 'block';
         }
 
@@ -361,3 +363,4 @@
     </script>
 </body>
 </html>
+

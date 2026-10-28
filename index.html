@@ -6,6 +6,8 @@
     <title>Rama Clinic Pharmacy DB</title>
 
     <!-- Google tag (gtag.js) -->
+    <script src="vendor/purify.min.js"></script>
+    <script src="ui-safety.js"></script>
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-DN7JTHM116"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
@@ -994,7 +996,7 @@
             <div style="display:flex; gap:10px; margin-top:15px;">
                 <button class="btn btn-success" style="flex:2; height:42px;" onclick="saveNutriConfig()">💾 บันทึกตั้งค่า</button>
                 <button class="btn btn-outline" style="flex:1; height:42px; color:red; border-color:red;" onclick="deleteNutriConfig()">🗑️ ลบค่า</button>
-                <button class="btn" style="flex:2; height:42px; background:#6366f1; color:white;" onclick="window.open('enteral_compare.html?code=' + document.getElementById('nutri-admin-code').value, '_blank')">📊 เทียบสารอาหารเชิงลึก</button>
+                <button class="btn" style="flex:2; height:42px; background:#6366f1; color:white;" onclick="window.open('enteral_compare.html?code=' + encodeURIComponent(document.getElementById('nutri-admin-code').value), '_blank')">📊 เทียบสารอาหารเชิงลึก</button>
             </div>
         </div>
         <button class="btn btn-outline" style="width:100%; margin-top:10px; height: 42px;" onclick="closeModal('nutri-admin-modal')">ปิดหน้าต่าง</button>
@@ -1070,7 +1072,7 @@
             
             <div id="nutri-res-note" style="margin-top:10px; font-size:0.8rem; color:#065f46;"></div>
         </div>
-        <button class="btn" style="width:100%; margin-top:15px; height:42px; background:#6366f1; color:white;" onclick="window.open('enteral_compare.html?code=' + document.getElementById('nutri-calc-name').innerText, '_blank')">📊 เปรียบเทียบสารอาหารเชิงลึกกับสูตรอื่น</button>
+        <button class="btn" style="width:100%; margin-top:15px; height:42px; background:#6366f1; color:white;" onclick="window.open('enteral_compare.html?code=' + encodeURIComponent(document.getElementById('nutri-calc-name').innerText), '_blank')">📊 เปรียบเทียบสารอาหารเชิงลึกกับสูตรอื่น</button>
         <button class="btn btn-outline" style="width:100%; margin-top:10px; height:42px;" onclick="closeModal('nutri-calc-modal')">ปิดหน้าต่าง</button>
     </div>
 </div>
@@ -1501,7 +1503,7 @@
         } catch (err) { 
             console.error("Init Error:", err);
             const container = document.getElementById('drug-list-container');
-            if(container) container.innerHTML = `<div style="text-align:center; padding:20px; color:red;"><b>เกิดข้อผิดพลาดในระบบ:</b> ${err.message}</div>`;
+            if(container) setHTML(container, `<div style="text-align:center; padding:20px; color:red;"><b>เกิดข้อผิดพลาดในระบบ:</b> ${encodeHTML(err.message)}</div>`);
         }
     }
 
@@ -1547,17 +1549,17 @@
 
         const selectEl = document.getElementById('calc-admin-select');
         if (currentCalcAdmins.length === 0) {
-            selectEl.innerHTML = '<option value="">ไม่มีข้อมูลความเข้มข้น (Min/Max Conc)</option>';
+            setHTML(selectEl, '<option value="">ไม่มีข้อมูลความเข้มข้น (Min/Max Conc)</option>');
             document.getElementById('calc-dose-input').disabled = true;
             document.getElementById('calc-dose-unit').innerText = '-';
         } else {
-            selectEl.innerHTML = currentCalcAdmins.map((a, idx) => {
+            setHTML(selectEl, currentCalcAdmins.map((a, idx) => {
                 const routeName = a.routes?.route_name || 'Unknown Route';
                 let info = [];
                 if(a.max_conc) info.push(`Max: ${a.max_conc} ${a.conc_unit||'mg/mL'}`);
                 if(a.min_conc) info.push(`Min: ${a.min_conc} ${a.conc_unit||'mg/mL'}`);
-                return `<option value="${idx}">${routeName} (${info.join(', ')})</option>`;
-            }).join('');
+                return `<option value="${encodeHTML(idx)}">${encodeHTML(routeName)} (${encodeHTML(info.join(', '))})</option>`;
+            }).join(''));
             document.getElementById('calc-dose-input').disabled = false;
             
             runCalculation();
@@ -1594,7 +1596,7 @@
             if (admin.updated_at) {
                 const aDate = new Date(admin.updated_at).toLocaleDateString('th-TH', { year: '2-digit', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
                 const aUser = admin.updated_by ? admin.updated_by.split('@')[0] : 'System';
-                updateInfoBox.innerHTML = `🕒 last edited: ${aDate} น. by ${aUser}\n`;
+                updateInfoBox.textContent = `🕒 last edited: ${aDate} น. by ${aUser}\n`;
                 updateInfoBox.style.display = 'block';
             } else {
                 updateInfoBox.style.display = 'none';
@@ -1605,7 +1607,7 @@
         if (admin.instructions && admin.instructions.trim() !== '') {
             // แปลง \n เป็น <br> เพื่อให้ขึ้นบรรทัดใหม่สวยงาม
             const safeInst = encodeHTML(admin.instructions).replace(/\n/g, '<br>');
-            instBox.innerHTML = `<b>📌 วิธีใช้:</b> ${safeInst}`;
+            setHTML(instBox, `<b>📌 วิธีใช้:</b> ${safeInst}`);
             instBox.style.display = 'block';
         } else {
             instBox.style.display = 'none';
@@ -1613,10 +1615,10 @@
 
         // อัปเดตรายชื่อสารน้ำที่ใช้ได้ตาม Route ที่เลือก
         if (admin.administration_fluids && admin.administration_fluids.length > 0) {
-            fluidList.innerHTML = admin.administration_fluids.map(f => `<span class="badge badge-fluid">${f.fluid_short_name}</span>`).join('');
+            setHTML(fluidList, admin.administration_fluids.map(f => `<span class="badge badge-fluid">${encodeHTML(f.fluid_short_name)}</span>`).join(''));
             fluidBox.style.display = 'block';
         } else {
-            fluidList.innerHTML = '<span style="font-size:0.8rem; color:gray; font-style:italic;">(ไม่ได้ระบุสารน้ำเฉพาะ)</span>';
+            setHTML(fluidList, '<span style="font-size:0.8rem; color:gray; font-style:italic;">(ไม่ได้ระบุสารน้ำเฉพาะ)</span>');
             fluidBox.style.display = 'block';
         }
 
@@ -1674,7 +1676,7 @@
         // Auth ผ่าน -> ปิดหน้าต่าง Auth เปิดหน้าต่าง Logs
         closeModal('stepup-auth-modal');
         openModal('log-viewer-modal');
-        document.getElementById('log-table-container').innerHTML = '<div style="text-align:center; padding:30px; color:var(--success);">🔓 ยืนยันตัวตนสำเร็จ กำลังดึงข้อมูลอย่างปลอดภัย...</div>';
+        setHTML(document.getElementById('log-table-container'), '<div style="text-align:center; padding:30px; color:var(--success);">🔓 ยืนยันตัวตนสำเร็จ กำลังดึงข้อมูลอย่างปลอดภัย...</div>');
         
         await fetchLogs(); // 👈 ดึงข้อมูลหลังจากยืนยันตัวตนเท่านั้น (Lazy Privacy)
     }
@@ -1683,7 +1685,7 @@
     function closeLogViewer() {
         closeModal('log-viewer-modal');
         // ล้าง HTML ทิ้งทั้งหมด ป้องกันการถูก Inspect ล้วงข้อมูลที่เคยโหลดมา
-        document.getElementById('log-table-container').innerHTML = '';
+        setHTML(document.getElementById('log-table-container'), '');
     }
 
     // 4. ฟังก์ชันดึงและจัดหน้าตา Logs (พร้อม Source & API Tracking)
@@ -1695,12 +1697,12 @@ async function fetchLogs() {
         .limit(50); 
         
     if (error) {
-        document.getElementById('log-table-container').innerHTML = `<div style="color:red; padding:10px;">Error: ${error.message}</div>`;
+        setHTML(document.getElementById('log-table-container'), `<div style="color:red; padding:10px;">Error: ${encodeHTML(error.message)}</div>`);
         return;
     }
 
     if (!data || data.length === 0) {
-        document.getElementById('log-table-container').innerHTML = `<div style="text-align:center; padding:20px; color:gray;">ไม่มีประวัติการแก้ไข</div>`;
+        setHTML(document.getElementById('log-table-container'), `<div style="text-align:center; padding:20px; color:gray;">ไม่มีประวัติการแก้ไข</div>`);
         return;
     }
 
@@ -1737,57 +1739,57 @@ async function fetchLogs() {
         if(log.action === 'INSERT') actionBadge = '<span style="background:#dcfce7; color:#166534; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.75rem;">เพิ่ม</span>';
         else if(log.action === 'UPDATE') actionBadge = '<span style="background:#fef08a; color:#9a3412; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.75rem;">แก้</span>';
         else if(log.action === 'DELETE') actionBadge = '<span style="background:#fee2e2; color:#b91c1c; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.75rem;">ลบ</span>';
-        else actionBadge = `<span style="background:#e2e8f0; color:#475569; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.75rem;">${log.action}</span>`;
+        else actionBadge = `<span style="background:#e2e8f0; color:#475569; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.75rem;">${encodeHTML(log.action)}</span>`;
 
         let details = '';
         if(log.action === 'UPDATE' && log.old_data && log.new_data) {
             let diffs = [];
             for(let key in log.new_data) {
                 if(JSON.stringify(log.old_data[key]) !== JSON.stringify(log.new_data[key])) {
-                    let oldVal = log.old_data[key] || '<i>ว่าง</i>';
-                    let newVal = log.new_data[key] || '<i>ว่าง</i>';
+                    let oldVal = log.old_data[key] ?? 'ว่าง';
+                    let newVal = log.new_data[key] ?? 'ว่าง';
                     // ย่อข้อมูลถ้ามันยาวเกินไป
                     if(typeof oldVal === 'object') oldVal = '[Object]';
                     if(typeof newVal === 'object') newVal = '[Object]';
                     
-                    diffs.push(`<b>${key}:</b> <del style="color:#ef4444;">${oldVal}</del> ➡️ <span style="color:#10b981;">${newVal}</span>`);
+                    diffs.push(`<b>${encodeHTML(key)}:</b> <del style="color:#ef4444;">${encodeHTML(oldVal)}</del> ➡️ <span style="color:#10b981;">${encodeHTML(newVal)}</span>`);
                 }
             }
             details = diffs.length > 0 ? diffs.join('<br>') : '<i style="color:gray;">(บันทึกทับข้อมูลเดิมที่เหมือนกัน)</i>';
         } else if (log.action === 'INSERT') {
              const str = JSON.stringify(log.new_data || {}).replace(/[{""}]/g, ' ');
-             details = `<div style="font-size:0.75rem; color:gray;">${str.substring(0, 150)}...</div>`;
+             details = `<div style="font-size:0.75rem; color:gray;">${encodeHTML(str.substring(0, 150))}...</div>`;
         } else if (log.action === 'DELETE') {
              const str = JSON.stringify(log.old_data || {}).replace(/[{""}]/g, ' ');
-             details = `<div style="font-size:0.75rem; color:gray;">${str.substring(0, 150)}...</div>`;
+             details = `<div style="font-size:0.75rem; color:gray;">${encodeHTML(str.substring(0, 150))}...</div>`;
         } else {
-             details = `<div style="font-size:0.75rem; color:gray;">${JSON.stringify(log.new_data || {})}</div>`;
+             details = `<div style="font-size:0.75rem; color:gray;">${encodeHTML(JSON.stringify(log.new_data || {}))}</div>`;
         }
 
         html += `
             <tr>
-                <td style="white-space:nowrap;">${date}</td>
-                <td>${sourceBadge}<br><b style="color:var(--dark);">${displayUser}</b></td>
+                <td style="white-space:nowrap;">${encodeHTML(date)}</td>
+                <td>${sourceBadge}<br><b style="color:var(--dark);">${encodeHTML(displayUser)}</b></td>
                 <td>${actionBadge}</td>
-                <td><b>${log.table_name}</b><br><small style="color:gray;">ID: ${log.record_id}</small></td>
+                <td><b>${encodeHTML(log.table_name)}</b><br><small style="color:gray;">ID: ${encodeHTML(log.record_id)}</small></td>
                 <td>${details}</td>
             </tr>
         `;
     });
     html += `</tbody></table>`;
-    document.getElementById('log-table-container').innerHTML = html;
+    setHTML(document.getElementById('log-table-container'), html);
 }
 
     function openStatusSettingsModal() {
         const uniqueStatuses = [...new Set(allDrugsRaw.map(d => d.statuscode || 'NO_STATUS'))].sort();
         const listEl = document.getElementById('status-settings-list');
-        if(uniqueStatuses.length === 0) { listEl.innerHTML = '<div style="color:gray; padding:10px;">ไม่พบข้อมูล Status เลยในระบบ</div>'; } 
+        if(uniqueStatuses.length === 0) { setHTML(listEl, '<div style="color:gray; padding:10px;">ไม่พบข้อมูล Status เลยในระบบ</div>'); } 
         else {
-            listEl.innerHTML = uniqueStatuses.map((s, idx) => {
+            setHTML(listEl, uniqueStatuses.map((s, idx) => {
                 const isChecked = (globalVisibleStatuses.length === 0 || globalVisibleStatuses.includes(s)) ? 'checked' : '';
                 const cbId = 'status-cb-' + idx;
-                return `<div><input type="checkbox" id="${cbId}" class="status-visibility-cb" value="${s}" ${isChecked}><label for="${cbId}">${s === 'NO_STATUS' ? 'ไม่ระบุสถานะ' : s}</label></div>`;
-            }).join('');
+                return `<div><input type="checkbox" id="${encodeHTML(cbId)}" class="status-visibility-cb" value="${encodeHTML(s)}" ${encodeHTML(isChecked)}><label for="${encodeHTML(cbId)}">${s === 'NO_STATUS' ? 'ไม่ระบุสถานะ' : encodeHTML(s)}</label></div>`;
+            }).join(''));
         }
         openModal('status-settings-modal');
     }
@@ -1802,7 +1804,6 @@ async function fetchLogs() {
         alert('✅ บันทึกการตั้งค่าการแสดงผลสำเร็จ มีผลกับผู้ใช้ทุกคนทันที!');
     }
 
-    function encodeHTML(str) { return !str ? '' : str.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
     async function handleLogin() { 
         const email = document.getElementById('auth-email').value;
         const pw = document.getElementById('auth-pw').value;
@@ -1863,8 +1864,8 @@ async function fetchLogs() {
         const expandedCount = document.querySelectorAll('.card-body.expanded').length; 
         const btns = document.querySelectorAll('.btn-toggle-all-class'); 
         btns.forEach(btn => {
-            if (totalCards > 0 && expandedCount === totalCards) btn.innerHTML = "🔼 ขยาย"; 
-            else btn.innerHTML = "🔽 ขยาย"; 
+            if (totalCards > 0 && expandedCount === totalCards) setHTML(btn, "🔼 ขยาย"); 
+            else setHTML(btn, "🔽 ขยาย"); 
         });
     }
     function toggleFilterGroup(groupId) {
@@ -1938,16 +1939,16 @@ async function fetchLogs() {
 
         const nullCount = baseDrugs.filter(d => !d.drug_nlem_mapping || d.drug_nlem_mapping.length === 0).length;
         const isNullActive = selectedNlemFilters.includes('NULL_VALUE') ? 'active' : '';
-        html += `<div class="filter-pill ${isNullActive}" onclick="toggleNlemFilter('NULL_VALUE')" style="${isNullActive ? 'background:#475569; border-color:#475569; color:white;' : 'border:1px dashed #cbd5e1; color:#64748b;'}"><span>[ไม่มีข้อมูลบัญชียา]</span><span class="filter-count" style="${isNullActive?'background:rgba(255,255,255,0.3); color:white;':''}">${nullCount}</span></div>`;
+        html += `<div class="filter-pill ${encodeHTML(isNullActive)}" ${bindHTMLAction("click", function(event) { toggleNlemFilter('NULL_VALUE') })} style="${isNullActive ? 'background:#475569; border-color:#475569; color:white;' : 'border:1px dashed #cbd5e1; color:#64748b;'}"><span>[ไม่มีข้อมูลบัญชียา]</span><span class="filter-count" style="${isNullActive ? 'background:rgba(255,255,255,0.3); color:white;' : ''}">${encodeHTML(nullCount)}</span></div>`;
 
         if (allNlem.length > 0) {
             html += allNlem.map(n => { 
                 const isActive = selectedNlemFilters.includes(n.category_code) ? 'active' : ''; 
                 const count = baseDrugs.filter(d => (d.drug_nlem_mapping || []).some(m => m.nlem_code === n.category_code)).length;
-                return `<div class="filter-pill ${isActive}" onclick="toggleNlemFilter('${n.category_code}')" style="${isActive ? 'background:var(--pink); border-color:var(--pink);' : ''}"><span>${n.category_code}</span><span class="filter-count">${count}</span></div>`; 
+                return `<div class="filter-pill ${encodeHTML(isActive)}" ${bindHTMLAction("click", function(event) { toggleNlemFilter((n.category_code)) })} style="${isActive ? 'background:var(--pink); border-color:var(--pink);' : ''}"><span>${encodeHTML(n.category_code)}</span><span class="filter-count">${encodeHTML(count)}</span></div>`; 
             }).join(''); 
         }
-        sidebar.innerHTML = html;
+        setHTML(sidebar, html);
         filterSidebarNlem(); 
     }
     function filterSidebarForms() { const input = document.getElementById('search-form-filter'); if(!input) return; const q = input.value.toLowerCase(); const pills = document.querySelectorAll('#sidebar-form-filters .filter-pill'); pills.forEach(pill => { const text = pill.innerText.toLowerCase(); pill.style.display = text.includes(q) ? 'flex' : 'none'; }); }
@@ -1959,16 +1960,16 @@ async function fetchLogs() {
 
         const nullCount = baseDrugs.filter(d => !d.dosage_form || d.dosage_form.trim() === '').length;
         const isNullActive = selectedFormFilters.includes('NULL_VALUE') ? 'active' : '';
-        html += `<div class="filter-pill ${isNullActive}" onclick="toggleFormFilter('NULL_VALUE')" style="${isNullActive ? 'background:#475569; border-color:#475569; color:white;' : 'border:1px dashed #cbd5e1; color:#64748b;'}"><span>[ไม่ระบุชนิดยา]</span><span class="filter-count" style="${isNullActive?'background:rgba(255,255,255,0.3); color:white;':''}">${nullCount}</span></div>`;
+        html += `<div class="filter-pill ${encodeHTML(isNullActive)}" ${bindHTMLAction("click", function(event) { toggleFormFilter('NULL_VALUE') })} style="${isNullActive ? 'background:#475569; border-color:#475569; color:white;' : 'border:1px dashed #cbd5e1; color:#64748b;'}"><span>[ไม่ระบุชนิดยา]</span><span class="filter-count" style="${isNullActive ? 'background:rgba(255,255,255,0.3); color:white;' : ''}">${encodeHTML(nullCount)}</span></div>`;
 
         if (allDosageForms.length > 0) {
             html += allDosageForms.map(f => { 
                 const isActive = selectedFormFilters.includes(f.form_name) ? 'active' : ''; 
                 const count = baseDrugs.filter(d => d.dosage_form === f.form_name).length;
-                return `<div class="filter-pill ${isActive}" onclick="toggleFormFilter('${f.form_name}')" style="${isActive ? 'background:var(--indigo); border-color:var(--indigo);' : ''}"><span>${f.form_name}</span><span class="filter-count">${count}</span></div>`; 
+                return `<div class="filter-pill ${encodeHTML(isActive)}" ${bindHTMLAction("click", function(event) { toggleFormFilter((f.form_name)) })} style="${isActive ? 'background:var(--indigo); border-color:var(--indigo);' : ''}"><span>${encodeHTML(f.form_name)}</span><span class="filter-count">${encodeHTML(count)}</span></div>`; 
             }).join(''); 
         }
-        sidebar.innerHTML = html;
+        setHTML(sidebar, html);
         filterSidebarForms(); 
     }
     
@@ -1982,16 +1983,16 @@ async function fetchLogs() {
 
         const nullCount = baseDrugs.filter(d => !d.drug_administrations || d.drug_administrations.length === 0).length;
         const isNullActive = selectedRouteFilters.includes('NULL_VALUE') ? 'active' : '';
-        html += `<div class="filter-pill ${isNullActive}" onclick="toggleRouteFilter('NULL_VALUE')" style="${isNullActive ? 'background:#475569; border-color:#475569; color:white;' : 'border:1px dashed #cbd5e1; color:#64748b;'}"><span>[ไม่มีข้อมูลวิธีใช้ยา]</span><span class="filter-count" style="${isNullActive?'background:rgba(255,255,255,0.3); color:white;':''}">${nullCount}</span></div>`;
+        html += `<div class="filter-pill ${encodeHTML(isNullActive)}" ${bindHTMLAction("click", function(event) { toggleRouteFilter('NULL_VALUE') })} style="${isNullActive ? 'background:#475569; border-color:#475569; color:white;' : 'border:1px dashed #cbd5e1; color:#64748b;'}"><span>[ไม่มีข้อมูลวิธีใช้ยา]</span><span class="filter-count" style="${isNullActive ? 'background:rgba(255,255,255,0.3); color:white;' : ''}">${encodeHTML(nullCount)}</span></div>`;
 
         if (allRoutes.length > 0) {
             html += allRoutes.map(r => { 
                 const isActive = selectedRouteFilters.includes(r.route_code) ? 'active' : ''; 
                 const count = baseDrugs.filter(d => (d.drug_administrations || []).some(a => a.routes?.route_code === r.route_code)).length;
-                return `<div class="filter-pill ${isActive}" onclick="toggleRouteFilter('${r.route_code}')" style="${isActive ? 'background:var(--success); border-color:var(--success);' : ''}"><span>${r.route_code} - ${r.route_name}</span><span class="filter-count">${count}</span></div>`; 
+                return `<div class="filter-pill ${encodeHTML(isActive)}" ${bindHTMLAction("click", function(event) { toggleRouteFilter((r.route_code)) })} style="${isActive ? 'background:var(--success); border-color:var(--success);' : ''}"><span>${encodeHTML(r.route_code)} - ${encodeHTML(r.route_name)}</span><span class="filter-count">${encodeHTML(count)}</span></div>`; 
             }).join(''); 
         }
-        sidebar.innerHTML = html;
+        setHTML(sidebar, html);
         filterSidebarRoutes(); 
     }
     
@@ -2011,7 +2012,7 @@ async function fetchLogs() {
         }).length;
         
         const isNullActive = selectedPharmFilters.includes('NULL_VALUE') ? 'active' : '';
-        html += `<div class="filter-pill ${isNullActive}" onclick="togglePharmFilter('NULL_VALUE')" style="${isNullActive ? 'background:#475569; border-color:#475569; color:white;' : 'border:1px dashed #cbd5e1; color:#64748b;'}"><span>[ไม่มีข้อมูลกลุ่มยา]</span><span class="filter-count" style="${isNullActive?'background:rgba(255,255,255,0.3); color:white;':''}">${nullCount}</span></div>`;
+        html += `<div class="filter-pill ${encodeHTML(isNullActive)}" ${bindHTMLAction("click", function(event) { togglePharmFilter('NULL_VALUE') })} style="${isNullActive ? 'background:#475569; border-color:#475569; color:white;' : 'border:1px dashed #cbd5e1; color:#64748b;'}"><span>[ไม่มีข้อมูลกลุ่มยา]</span><span class="filter-count" style="${isNullActive ? 'background:rgba(255,255,255,0.3); color:white;' : ''}">${encodeHTML(nullCount)}</span></div>`;
 
         if (allPharmClasses.length > 0) {
             html += allPharmClasses.map(c => { 
@@ -2033,13 +2034,13 @@ async function fetchLogs() {
                 }
                 const activeStyle = isActive ? 'background:var(--primary); border-color:var(--primary); color:white;' : bgStyle;
                 
-                return `<div class="filter-pill ${isActive}" onclick="togglePharmFilter('${c.class_name}')" style="${activeStyle}">
-                    <span style="${textStyle}">${c.class_name}</span>
-                    <span class="filter-count" style="${isActive ? '' : (textStyle ? 'background:rgba(255,255,255,0.7); color:inherit;' : '')}">${count}</span>
+                return `<div class="filter-pill ${encodeHTML(isActive)}" ${bindHTMLAction("click", function(event) { togglePharmFilter((c.class_name)) })} style="${encodeHTML(activeStyle)}">
+                    <span style="${encodeHTML(textStyle)}">${encodeHTML(c.class_name)}</span>
+                    <span class="filter-count" style="${isActive ? '' : textStyle ? 'background:rgba(255,255,255,0.7); color:inherit;' : ''}">${encodeHTML(count)}</span>
                 </div>`; 
             }).join(''); 
         }
-        sidebar.innerHTML = html;
+        setHTML(sidebar, html);
         filterSidebarPharms(); 
     }
 
@@ -2126,44 +2127,44 @@ async function fetchLogs() {
         allRoutes = await fetchMasterDataWithCache('routes', 'rank');
         // อัปเดต Dropdown เลือกช่องทาง
         const selectEl = document.getElementById('select-route');
-        if (selectEl) selectEl.innerHTML = allRoutes.map(r => `<option value="${r.route_code}">${r.route_code} - ${r.route_name}</option>`).join('');
+        if (selectEl) setHTML(selectEl, allRoutes.map(r => `<option value="${encodeHTML(r.route_code)}">${encodeHTML(r.route_code)} - ${encodeHTML(r.route_name)}</option>`).join(''));
         
         // อัปเดตหน้าต่างจัดการ (Admin List)
         const listEl = document.getElementById('master-route-list');
-        if (listEl) listEl.innerHTML = allRoutes.map(r => `<div class="list-item"><span><b>${r.route_code}</b>: ${r.route_name} <small>(Rank: ${r.rank})</small></span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('routes','route_code','${encodeHTML(r.route_code)}')">🗑️</button></div>`).join('');
+        if (listEl) setHTML(listEl, allRoutes.map(r => `<div class="list-item"><span><b>${encodeHTML(r.route_code)}</b>: ${encodeHTML(r.route_name)} <small>(Rank: ${encodeHTML(r.rank)})</small></span><button class="btn btn-outline" style="color:red; padding:2px 6px;" ${bindHTMLAction("click", function(event) { deleteMaster('routes','route_code',(r.route_code)) })}>🗑️</button></div>`).join(''));
     }
 
     async function fetchFluids() {
         allFluids = await fetchMasterDataWithCache('fluids', 'short_name');
         // อัปเดต Checkbox
         const container = document.getElementById('fluid-checkbox-group');
-        if (container) container.innerHTML = allFluids.map((f, idx) => `<input type="checkbox" id="fluid-cb-${idx}" name="comp-fluids" value="${f.short_name}" style="transform: scale(1.2); margin-right:4px;"><label for="fluid-cb-${idx}">${f.short_name}</label>`).join('');
+        if (container) setHTML(container, allFluids.map((f, idx) => `<input type="checkbox" id="fluid-cb-${encodeHTML(idx)}" name="comp-fluids" value="${encodeHTML(f.short_name)}" style="transform: scale(1.2); margin-right:4px;"><label for="fluid-cb-${encodeHTML(idx)}">${encodeHTML(f.short_name)}</label>`).join(''));
         
         // อัปเดตหน้าต่างจัดการ (Admin List)
         const listEl = document.getElementById('master-fluid-list');
-        if (listEl) listEl.innerHTML = allFluids.map(f => `<div class="list-item"><span><b>${f.short_name}</b>: ${f.full_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('fluids','short_name','${encodeHTML(f.short_name)}')">🗑️</button></div>`).join('');
+        if (listEl) setHTML(listEl, allFluids.map(f => `<div class="list-item"><span><b>${encodeHTML(f.short_name)}</b>: ${encodeHTML(f.full_name)}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" ${bindHTMLAction("click", function(event) { deleteMaster('fluids','short_name',(f.short_name)) })}>🗑️</button></div>`).join(''));
     }
 
     async function fetchDosageForms() {
         allDosageForms = await fetchMasterDataWithCache('dosage_forms', 'form_name');
         // อัปเดต Dropdown
         const selectEl = document.getElementById('form-drug-type');
-        if (selectEl) selectEl.innerHTML = '<option value="">-- ไม่ระบุ --</option>' + allDosageForms.map(f => `<option value="${f.form_name}">${f.form_name}</option>`).join('');
+        if (selectEl) setHTML(selectEl, '<option value="">-- ไม่ระบุ --</option>' + allDosageForms.map(f => `<option value="${encodeHTML(f.form_name)}">${encodeHTML(f.form_name)}</option>`).join(''));
         
         // อัปเดตหน้าต่างจัดการ (Admin List)
         const listEl = document.getElementById('master-form-list');
-        if (listEl) listEl.innerHTML = allDosageForms.map(f => `<div class="list-item"><span>${f.form_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('dosage_forms','form_name','${encodeHTML(f.form_name)}')">🗑️</button></div>`).join('');
+        if (listEl) setHTML(listEl, allDosageForms.map(f => `<div class="list-item"><span>${encodeHTML(f.form_name)}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" ${bindHTMLAction("click", function(event) { deleteMaster('dosage_forms','form_name',(f.form_name)) })}>🗑️</button></div>`).join(''));
     }
 
     async function fetchTags() {
         allTags = await fetchMasterDataWithCache('drug_tags', 'tag_name');
         // อัปเดต Checkbox
         const container = document.getElementById('drug-tags-checkbox-group');
-        if (container) container.innerHTML = allTags.map((t, idx) => `<input type="checkbox" id="tag-cb-${idx}" name="drug-tags" value="${t.tag_name}" style="transform: scale(1.2); margin-right:4px;"><label for="tag-cb-${idx}">${t.tag_name}</label>`).join('');
+        if (container) setHTML(container, allTags.map((t, idx) => `<input type="checkbox" id="tag-cb-${encodeHTML(idx)}" name="drug-tags" value="${encodeHTML(t.tag_name)}" style="transform: scale(1.2); margin-right:4px;"><label for="tag-cb-${encodeHTML(idx)}">${encodeHTML(t.tag_name)}</label>`).join(''));
         
         // อัปเดตหน้าต่างจัดการ (Admin List)
         const listEl = document.getElementById('master-tag-list');
-        if (listEl) listEl.innerHTML = allTags.map(t => `<div class="list-item"><span>${t.tag_name}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('drug_tags','tag_name','${encodeHTML(t.tag_name)}')">🗑️</button></div>`).join('');
+        if (listEl) setHTML(listEl, allTags.map(t => `<div class="list-item"><span>${encodeHTML(t.tag_name)}</span><button class="btn btn-outline" style="color:red; padding:2px 6px;" ${bindHTMLAction("click", function(event) { deleteMaster('drug_tags','tag_name',(t.tag_name)) })}>🗑️</button></div>`).join(''));
     }
 
     async function fetchNlemMaster() {
@@ -2171,13 +2172,13 @@ async function fetchLogs() {
         // อัปเดต Dropdowns
         const selectBulk = document.getElementById('bulk-nlem-select');
         const selectNlem = document.getElementById('select-nlem');
-        const options = allNlem.map(n => `<option value="${n.category_code}">${n.category_code} - ${n.description || ''}</option>`).join('');
-        if (selectBulk) selectBulk.innerHTML = options;
-        if (selectNlem) selectNlem.innerHTML = options;
+        const options = allNlem.map(n => `<option value="${encodeHTML(n.category_code)}">${encodeHTML(n.category_code)} - ${encodeHTML(n.description) || ''}</option>`).join('');
+        if (selectBulk) setHTML(selectBulk, options);
+        if (selectNlem) setHTML(selectNlem, options);
         
         // อัปเดตหน้าต่างจัดการ (Admin List)
         const listEl = document.getElementById('master-nlem-list');
-        if (listEl) listEl.innerHTML = allNlem.map(n => `<div class="list-item"><span><b>${n.category_code}</b>: ${n.description || '-'} <small>(Rank: ${n.rank || 99})</small></span><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('nlem_categories','category_code','${encodeHTML(n.category_code)}')">🗑️</button></div>`).join('');
+        if (listEl) setHTML(listEl, allNlem.map(n => `<div class="list-item"><span><b>${encodeHTML(n.category_code)}</b>: ${encodeHTML(n.description) || '-'} <small>(Rank: ${encodeHTML(n.rank || 99)})</small></span><button class="btn btn-outline" style="color:red; padding:2px 6px;" ${bindHTMLAction("click", function(event) { deleteMaster('nlem_categories','category_code',(n.category_code)) })}>🗑️</button></div>`).join(''));
     }
 
     async function fetchLabelsMaster() {
@@ -2210,7 +2211,7 @@ async function fetchLogs() {
 
         const nullCount = baseDrugs.filter(d => !d.drug_type || d.drug_type.trim() === '').length;
         const isNullActive = selectedDrugTypeFilters.includes('NULL_VALUE') ? 'active' : '';
-        html += `<div class="filter-pill ${isNullActive}" onclick="toggleDrugTypeFilter('NULL_VALUE')" style="${isNullActive ? 'background:#475569; border-color:#475569; color:white;' : 'border:1px dashed #cbd5e1; color:#64748b;'}"><span>[ไม่ระบุหมวดหมู่]</span><span class="filter-count" style="${isNullActive?'background:rgba(255,255,255,0.3); color:white;':''}">${nullCount}</span></div>`;
+        html += `<div class="filter-pill ${encodeHTML(isNullActive)}" ${bindHTMLAction("click", function(event) { toggleDrugTypeFilter('NULL_VALUE') })} style="${isNullActive ? 'background:#475569; border-color:#475569; color:white;' : 'border:1px dashed #cbd5e1; color:#64748b;'}"><span>[ไม่ระบุหมวดหมู่]</span><span class="filter-count" style="${isNullActive ? 'background:rgba(255,255,255,0.3); color:white;' : ''}">${encodeHTML(nullCount)}</span></div>`;
 
         const uniqueTypes = [...new Set(baseDrugs.map(d => d.drug_type).filter(t => t && t.trim() !== ''))].sort();
 
@@ -2218,11 +2219,11 @@ async function fetchLogs() {
             html += uniqueTypes.map(t => { 
                 const isActive = selectedDrugTypeFilters.includes(t) ? 'active' : ''; 
                 const count = baseDrugs.filter(d => d.drug_type === t).length;
-                return `<div class="filter-pill ${isActive}" onclick="toggleDrugTypeFilter('${t}')" style="${isActive ? 'background:var(--warning); border-color:var(--warning); color:white;' : ''}"><span>${t}</span><span class="filter-count" style="${isActive?'background:rgba(255,255,255,0.3); color:white;':''}">${count}</span></div>`; 
+                return `<div class="filter-pill ${encodeHTML(isActive)}" ${bindHTMLAction("click", function(event) { toggleDrugTypeFilter((t)) })} style="${isActive ? 'background:var(--warning); border-color:var(--warning); color:white;' : ''}"><span>${encodeHTML(t)}</span><span class="filter-count" style="${isActive ? 'background:rgba(255,255,255,0.3); color:white;' : ''}">${encodeHTML(count)}</span></div>`; 
             }).join(''); 
         }
         
-        sidebar.innerHTML = html;
+        setHTML(sidebar, html);
         filterSidebarDrugTypes(); 
     }
 
@@ -2245,26 +2246,26 @@ async function fetchLogs() {
         const listEl = document.getElementById('master-label-list');
         if(listEl) {
             if (filtered.length === 0) {
-                listEl.innerHTML = '<div style="color:gray; padding:10px; text-align:center;">ไม่พบฉลากที่ค้นหา</div>';
+                setHTML(listEl, '<div style="color:gray; padding:10px; text-align:center;">ไม่พบฉลากที่ค้นหา</div>');
                 return;
             }
-            listEl.innerHTML = filtered.map(l => {
+            setHTML(listEl, filtered.map(l => {
                 const statusColor = l.statuscode === 'Active' ? 'var(--success)' : 'var(--danger)';
                 return `
                 <div class="list-item" style="flex-wrap:wrap; border-left: 3px solid var(--info);">
                     <div style="flex:1; min-width:180px;">
-                        <b style="color:var(--info);">${l.label_code}:</b> <span style="font-weight:bold; color:var(--dark);">${l.label_name}</span>
+                        <b style="color:var(--info);">${encodeHTML(l.label_code)}:</b> <span style="font-weight:bold; color:var(--dark);">${encodeHTML(l.label_name)}</span>
                         <div style="font-size:0.8rem; color:gray; margin-top:4px;">
-                            Type: <b>${l.label_type || '-'}</b> | 
-                            Status: <b style="color:${statusColor};">${l.statuscode || 'Active'}</b>
+                            Type: <b>${encodeHTML(l.label_type) || '-'}</b> | 
+                            Status: <b style="color:${encodeHTML(statusColor)};">${encodeHTML(l.statuscode) || 'Active'}</b>
                         </div>
                     </div>
                     <div style="display:flex; gap:5px;">
-                        <button class="btn btn-outline" style="color:var(--primary); padding:4px 8px; font-size:0.75rem;" onclick="prepareEditLabel('${l.label_code}')">✏️</button>
-                        <button class="btn btn-outline" style="color:red; padding:4px 8px; font-size:0.75rem;" onclick="deleteMaster('labels','label_code','${l.label_code}')">🗑️</button>
+                        <button class="btn btn-outline" style="color:var(--primary); padding:4px 8px; font-size:0.75rem;" ${bindHTMLAction("click", function(event) { prepareEditLabel((l.label_code)) })}>✏️</button>
+                        <button class="btn btn-outline" style="color:red; padding:4px 8px; font-size:0.75rem;" ${bindHTMLAction("click", function(event) { deleteMaster('labels','label_code',(l.label_code)) })}>🗑️</button>
                     </div>
                 </div>`;
-            }).join('');
+            }).join(''));
         }
     }
 
@@ -2341,24 +2342,24 @@ async function fetchLogs() {
 
         const nullCount = baseDrugs.filter(d => !d.drug_label_mapping || d.drug_label_mapping.length === 0).length;
         const isNullActive = selectedLabelFilters.includes('NULL_VALUE') ? 'active' : '';
-        html += `<div class="filter-pill ${isNullActive}" onclick="toggleLabelFilter('NULL_VALUE')" style="${isNullActive ? 'background:#475569; border-color:#475569; color:white;' : 'border:1px dashed #cbd5e1; color:#64748b;'}"><span>[ไม่ระบุฉลากยา]</span><span class="filter-count" style="${isNullActive?'background:rgba(255,255,255,0.3); color:white;':''}">${nullCount}</span></div>`;
+        html += `<div class="filter-pill ${encodeHTML(isNullActive)}" ${bindHTMLAction("click", function(event) { toggleLabelFilter('NULL_VALUE') })} style="${isNullActive ? 'background:#475569; border-color:#475569; color:white;' : 'border:1px dashed #cbd5e1; color:#64748b;'}"><span>[ไม่ระบุฉลากยา]</span><span class="filter-count" style="${isNullActive ? 'background:rgba(255,255,255,0.3); color:white;' : ''}">${encodeHTML(nullCount)}</span></div>`;
 
         if (allLabels.length > 0) {
             html += allLabels.map(l => { 
                 const isActive = selectedLabelFilters.includes(l.label_code) ? 'active' : ''; 
                 const count = baseDrugs.filter(d => (d.drug_label_mapping || []).some(m => m.label_code === l.label_code)).length;
-                return `<div class="filter-pill ${isActive}" onclick="toggleLabelFilter('${l.label_code}')" style="${isActive ? 'background:var(--info); border-color:var(--info); color:white;' : ''}">
-                    <span style="flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-right:8px;" title="${l.label_name}">
-                        <b>${l.label_code}:</b> ${l.label_name}
+                return `<div class="filter-pill ${encodeHTML(isActive)}" ${bindHTMLAction("click", function(event) { toggleLabelFilter((l.label_code)) })} style="${isActive ? 'background:var(--info); border-color:var(--info); color:white;' : ''}">
+                    <span style="flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-right:8px;" title="${encodeHTML(l.label_name)}">
+                        <b>${encodeHTML(l.label_code)}:</b> ${encodeHTML(l.label_name)}
                     </span>
-                    <span class="filter-count" style="${isActive?'background:rgba(255,255,255,0.3); color:white;':''}">${count}</span>
+                    <span class="filter-count" style="${isActive ? 'background:rgba(255,255,255,0.3); color:white;' : ''}">${encodeHTML(count)}</span>
                 </div>`; 
             }).join(''); 
         } else {
             html = '<div style="color:gray; font-size:0.8rem;">ไม่มีข้อมูลฉลาก</div>';
         }
         
-        sidebar.innerHTML = html;
+        setHTML(sidebar, html);
         filterSidebarLabels(); 
     }
 
@@ -2503,7 +2504,7 @@ async function fetchLogs() {
                 .order('drug_name')
                 .range(from, from + step - 1);
                 
-            if (error) { document.getElementById('drug-list-container').innerHTML = `<div style="text-align:center; padding:50px; color:var(--danger);"><h3 style="margin-top:0;">❌ ข้อมูลไม่สามารถโหลดได้</h3><p>${error.message}</p></div>`; return; } 
+            if (error) { setHTML(document.getElementById('drug-list-container'), `<div style="text-align:center; padding:50px; color:var(--danger);"><h3 style="margin-top:0;">❌ ข้อมูลไม่สามารถโหลดได้</h3><p>${encodeHTML(error.message)}</p></div>`); return; } 
             fetchedData = fetchedData.concat(data); 
             if (data.length < step) hasMore = false; else from += step; 
         } 
@@ -2511,7 +2512,15 @@ async function fetchLogs() {
         updateBaseVisibilityAndFilter();
     }
 
-    function formatConc(min, max, unit) { if (!min && !max) return ''; const u = unit || 'mg/mL'; let t = '<br><small style="color:var(--danger)"><b>ความเข้มข้น:</b> '; if (min && max) t += `${min} - ${max} ${u}`; else if (max) t += `ไม่เกิน ${max} ${u}`; else t += `ไม่น้อยกว่า ${min} ${u}`; return t + '</small>'; }
+    function formatConc(min, max, unit) {
+        if (!min && !max) return '';
+        const u = encodeHTML(unit || 'mg/mL');
+        let text = '<br><small style="color:var(--danger)"><b>ความเข้มข้น:</b> ';
+        if (min && max) text += `${encodeHTML(min)} - ${encodeHTML(max)} ${u}`;
+        else if (max) text += `ไม่เกิน ${encodeHTML(max)} ${u}`;
+        else text += `ไม่น้อยกว่า ${encodeHTML(min)} ${u}`;
+        return text + '</small>';
+    }
 
     function generateStandardDrugName(drug) {
         let genParts = [];
@@ -2557,18 +2566,18 @@ async function fetchLogs() {
         let form = drug.dosage_form || '';
         let finalName = `${genText} ${bracketPart} ${form}`;
         
-        return encodeHTML(finalName.replace(/\s+/g, ' ').trim());
+        return finalName.replace(/\s+/g, ' ').trim();
     }
     
     function renderDrugs(drugs) {
         const container = document.getElementById('drug-list-container');
-        if (drugs.length === 0) return container.innerHTML = '<div style="text-align:center; padding:50px; color:gray;">❌ ไม่พบข้อมูลที่ตรงกับเงื่อนไข</div>';
+        if (drugs.length === 0) return setHTML(container, '<div style="text-align:center; padding:50px; color:gray;">❌ ไม่พบข้อมูลที่ตรงกับเงื่อนไข</div>');
 
-        container.innerHTML = drugs.map(drug => {
-            const safeCode = encodeHTML(drug.drug_code); 
-            const safeName = encodeHTML(drug.drug_name);
+        setHTML(container, drugs.map(drug => {
+            const safeCode = drug.drug_code; 
+            const safeName = drug.drug_name;
             const isExpanded = expandedCards.has(safeCode);
-            const genericNotes = (drug.drug_contents || []).filter(c => c.generics?.special_note).map(c => `<div class="note-box generic-note"><b>📌 ยาสามัญ (${c.generics.generic_name}):</b> ${c.generics.special_note}</div>`).join('');
+            const genericNotes = (drug.drug_contents || []).filter(c => c.generics?.special_note).map(c => `<div class="note-box generic-note"><b>📌 ยาสามัญ (${encodeHTML(c.generics.generic_name)}):</b> ${encodeHTML(c.generics.special_note)}</div>`).join('');
             
             const pharmClasses = new Set(); 
             (drug.drug_contents || []).forEach(c => { 
@@ -2581,7 +2590,7 @@ async function fetchLogs() {
                 if (lowerPc.includes('high alert')) style = 'background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;';
                 else if (lowerPc.includes('hazadous') || lowerPc.includes('hazardous')) style = 'background:#ffedd5; color:#c2410c; border:1px solid #fdba74;';
                 else if (lowerPc.includes('หยุดก่อนผ่าตัด')) style = 'background:#e0e7ff; color:#1d4ed8; border:1px solid #bfdbfe;';
-                return `<span class="badge ${style ? '' : 'badge-pharm'}" style="${style}">${pc}</span>`;
+                return `<span class="badge ${style ? '' : 'badge-pharm'}" style="${encodeHTML(style)}">${encodeHTML(pc)}</span>`;
             }).join('');
 
             let nlemBadges = ''; let nlemNotes = ''; let cardThemeClass = ''; 
@@ -2590,8 +2599,8 @@ async function fetchLogs() {
                 if (nlemCodes.some(c => c.includes('จ') || c.includes('พิเศษ'))) cardThemeClass = 'card-special';
                 else if (nlemCodes.some(c => c.includes('NED'))) cardThemeClass = 'card-ned';
                 else if (nlemCodes.some(c => c.includes('ED'))) cardThemeClass = 'card-ed';
-                nlemBadges = drug.drug_nlem_mapping.map(n => `<span class="badge badge-nlem">${n.nlem_code}</span>`).join('');
-                nlemNotes = drug.drug_nlem_mapping.filter(n => n.condition_note).map(n => `<div class="note-box nlem-note"><b>📋 เงื่อนไข ${n.nlem_code}:</b> ${n.condition_note}</div>`).join('');
+                nlemBadges = drug.drug_nlem_mapping.map(n => `<span class="badge badge-nlem">${encodeHTML(n.nlem_code)}</span>`).join('');
+                nlemNotes = drug.drug_nlem_mapping.filter(n => n.condition_note).map(n => `<div class="note-box nlem-note"><b>📋 เงื่อนไข ${encodeHTML(n.nlem_code)}:</b> ${encodeHTML(n.condition_note)}</div>`).join('');
             }
             
             const tagsHtml = (drug.drug_tag_mapping || []).map(t => { 
@@ -2602,25 +2611,25 @@ async function fetchLogs() {
                 else if (t.tag_name.includes('หยุดก่อนผ่าตัด')) bg = 'var(--purple)'; 
                 else if (t.tag_name.includes('ได้')) bg = 'var(--success)'; 
                 else if (t.tag_name.includes('เพิ่งเปิดใช้งาน')) bg = 'var(--info)'; 
-                return `<span class="badge" style="background:${bg}; color:white;">${t.tag_name}</span>`; 
+                return `<span class="badge" style="background:${encodeHTML(bg)}; color:white;">${encodeHTML(t.tag_name)}</span>`; 
             }).join('');
 
-            const adminStatusBadge = (isAdmin && drug.statuscode) ? `<span class="badge badge-admin-status">⚙️ Status: ${drug.statuscode}</span>` : '';
+            const adminStatusBadge = (isAdmin && drug.statuscode) ? `<span class="badge badge-admin-status">⚙️ Status: ${encodeHTML(drug.statuscode)}</span>` : '';
             const remarksHtml = drug.remarks ? `<div style="font-size: 0.85rem; color: #475569; margin-top: 5px;">💊 <b>ลักษณะ:</b> ${encodeHTML(drug.remarks)}</div>` : '';
             
             const calcBtn = (drug.drug_administrations || []).some(a => a.min_conc || a.max_conc) 
-                ? `<button class="btn btn-sm" style="background:#fef3c7; color:#d97706; border:1px solid #fde68a; padding:2px 8px; font-size:0.75rem; border-radius:20px; font-weight:bold;" onclick="event.stopPropagation(); openCalculator('${safeCode}')">🧮 คำนวณน้ำ</button>` 
+                ? `<button class="btn btn-sm" style="background:#fef3c7; color:#d97706; border:1px solid #fde68a; padding:2px 8px; font-size:0.75rem; border-radius:20px; font-weight:bold;" ${bindHTMLAction("click", function(event) { event.stopPropagation(); openCalculator((safeCode)) })}>🧮 คำนวณน้ำ</button>` 
                 : '';
             const needsAdj = (drug.drug_contents || []).some(c => c.generics?.needs_renal_adj || c.generics?.needs_hepatic_adj);
             const adjBtn = needsAdj 
-                ? `<button class="btn btn-sm" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; padding:2px 8px; font-size:0.75rem; border-radius:20px; font-weight:bold; margin-left:5px;" onclick="event.stopPropagation(); toggleInlineAdj('${safeCode}')">⚠️ ข้อมูลปรับโดส</button>` 
+                ? `<button class="btn btn-sm" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; padding:2px 8px; font-size:0.75rem; border-radius:20px; font-weight:bold; margin-left:5px;" ${bindHTMLAction("click", function(event) { event.stopPropagation(); toggleInlineAdj((safeCode)) })}>⚠️ ข้อมูลปรับโดส</button>` 
                 : '';
 
             const configData = drug.nutrition_configs;
             const nutriConfig = Array.isArray(configData) ? configData[0] : configData;
             
             const nutriBtn = nutriConfig 
-                ? `<button class="btn btn-sm" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0; padding:2px 8px; font-size:0.75rem; border-radius:20px; font-weight:bold; margin-left:5px;" onclick="event.stopPropagation(); openNutriCalc('${safeCode}')">🍼 คำนวณชงอาหาร</button>` 
+                ? `<button class="btn btn-sm" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0; padding:2px 8px; font-size:0.75rem; border-radius:20px; font-weight:bold; margin-left:5px;" ${bindHTMLAction("click", function(event) { event.stopPropagation(); openNutriCalc((safeCode)) })}>🍼 คำนวณชงอาหาร</button>` 
                 : '';
                 
             const drugLinks = drug.drug_links || [];
@@ -2631,22 +2640,22 @@ async function fetchLogs() {
             const hasLinks = drugLinks.length > 0 || hasGenericLinks;
 
             const linkBtn = hasLinks 
-                ? `<button class="btn btn-sm" style="background:#e0e7ff; color:#3730a3; border:1px solid #c7d2fe; padding:2px 8px; font-size:0.75rem; border-radius:20px; font-weight:bold; margin-left:5px;" onclick="event.stopPropagation(); openLinkViewer('${safeCode}')">🔗 ข้อมูลอ้างอิง</button>` 
+                ? `<button class="btn btn-sm" style="background:#e0e7ff; color:#3730a3; border:1px solid #c7d2fe; padding:2px 8px; font-size:0.75rem; border-radius:20px; font-weight:bold; margin-left:5px;" ${bindHTMLAction("click", function(event) { event.stopPropagation(); openLinkViewer((safeCode)) })}>🔗 ข้อมูลอ้างอิง</button>` 
                 : '';
 
             const adminLinkBtn = isAdmin 
-                ? `<button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:#4338ca; border-color:#4338ca;" onclick="event.stopPropagation(); openLinkAdmin('drug', '${safeCode}', '${safeName}')">🔗 ลิงก์</button>` 
+                ? `<button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:#4338ca; border-color:#4338ca;" ${bindHTMLAction("click", function(event) { event.stopPropagation(); openLinkAdmin('drug', (safeCode), (safeName)) })}>🔗 ลิงก์</button>` 
                 : '';
             
             const isHighRisk = drug.is_high_error_risk;
             const isHighAlert = (drug.drug_type || '').toLowerCase() === 'high alert drug';
             
             const meBtn = isHighRisk || (drug.med_error_knowledge && drug.med_error_knowledge.length > 0)
-                ? `<button class="btn btn-sm me-btn-alert" style="padding:2px 10px; font-size:0.75rem; border-radius:20px; font-weight:bold; margin-left:5px;" onclick="event.stopPropagation(); openMeKnowledge('${safeCode}')">🚨 พบ ME บ่อยครั้ง!</button>` 
+                ? `<button class="btn btn-sm me-btn-alert" style="padding:2px 10px; font-size:0.75rem; border-radius:20px; font-weight:bold; margin-left:5px;" ${bindHTMLAction("click", function(event) { event.stopPropagation(); openMeKnowledge((safeCode)) })}>🚨 พบ ME บ่อยครั้ง!</button>` 
                 : '';
                 
             const adminMeBtn = isAdmin 
-                ? `<button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--danger); border-color:var(--danger);" onclick="event.stopPropagation(); openMeAdmin('${safeCode}', '${safeName}')">⚠️ จัดการ ME</button>` 
+                ? `<button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--danger); border-color:var(--danger);" ${bindHTMLAction("click", function(event) { event.stopPropagation(); openMeAdmin((safeCode), (safeName)) })}>⚠️ จัดการ ME</button>` 
                 : '';
 
             let nameCssClass = "";
@@ -2658,11 +2667,11 @@ async function fetchLogs() {
 
             const isEnteral = (drug.drug_type || '').toLowerCase() === 'enteral nutrition' || nutriConfig;
             const adminNutriBtn = (isAdmin && isEnteral) 
-                ? `<button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:#166534; border-color:#166534;" onclick="event.stopPropagation(); openNutriAdmin('${safeCode}', '${safeName}')">🍼 ตั้งค่าชง</button>` 
+                ? `<button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:#166534; border-color:#166534;" ${bindHTMLAction("click", function(event) { event.stopPropagation(); openNutriAdmin((safeCode), (safeName)) })}>🍼 ตั้งค่าชง</button>` 
                 : '';
             
             const labelsHtml = (drug.drug_label_mapping || [])
-                .map(l => `<div style="display:inline-block; background:#e0f2fe; color:#0369a1; padding:4px 8px; border-radius:6px; font-size:0.85rem; margin-right:5px; margin-bottom:5px; border:1px solid #bae6fd;">🏷️ <b>${l.label_code}:</b> ${l.labels?.label_name || 'ไม่ทราบชื่อฉลาก'}</div>`)
+                .map(l => `<div style="display:inline-block; background:#e0f2fe; color:#0369a1; padding:4px 8px; border-radius:6px; font-size:0.85rem; margin-right:5px; margin-bottom:5px; border:1px solid #bae6fd;">🏷️ <b>${encodeHTML(l.label_code)}:</b> ${encodeHTML(l.labels?.label_name) || 'ไม่ทราบชื่อฉลาก'}</div>`)
                 .join('');
             
             const labelSection = labelsHtml ? `<div style="margin-top:10px; padding:10px; background:#f0f9ff; border:1px dashed #7dd3fc; border-radius:8px;"><strong>🏷️ ฉลากยา (Labels):</strong><br>${labelsHtml}</div>` : '';
@@ -2675,9 +2684,9 @@ async function fetchLogs() {
                     if (a.updated_at) {
                         const aDate = new Date(a.updated_at).toLocaleDateString('th-TH', { year: '2-digit', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
                         const aUser = a.updated_by ? a.updated_by.split('@')[0] : 'System';
-                        adminEditInfo = `<div style="font-size:0.7rem; color:#94a3b8; margin-top:8px; text-align:right; border-top:1px dashed #e2e8f0; padding-top:4px;">🕒 แก้ไขวิธีใช้ล่าสุด: ${aDate} น. โดย ${aUser}</div>`;
+                        adminEditInfo = `<div style="font-size:0.7rem; color:#94a3b8; margin-top:8px; text-align:right; border-top:1px dashed #e2e8f0; padding-top:4px;">🕒 แก้ไขวิธีใช้ล่าสุด: ${encodeHTML(aDate)} น. โดย ${encodeHTML(aUser)}</div>`;
                     }
-                    return `<div style="background:white; padding:10px; border-radius:8px; margin-top:8px; border:1px solid #edf2f7; font-size:0.9rem;"><span class="badge badge-route">${a.routes?.route_name || 'Unknown'}</span> <span style="white-space: pre-line;">${a.instructions || '-'}</span> ${formatConc(a.min_conc, a.max_conc, a.conc_unit)} ${a.administration_fluids?.length > 0 ? `<div style="margin-top:5px;"><b>สารน้ำ:</b> ${a.administration_fluids.map(f => `<span class="badge badge-fluid">${f.fluid_short_name}</span>`).join('')}</div>` : ''}${adminEditInfo}</div>`;
+                    return `<div style="background:white; padding:10px; border-radius:8px; margin-top:8px; border:1px solid #edf2f7; font-size:0.9rem;"><span class="badge badge-route">${encodeHTML(a.routes?.route_name) || 'Unknown'}</span> <span style="white-space: pre-line;">${encodeHTML(a.instructions) || '-'}</span> ${formatConc(a.min_conc, a.max_conc, a.conc_unit)} ${a.administration_fluids?.length > 0 ? `<div style="margin-top:5px;"><b>สารน้ำ:</b> ${a.administration_fluids.map(f => `<span class="badge badge-fluid">${encodeHTML(f.fluid_short_name)}</span>`).join('')}</div>` : ''}${adminEditInfo}</div>`;
                 })
                 .join('') || '<br>ไม่มีข้อมูล';
 
@@ -2697,13 +2706,13 @@ async function fetchLogs() {
                 const btnText = isOnline ? '🟢 online' : '🔴 offline';
                 const nextStatus = isOnline ? 'offline' : 'online';
                 
-                rightContainerHtml += `<button class="btn btn-sm" style="background:${btnBg}; color:${btnColor}; border:1px solid ${btnBorder}; border-radius:20px; font-size:0.75rem; font-weight:bold; padding:4px 12px; box-shadow:0 1px 2px rgba(0,0,0,0.05); transition: 0.2s; z-index:10;" onclick="event.stopPropagation(); toggleQuickStatus(this, '${safeCode}', '${nextStatus}')">🔄 ${btnText}</button>`;
+                rightContainerHtml += `<button class="btn btn-sm" style="background:${encodeHTML(btnBg)}; color:${encodeHTML(btnColor)}; border:1px solid ${encodeHTML(btnBorder)}; border-radius:20px; font-size:0.75rem; font-weight:bold; padding:4px 12px; box-shadow:0 1px 2px rgba(0,0,0,0.05); transition: 0.2s; z-index:10;" ${bindHTMLAction("click", function(event) { event.stopPropagation(); toggleQuickStatus(this, (safeCode), (nextStatus)) })}>🔄 ${encodeHTML(btnText)}</button>`;
             }
 
             if (img1 || img2) {
                 rightContainerHtml += `<div style="display:flex; gap:10px; justify-content:flex-end;">`;
-                if (img1) rightContainerHtml += `<img src="${encodeHTML(img1)}" onerror="this.onerror=null; this.src='https://placehold.co/80x80/fee2e2/ef4444?text=Error';" style="width:80px; height:80px; object-fit:cover; border-radius:8px; border:1px solid #cbd5e1; box-shadow:0 2px 4px rgba(0,0,0,0.1); cursor:pointer;" onclick="event.stopPropagation(); openImageViewer('${encodeHTML(img1)}')" title="คลิกเพื่อดูรูปขยาย">`;
-                if (img2) rightContainerHtml += `<img src="${encodeHTML(img2)}" onerror="this.onerror=null; this.src='https://placehold.co/80x80/fee2e2/ef4444?text=Error';" style="width:80px; height:80px; object-fit:cover; border-radius:8px; border:1px solid #cbd5e1; box-shadow:0 2px 4px rgba(0,0,0,0.1); cursor:pointer;" onclick="event.stopPropagation(); openImageViewer('${encodeHTML(img2)}')" title="คลิกเพื่อดูรูปขยาย">`;
+                if (img1) rightContainerHtml += `<img src="${encodeHTML(safeURL(img1))}" ${bindHTMLAction("error", function(event) {  this.src='https://placehold.co/80x80/fee2e2/ef4444?text=Error'; })} style="width:80px; height:80px; object-fit:cover; border-radius:8px; border:1px solid #cbd5e1; box-shadow:0 2px 4px rgba(0,0,0,0.1); cursor:pointer;" ${bindHTMLAction("click", function(event) { event.stopPropagation(); openImageViewer((img1)) })} title="คลิกเพื่อดูรูปขยาย">`;
+                if (img2) rightContainerHtml += `<img src="${encodeHTML(safeURL(img2))}" ${bindHTMLAction("error", function(event) {  this.src='https://placehold.co/80x80/fee2e2/ef4444?text=Error'; })} style="width:80px; height:80px; object-fit:cover; border-radius:8px; border:1px solid #cbd5e1; box-shadow:0 2px 4px rgba(0,0,0,0.1); cursor:pointer;" ${bindHTMLAction("click", function(event) { event.stopPropagation(); openImageViewer((img2)) })} title="คลิกเพื่อดูรูปขยาย">`;
                 rightContainerHtml += `</div>`;
             }
             rightContainerHtml += `</div>`;
@@ -2737,19 +2746,19 @@ async function fetchLogs() {
             if (drug.updated_at) {
                 const dDate = new Date(drug.updated_at).toLocaleDateString('th-TH', { year: '2-digit', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
                 const dUser = drug.updated_by ? drug.updated_by.split('@')[0] : 'System';
-                drugEditInfo = `<div style="font-size:0.75rem; color:#94a3b8; margin-top:15px; padding-top:10px; border-top:1px dashed #cbd5e1; text-align:right;">🕒 อัปเดตข้อมูลยาล่าสุด: ${dDate} น. โดย ${dUser}</div>`;
+                drugEditInfo = `<div style="font-size:0.75rem; color:#94a3b8; margin-top:15px; padding-top:10px; border-top:1px dashed #cbd5e1; text-align:right;">🕒 อัปเดตข้อมูลยาล่าสุด: ${encodeHTML(dDate)} น. โดย ${encodeHTML(dUser)}</div>`;
             }
 
             // 🌟 5. คืนค่า HTML โครงสร้าง Card
             return `
-            <div class="drug-card ${cardThemeClass}" data-code="${safeCode}">
+            <div class="drug-card ${encodeHTML(cardThemeClass)}" data-code="${encodeHTML(safeCode)}">
                 <div class="card-header-flex" style="flex-wrap: wrap; align-items: flex-start; gap: 15px;">
                     <div style="flex: 1; min-width: 250px; display: flex; flex-direction: column;">
-                        <div class="clickable-header" onclick="toggleCard('${safeCode}')">
+                        <div class="clickable-header" ${bindHTMLAction("click", function(event) { toggleCard((safeCode)) })}>
                             <h2>
-                                <span class="toggle-icon" id="icon-${safeCode}" style="transform: ${isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}">▶</span>
+                                <span class="toggle-icon" id="icon-${encodeHTML(safeCode)}" style="transform: ${isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}">▶</span>
                                 <span style="display:flex; align-items:center; flex-wrap:wrap; gap:8px; line-height: 1.4;">
-                                    <span class="${nameCssClass}">${generateStandardDrugName(drug)}${alertIcon}</span>
+                                    <span class="${encodeHTML(nameCssClass)}">${encodeHTML(generateStandardDrugName(drug))}${alertIcon}</span>
                                     ${calcBtn} ${adjBtn} ${nutriBtn} ${meBtn} ${linkBtn}
                                 </span>
                             </h2>
@@ -2758,24 +2767,24 @@ async function fetchLogs() {
                         </div>
                         ${isAdmin ? `<div class="admin-actions" style="padding-left: 28px; margin-top: 5px;">
                             ${adminNutriBtn} ${adminMeBtn} ${adminLinkBtn}
-                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:#0284c7; border-color:#0284c7;" onclick="event.stopPropagation(); openImageAdmin('${safeCode}', '${safeName}')">🖼️ รูปยา</button>
-                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--purple); border-color:var(--purple);" onclick="event.stopPropagation(); openAliasManager('${safeCode}', '${safeName}')">🏷️ ชื่อพ้อง</button>
-                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--info); border-color:var(--info);" onclick="event.stopPropagation(); openLabelManager('${safeCode}', '${safeName}')">🏷️ ฉลาก</button>
-                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--pink); border-color:var(--pink);" onclick="event.stopPropagation(); openNlemManager('${safeCode}', '${safeName}')">📋 บัญชี</button>
-                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openAdminManager('${safeCode}', '${safeName}')">💉 วิธีใช้</button>
-                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openIngredientManager('${safeCode}', '${safeName}')">🧪 ส่วนผสม</button>
-                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" onclick="event.stopPropagation(); openEditDrug('${safeCode}')">✏️แก้ไข</button>
-                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:red" onclick="event.stopPropagation(); deleteDrug('${safeCode}')">🗑️</button>
+                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:#0284c7; border-color:#0284c7;" ${bindHTMLAction("click", function(event) { event.stopPropagation(); openImageAdmin((safeCode), (safeName)) })}>🖼️ รูปยา</button>
+                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--purple); border-color:var(--purple);" ${bindHTMLAction("click", function(event) { event.stopPropagation(); openAliasManager((safeCode), (safeName)) })}>🏷️ ชื่อพ้อง</button>
+                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--info); border-color:var(--info);" ${bindHTMLAction("click", function(event) { event.stopPropagation(); openLabelManager((safeCode), (safeName)) })}>🏷️ ฉลาก</button>
+                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:var(--pink); border-color:var(--pink);" ${bindHTMLAction("click", function(event) { event.stopPropagation(); openNlemManager((safeCode), (safeName)) })}>📋 บัญชี</button>
+                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" ${bindHTMLAction("click", function(event) { event.stopPropagation(); openAdminManager((safeCode), (safeName)) })}>💉 วิธีใช้</button>
+                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" ${bindHTMLAction("click", function(event) { event.stopPropagation(); openIngredientManager((safeCode), (safeName)) })}>🧪 ส่วนผสม</button>
+                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem;" ${bindHTMLAction("click", function(event) { event.stopPropagation(); openEditDrug((safeCode)) })}>✏️แก้ไข</button>
+                            <button class="btn btn-outline" style="height:32px; font-size:0.75rem; color:red" ${bindHTMLAction("click", function(event) { event.stopPropagation(); deleteDrug((safeCode)) })}>🗑️</button>
                         </div>` : ''}
                     </div>
                     
                     ${rightContainerHtml}
                 </div>
 
-                <div id="body-${safeCode}" class="card-body ${isExpanded ? 'expanded' : ''}">
-                    <small>ID: ${drug.drug_code} | ${safeName}</small>
+                <div id="body-${encodeHTML(safeCode)}" class="card-body ${isExpanded ? 'expanded' : ''}">
+                    <small>ID: ${encodeHTML(drug.drug_code)} | ${encodeHTML(safeName)}</small>
                     
-                    ${(drug.drug_nickname && drug.drug_nickname.length > 0) ? `<div style="font-size:0.85rem; color:var(--purple); margin-top:5px;">🏷️ <b>ชื่อพ้อง (Alias):</b> ${drug.drug_nickname.map(n => encodeHTML(n.nickname)).join(', ')}</div>` : ''}
+                    ${drug.drug_nickname && drug.drug_nickname.length > 0 ? `<div style="font-size:0.85rem; color:var(--purple); margin-top:5px;">🏷️ <b>ชื่อพ้อง (Alias):</b> ${drug.drug_nickname.map(n => encodeHTML(n.nickname)).join(', ')}</div>` : ''}
                     
                     <div style="margin-top:10px;">
                         <strong>🧬 กลุ่มยา (Pharmacology):</strong><br>
@@ -2796,9 +2805,9 @@ async function fetchLogs() {
                              bdr = '1px solid #fca5a5';
                          }
 
-                         return `<span class="badge" style="background:${bg}; color:${col}; border:${bdr};">${c.generics?.generic_name || 'Unknown'} ${c.amount || ''} ${c.unit || ''}</span>`;
+                         return `<span class="badge" style="background:${encodeHTML(bg)}; color:${encodeHTML(col)}; border:${encodeHTML(bdr)};">${encodeHTML(c.generics?.generic_name) || 'Unknown'} ${encodeHTML(c.amount) || ''} ${encodeHTML(c.unit) || ''}</span>`;
                     }).join('') || '-'}</div>
-                    ${nlemNotes} ${drug.special_note ? `<div class="note-box drug-note"><b>💡 Note:</b> ${drug.special_note}</div>` : ''} ${genericNotes}
+                    ${nlemNotes} ${drug.special_note ? `<div class="note-box drug-note"><b>💡 Note:</b> ${encodeHTML(drug.special_note)}</div>` : ''} ${genericNotes}
                     
                     ${geneLabHtml}
                     ${labelSection}
@@ -2806,12 +2815,12 @@ async function fetchLogs() {
                         ${adminHtml}
                     </div>
 
-                    ${needsAdj ? `<div id="inline-adj-container-${safeCode}" style="display:none; margin-top:15px; padding:15px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px;"></div>` : ''}
+                    ${needsAdj ? `<div id="inline-adj-container-${encodeHTML(safeCode)}" style="display:none; margin-top:15px; padding:15px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px;"></div>` : ''}
                     
                     ${drugEditInfo}
                 </div>
             </div>`;
-        }).join('');
+        }).join(''));
         updateToggleAllButton();
     }
 
@@ -2911,14 +2920,14 @@ async function fetchLogs() {
         const filtered = availablePharms.filter(c => c.toLowerCase().includes(q));
         
         let html = '';
-        filtered.forEach(c => { html += `<div class="suggestion-item" onclick="selectPharm('${encodeHTML(c)}')">${encodeHTML(c)}</div>`; });
+        filtered.forEach(c => { html += `<div class="suggestion-item" ${bindHTMLAction("click", function(event) { selectPharm((c)) })}>${encodeHTML(c)}</div>`; });
         
         if (q && !availablePharms.some(c => c.toLowerCase() === q)) {
-            html += `<div class="suggestion-item suggestion-item-new" onclick="addNewPharmFromSearch('${encodeHTML(e.target.value.trim())}')">+ เพิ่มกลุ่มยาใหม่: "${encodeHTML(e.target.value.trim())}"</div>`;
+            html += `<div class="suggestion-item suggestion-item-new" ${bindHTMLAction("click", function(event) { addNewPharmFromSearch((e.target.value.trim())) })}>+ เพิ่มกลุ่มยาใหม่: "${encodeHTML(e.target.value.trim())}"</div>`;
         }
         
         if (html === '') { html = `<div class="suggestion-item" style="color:gray;">ไม่พบข้อมูล</div>`; }
-        suggestionsBox.innerHTML = html;
+        setHTML(suggestionsBox, html);
     }
 
     function selectPharm(className) {
@@ -2935,7 +2944,7 @@ async function fetchLogs() {
 
     function renderActivePharmTags() {
         const container = document.getElementById('selected-pharm-tags');
-        container.innerHTML = activePharmTags.map(c => `<span class="tag-chip">${encodeHTML(c)} <span class="tag-chip-close" onclick="removePharmTag('${encodeHTML(c)}')">✖</span></span>`).join('');
+        setHTML(container, activePharmTags.map(c => `<span class="tag-chip">${encodeHTML(c)} <span class="tag-chip-close" ${bindHTMLAction("click", function(event) { removePharmTag((c)) })}>✖</span></span>`).join(''));
     }
 
     async function addNewPharmFromSearch(newName) {
@@ -3006,20 +3015,20 @@ async function fetchLogs() {
     function filterGenericOptions() { 
         const q = (document.getElementById('search-generic-input').value || '').toLowerCase(); 
         const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); 
-        document.getElementById('select-generic').innerHTML = filtered.map(g => {
+        setHTML(document.getElementById('select-generic'), filtered.map(g => {
             const isDrug = (g.generic_type || 'drug').toLowerCase() === 'drug';
             const prefix = isDrug ? '' : `[${g.generic_type}] `;
-            return `<option value="${g.generic_code}">${prefix}${g.generic_name}</option>`;
-        }).join(''); 
+            return `<option value="${encodeHTML(g.generic_code)}">${encodeHTML(prefix)}${encodeHTML(g.generic_name)}</option>`;
+        }).join('')); 
     }
 
     function filterMasterGenericList() { 
         const q = (document.getElementById('search-master-generic').value || '').toLowerCase(); 
         const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); 
         
-        document.getElementById('master-generic-list').innerHTML = filtered.map(g => { 
-            const sCode = encodeHTML(g.generic_code); 
-            const sName = encodeHTML(g.generic_name);
+        setHTML(document.getElementById('master-generic-list'), filtered.map(g => { 
+            const sCode = g.generic_code; 
+            const sName = g.generic_name;
             const pharmCount = (g.generic_pharm_mapping || []).length;
             
             // 🌟 แก้ไข: ให้นับจำนวนยาจาก allDrugsRaw (นับเฉพาะยาที่ Active และโชว์บนเว็บจริงๆ)
@@ -3041,25 +3050,25 @@ async function fetchLogs() {
             if (g.needs_renal_adj) adjBadge += '<span style="font-size:0.75rem; background:#fee2e2; color:#b91c1c; padding:2px 6px; border-radius:4px; margin-left:5px;">ไต</span>';
             if (g.needs_hepatic_adj) adjBadge += '<span style="font-size:0.75rem; background:#fef08a; color:#a16207; padding:2px 6px; border-radius:4px; margin-left:5px;">ตับ</span>';
     
-            return `<div class="list-item" style="border-left: 4px solid ${leftBorder}; flex-wrap:wrap; gap:10px;">
+            return `<div class="list-item" style="border-left: 4px solid ${encodeHTML(leftBorder)}; flex-wrap:wrap; gap:10px;">
                         <div style="flex:1;">
-                            <span style="color:${typeColor}; font-weight:bold;">${sName}</span> 
+                            <span style="color:${encodeHTML(typeColor)}; font-weight:bold;">${encodeHTML(sName)}</span> 
                             ${typeBadge} ${adjBadge}
                             <br>
                             <small style="color:gray;">
-                                Code: ${sCode} | 
-                                <span style="color:var(--primary); font-weight:bold;">(${pharmCount} กลุ่ม | ผูกไว้ ${drugCount} ยา)</span>
+                                Code: ${encodeHTML(sCode)} | 
+                                <span style="color:var(--primary); font-weight:bold;">(${encodeHTML(pharmCount)} กลุ่ม | ผูกไว้ ${encodeHTML(drugCount)} ยา)</span>
                             </small>
                         </div> 
                         <div style="display:flex; gap:5px; flex-wrap:wrap;">
-                            <button class="btn btn-outline" style="color:#059669; border-color:#059669; padding:2px 6px;" onclick="openGeneLabManager('${sCode}', '${sName}')">🧬 Gene/Lab</button>
-                            <button class="btn btn-outline" style="color:var(--danger); border-color:var(--danger); padding:2px 6px;" onclick="openAdjManager('${sCode}', '${sName}')">⚖️ กฎปรับโดส</button>
-                            <button class="btn btn-outline" style="color:#4338ca; border-color:#4338ca; padding:2px 6px;" onclick="openLinkAdmin('generic', '${sCode}', '${sName}')">🔗 เลือกลิงก์</button>
-                            <button class="btn btn-outline" style="color:var(--primary); padding:2px 6px;" onclick="openEditGeneric('${sCode}')">✏️</button> 
-                            <button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('generics','generic_code','${sCode}')">🗑️</button>
+                            <button class="btn btn-outline" style="color:#059669; border-color:#059669; padding:2px 6px;" ${bindHTMLAction("click", function(event) { openGeneLabManager((sCode), (sName)) })}>🧬 Gene/Lab</button>
+                            <button class="btn btn-outline" style="color:var(--danger); border-color:var(--danger); padding:2px 6px;" ${bindHTMLAction("click", function(event) { openAdjManager((sCode), (sName)) })}>⚖️ กฎปรับโดส</button>
+                            <button class="btn btn-outline" style="color:#4338ca; border-color:#4338ca; padding:2px 6px;" ${bindHTMLAction("click", function(event) { openLinkAdmin('generic', (sCode), (sName)) })}>🔗 เลือกลิงก์</button>
+                            <button class="btn btn-outline" style="color:var(--primary); padding:2px 6px;" ${bindHTMLAction("click", function(event) { openEditGeneric((sCode)) })}>✏️</button> 
+                            <button class="btn btn-outline" style="color:red; padding:2px 6px;" ${bindHTMLAction("click", function(event) { deleteMaster('generics','generic_code',(sCode)) })}>🗑️</button>
                         </div>
                     </div>`; 
-        }).join(''); 
+        }).join('')); 
     }   
     let currentAdjRulesList = [];
     let editingAdjRuleId = null;
@@ -3067,7 +3076,7 @@ async function fetchLogs() {
         const type = document.getElementById('adj-master-type').value;
         const criterionSelect = document.getElementById('adj-master-criterion');
         if (type === 'renal') {
-            criterionSelect.innerHTML = `
+            setHTML(criterionSelect, `
                 <option value="CrCl">CrCl (mL/min)</option>
                 <option value="eGFR">eGFR</option>
                 <option value="ESRD">ESRD</option>
@@ -3076,12 +3085,12 @@ async function fetchLogs() {
                 <option value="SLED">SLED</option>
                 <option value="CRRT">CRRT</option>
                 <option value="Other">เกณฑ์อื่นๆ (ระบุใน Note)</option>
-            `;
+            `);
         } else {
-            criterionSelect.innerHTML = `
+            setHTML(criterionSelect, `
                 <option value="Child-Pugh">Child-Pugh Score</option>
                 <option value="Other">เกณฑ์อื่นๆ (ระบุใน Note)</option>
-            `;
+            `);
         }
     }
     function resetAdjForm() {
@@ -3105,18 +3114,18 @@ async function fetchLogs() {
     }
     async function fetchAdjRules(genericCode) {
         const listEl = document.getElementById('adj-master-list');
-        listEl.innerHTML = '<div style="text-align:center; padding:10px; color:gray;">กำลังโหลด...</div>';
+        setHTML(listEl, '<div style="text-align:center; padding:10px; color:gray;">กำลังโหลด...</div>');
         
         const { data, error } = await supabaseClient.from('generic_adjustments').select('*').eq('generic_code', genericCode).order('criterion_type');
         
         currentAdjRulesList = data || []; // เก็บ Data ไว้สำหรับโหมด Edit
     
         if (error || currentAdjRulesList.length === 0) {
-            listEl.innerHTML = '<div style="color:gray; text-align:center; padding:10px;">ยังไม่มีกฎการปรับโดสสำหรับยานี้</div>';
+            setHTML(listEl, '<div style="color:gray; text-align:center; padding:10px;">ยังไม่มีกฎการปรับโดสสำหรับยานี้</div>');
             return;
         }
     
-        listEl.innerHTML = currentAdjRulesList.map(rule => {
+        setHTML(listEl, currentAdjRulesList.map(rule => {
             const typeBadge = rule.adj_type === 'renal' 
                 ? '<span class="badge" style="background:#fee2e2; color:#b91c1c;">ไต (Renal)</span>' 
                 : '<span class="badge" style="background:#fef08a; color:#a16207;">ตับ (Hepatic)</span>';
@@ -3132,18 +3141,18 @@ async function fetchLogs() {
             return `
             <div class="list-item" style="border-left: 3px solid ${rule.adj_type === 'renal' ? '#b91c1c' : '#a16207'}; align-items:flex-start;">
                 <div style="flex:1;">
-                    ${typeBadge} <b style="color:var(--dark);">${rule.criterion_type}${rangeText}</b>
+                    ${typeBadge} <b style="color:var(--dark);">${encodeHTML(rule.criterion_type)}${encodeHTML(rangeText)}</b>
                     <div style="margin-top:4px; font-size:0.85rem; color:#475569;">
-                        <b>แนะนำ:</b> ${rule.recommendation}
-                        ${rule.note ? `<br><small style="color:gray;">* ${rule.note}</small>` : ''}
+                        <b>แนะนำ:</b> ${encodeHTML(rule.recommendation)}
+                        ${rule.note ? `<br><small style="color:gray;">* ${encodeHTML(rule.note)}</small>` : ''}
                     </div>
                 </div>
                 <div style="display:flex; gap:5px;">
-                    <button class="btn btn-outline btn-sm" style="color:var(--primary);" onclick="prepareEditAdjRule(${rule.id})">✏️</button>
-                    <button class="btn btn-outline btn-sm" style="color:red;" onclick="deleteAdjRule(${rule.id}, '${genericCode}')">🗑️</button>
+                    <button class="btn btn-outline btn-sm" style="color:var(--primary);" ${bindHTMLAction("click", function(event) { prepareEditAdjRule((rule.id)) })}>✏️</button>
+                    <button class="btn btn-outline btn-sm" style="color:red;" ${bindHTMLAction("click", function(event) { deleteAdjRule((rule.id), (genericCode)) })}>🗑️</button>
                 </div>
             </div>`;
-        }).join('');
+        }).join(''));
     }
     function prepareEditAdjRule(id) {
         const rule = currentAdjRulesList.find(r => r.id === id);
@@ -3213,7 +3222,7 @@ async function fetchLogs() {
     let bulkPharmSelectedGenerics = new Set();
 
     function openBulkPharmModal() { 
-        document.getElementById('bulk-pharm-select').innerHTML = allPharmClasses.map(p => `<option value="${p.class_name}">${p.class_name}</option>`).join(''); 
+        setHTML(document.getElementById('bulk-pharm-select'), allPharmClasses.map(p => `<option value="${encodeHTML(p.class_name)}">${encodeHTML(p.class_name)}</option>`).join('')); 
         document.getElementById('search-bulk-pharm-gen').value = ''; 
         onBulkPharmClassChange();
         openModal('bulk-pharm-modal'); 
@@ -3236,20 +3245,20 @@ async function fetchLogs() {
         const listEl = document.getElementById('bulk-pharm-gen-list'); 
         
         const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q)); 
-        if (filtered.length === 0) { listEl.innerHTML = '<div style="color:gray; padding:10px; grid-column: 1 / -1;">ไม่พบยาสามัญที่ค้นหา</div>'; return; } 
+        if (filtered.length === 0) { setHTML(listEl, '<div style="color:gray; padding:10px; grid-column: 1 / -1;">ไม่พบยาสามัญที่ค้นหา</div>'); return; } 
 
         let inGroupHtml = '';
         let outGroupHtml = '';
 
         filtered.forEach(g => {
             const isSelected = bulkPharmSelectedGenerics.has(g.generic_code);
-            const safeCode = encodeHTML(g.generic_code);
-            const safeName = encodeHTML(g.generic_name);
+            const safeCode = g.generic_code;
+            const safeName = g.generic_name;
             
             const html = `
-            <label id="label-bp-${safeCode}" style="display:flex; align-items:flex-start; gap:10px; padding:10px; border:1px solid ${isSelected ? 'var(--success)' : '#e2e8f0'}; border-radius:8px; cursor:pointer; background:${isSelected ? '#ecfdf5' : '#f8fafc'}; font-size:0.9rem; text-align:left; transition:0.2s;">
-                <input type="checkbox" class="bulk-pharm-gen-cb" style="margin-top: 4px; transform: scale(1.2);" value="${safeCode}" ${isSelected ? 'checked' : ''} onchange="handleBulkPharmCheck(this)">
-                <span style="color:var(--dark); font-weight:bold; flex:1;">${safeName}</span>
+            <label id="label-bp-${encodeHTML(safeCode)}" style="display:flex; align-items:flex-start; gap:10px; padding:10px; border:1px solid ${isSelected ? 'var(--success)' : '#e2e8f0'}; border-radius:8px; cursor:pointer; background:${isSelected ? '#ecfdf5' : '#f8fafc'}; font-size:0.9rem; text-align:left; transition:0.2s;">
+                <input type="checkbox" class="bulk-pharm-gen-cb" style="margin-top: 4px; transform: scale(1.2);" value="${encodeHTML(safeCode)}" ${isSelected ? 'checked' : ''} ${bindHTMLAction("change", function(event) { handleBulkPharmCheck(this) })}>
+                <span style="color:var(--dark); font-weight:bold; flex:1;">${encodeHTML(safeName)}</span>
             </label>`;
 
             if (isSelected) inGroupHtml += html;
@@ -3260,7 +3269,7 @@ async function fetchLogs() {
         if (inGroupHtml) finalHtml += `<div style="grid-column: 1 / -1; font-weight:bold; color:var(--success); border-bottom: 2px solid var(--success); padding-bottom:5px; margin-top: 5px;">🟢 อยู่ในกลุ่มนี้แล้ว</div>${inGroupHtml}`;
         if (outGroupHtml) finalHtml += `<div style="grid-column: 1 / -1; font-weight:bold; color:var(--dark); border-bottom: 2px solid #cbd5e1; padding-bottom:5px; margin-top: 15px;">⚪ ยังไม่อยู่ในกลุ่มนี้</div>${outGroupHtml}`;
 
-        listEl.innerHTML = finalHtml;
+        setHTML(listEl, finalHtml);
     }
 
     function handleBulkPharmCheck(checkbox) {
@@ -3324,7 +3333,7 @@ async function fetchLogs() {
     }
     
     async function openNlemManager(c, n) { document.getElementById('target-nlem-drug-code').value = c; document.getElementById('target-nlem-drug-name').innerText = n; document.getElementById('input-nlem-note').value = ''; await fetchCurrentNlem(c); openModal('nlem-mapping-modal'); }
-    async function fetchCurrentNlem(c) { const { data } = await supabaseClient.from('drug_nlem_mapping').select('*').eq('drug_code', c); document.getElementById('current-nlem-list').innerHTML = (data || []).map(n => `<div class="list-item" style="flex-wrap:wrap; border-left:3px solid var(--pink);"><div style="flex:1;"><b>${n.nlem_code}</b><br><small style="color:gray">${n.condition_note || 'ไม่มีเงื่อนไข'}</small></div><button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="removeNlemMapping('${n.drug_code}', '${n.nlem_code}')">ลบ</button></div>`).join(''); }
+    async function fetchCurrentNlem(c) { const { data } = await supabaseClient.from('drug_nlem_mapping').select('*').eq('drug_code', c); setHTML(document.getElementById('current-nlem-list'), (data || []).map(n => `<div class="list-item" style="flex-wrap:wrap; border-left:3px solid var(--pink);"><div style="flex:1;"><b>${encodeHTML(n.nlem_code)}</b><br><small style="color:gray">${encodeHTML(n.condition_note) || 'ไม่มีเงื่อนไข'}</small></div><button class="btn btn-outline" style="color:red; padding:2px 6px;" ${bindHTMLAction("click", function(event) { removeNlemMapping((n.drug_code), (n.nlem_code)) })}>ลบ</button></div>`).join('')); }
     async function addNlemMapping() { const drug_code = document.getElementById('target-nlem-drug-code').value; await supabaseClient.from('drug_nlem_mapping').upsert({ drug_code, nlem_code: document.getElementById('select-nlem').value, condition_note: document.getElementById('input-nlem-note').value }); document.getElementById('input-nlem-note').value = ''; fetchCurrentNlem(drug_code); fetchDrugs(); }
     async function removeNlemMapping(d, n) { await supabaseClient.from('drug_nlem_mapping').delete().match({ drug_code: d, nlem_code: n }); fetchCurrentNlem(d); fetchDrugs(); }
     
@@ -3345,9 +3354,9 @@ async function fetchLogs() {
         
         const selectEl = document.getElementById('select-mapping-label');
         if (filtered.length > 0) {
-            selectEl.innerHTML = filtered.map(l => `<option value="${l.label_code}">${l.label_code}: ${l.label_name}</option>`).join('');
+            setHTML(selectEl, filtered.map(l => `<option value="${encodeHTML(l.label_code)}">${encodeHTML(l.label_code)}: ${encodeHTML(l.label_name)}</option>`).join(''));
         } else {
-            selectEl.innerHTML = `<option value="">-- ไม่พบฉลากที่ค้นหา --</option>`;
+            setHTML(selectEl, `<option value="">-- ไม่พบฉลากที่ค้นหา --</option>`);
         }
     }
 
@@ -3360,19 +3369,19 @@ async function fetchLogs() {
         const listEl = document.getElementById('current-label-mapping-list');
         
         if (error || !data || data.length === 0) {
-            listEl.innerHTML = '<div style="color:gray; padding:10px; text-align:center; border:1px dashed #cbd5e1; border-radius:8px;">ยังไม่มีฉลากผูกกับยานี้</div>';
+            setHTML(listEl, '<div style="color:gray; padding:10px; text-align:center; border:1px dashed #cbd5e1; border-radius:8px;">ยังไม่มีฉลากผูกกับยานี้</div>');
             return;
         }
 
-        listEl.innerHTML = data.map(l => `
+        setHTML(listEl, data.map(l => `
             <div class="list-item" style="border-left:3px solid var(--info); flex-wrap:wrap; gap:10px;">
                 <div style="flex:1;">
-                    <b style="color:var(--info);">${l.label_code}</b><br>
-                    <small style="color:gray;">${l.labels?.label_name || 'ไม่ทราบชื่อฉลาก'}</small>
+                    <b style="color:var(--info);">${encodeHTML(l.label_code)}</b><br>
+                    <small style="color:gray;">${encodeHTML(l.labels?.label_name) || 'ไม่ทราบชื่อฉลาก'}</small>
                 </div>
-                <button class="btn btn-outline" style="color:red; padding:4px 8px; font-size:0.75rem;" onclick="removeLabelMapping('${c}', '${l.label_code}')">ลบ</button>
+                <button class="btn btn-outline" style="color:red; padding:4px 8px; font-size:0.75rem;" ${bindHTMLAction("click", function(event) { removeLabelMapping((c), (l.label_code)) })}>ลบ</button>
             </div>
-        `).join(''); 
+        `).join('')); 
     }
 
     async function addLabelMapping() { 
@@ -3399,20 +3408,20 @@ async function fetchLogs() {
     function renderBulkNlemDrugs(drugsToRender) { 
         const listEl = document.getElementById('bulk-nlem-drug-list'); 
         if (drugsToRender.length === 0) { 
-            listEl.innerHTML = '<div style="color:gray; padding:10px; grid-column: 1 / -1;">ไม่พบยาที่ค้นหา</div>'; 
+            setHTML(listEl, '<div style="color:gray; padding:10px; grid-column: 1 / -1;">ไม่พบยาที่ค้นหา</div>'); 
             return; 
         } 
         
-        listEl.innerHTML = drugsToRender.map(d => `
+        setHTML(listEl, drugsToRender.map(d => `
             <label style="display:flex; align-items:flex-start; gap:10px; padding:10px; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; background:#f8fafc; font-size:0.9rem; text-align:left; transition:0.2s;">
                 <input type="checkbox" class="bulk-nlem-drug-cb" style="margin-top: 4px; transform: scale(1.2);" value="${encodeHTML(d.drug_code)}">
                 <div style="flex:1;">
                     <span class="badge" style="background:#e2e8f0; color:#475569; font-size:0.7rem; padding:2px 6px;">${encodeHTML(d.drug_code)}</span> 
                     <b style="color:var(--dark);">${encodeHTML(d.drug_name)}</b><br>
-                    <small style="color:gray;">${d.dosage_form || '-'}</small>
+                    <small style="color:gray;">${encodeHTML(d.dosage_form) || '-'}</small>
                 </div>
             </label>
-        `).join(''); 
+        `).join('')); 
     }
     function filterBulkNlemDrugs() { const q = document.getElementById('search-bulk-nlem-drug').value.toLowerCase(); const filtered = allDrugsRaw.filter(d => (d.drug_name||'').toLowerCase().includes(q) || (d.drug_code||'').toLowerCase().includes(q)); renderBulkNlemDrugs(filtered); }
     function toggleBulkNlemCheckboxes(check) { document.querySelectorAll('.bulk-nlem-drug-cb').forEach(cb => cb.checked = check); }
@@ -3472,16 +3481,16 @@ async function fetchLogs() {
         const q = (document.getElementById('search-master-pharm').value || '').toLowerCase(); 
         const filtered = allPharmClasses.filter(c => (c.class_name||'').toLowerCase().includes(q)); 
         
-        document.getElementById('master-pharm-list').innerHTML = filtered.map(c => {
+        setHTML(document.getElementById('master-pharm-list'), filtered.map(c => {
             const genericCount = allGenerics.filter(g => 
                 (g.generic_pharm_mapping || []).some(pm => pm.class_name === c.class_name)
             ).length;
             
             return `<div class="list-item">
-                        <span>${c.class_name} <small style="color:var(--primary); font-weight:bold; margin-left:5px;">(${genericCount} ยาสามัญ)</small></span>
-                        <button class="btn btn-outline" style="color:red; padding:2px 6px;" onclick="deleteMaster('pharm_classes','class_name','${encodeHTML(c.class_name)}')">🗑️</button>
+                        <span>${encodeHTML(c.class_name)} <small style="color:var(--primary); font-weight:bold; margin-left:5px;">(${encodeHTML(genericCount)} ยาสามัญ)</small></span>
+                        <button class="btn btn-outline" style="color:red; padding:2px 6px;" ${bindHTMLAction("click", function(event) { deleteMaster('pharm_classes','class_name',(c.class_name)) })}>🗑️</button>
                     </div>`; 
-        }).join(''); 
+        }).join('')); 
     }
     async function deleteMaster(table, col, val) { if(confirm("ลบข้อมูล Master ตัวนี้?")) { await supabaseClient.from(table).delete().eq(col, val); loadAllData(); } }
     
@@ -3514,7 +3523,7 @@ async function fetchLogs() {
             if (a.rank == null) a.rank = idx + 1;
         });
 
-        document.getElementById('current-admin-list').innerHTML = currentAdminsList.map((a, index) => {
+        setHTML(document.getElementById('current-admin-list'), currentAdminsList.map((a, index) => {
             const isFirst = index === 0;
             const isLast = index === currentAdminsList.length - 1;
             
@@ -3523,26 +3532,26 @@ async function fetchLogs() {
             if (a.updated_at) {
                 const aDate = new Date(a.updated_at).toLocaleDateString('th-TH', { year: '2-digit', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
                 const aUser = a.updated_by ? a.updated_by.split('@')[0] : 'System';
-                adminEditInfo = `<div style="font-size:0.75rem; color:#94a3b8; margin-top:4px;">🕒 แก้ไขล่าสุด: ${aDate} น. โดย ${aUser}</div>`;
+                adminEditInfo = `<div style="font-size:0.75rem; color:#94a3b8; margin-top:4px;">🕒 แก้ไขล่าสุด: ${encodeHTML(aDate)} น. โดย ${encodeHTML(aUser)}</div>`;
             }
             
             return `<div class="list-item" style="flex-wrap:wrap; gap:10px; border-left:3px solid var(--primary); align-items:center;">
                 <div style="display:flex; flex-direction:column; gap:2px; margin-right:5px;">
-                    <button class="btn btn-outline" style="padding:2px 6px; font-size:0.6rem; color:gray; ${isFirst ? 'visibility:hidden;' : ''}" onclick="moveAdminRank(${a.id}, -1, '${c}')">🔼</button>
-                    <button class="btn btn-outline" style="padding:2px 6px; font-size:0.6rem; color:gray; ${isLast ? 'visibility:hidden;' : ''}" onclick="moveAdminRank(${a.id}, 1, '${c}')">🔽</button>
+                    <button class="btn btn-outline" style="padding:2px 6px; font-size:0.6rem; color:gray; ${isFirst ? 'visibility:hidden;' : ''}" ${bindHTMLAction("click", function(event) { moveAdminRank((a.id), -1, (c)) })}>🔼</button>
+                    <button class="btn btn-outline" style="padding:2px 6px; font-size:0.6rem; color:gray; ${isLast ? 'visibility:hidden;' : ''}" ${bindHTMLAction("click", function(event) { moveAdminRank((a.id), 1, (c)) })}>🔽</button>
                 </div>
                 
                 <div style="flex:1; min-width:180px;">
-                    <b>${a.routes?.route_name || 'Unknown'}:</b> <span style="font-size:0.85rem; color:gray;">${a.instructions?.substring(0,40) || ''}...</span>
+                    <b>${encodeHTML(a.routes?.route_name) || 'Unknown'}:</b> <span style="font-size:0.85rem; color:gray;">${encodeHTML(a.instructions?.substring(0,40)) || ''}...</span>
                     ${adminEditInfo} </div>
                 <div style="display:flex; gap:5px; flex-wrap:wrap;">
-                    <button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--primary);" onclick="prepareAdminForm(${a.id}, false)">✏️</button>
-                    <button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--success);" onclick="prepareAdminForm(${a.id}, true)">📋</button>
-                    <button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--purple); border-color:var(--purple);" onclick="openBulkCopyAdmin(${a.id}, '${c}')">🔁</button>
-                    <button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--danger);" onclick="removeAdmin(${a.id}, '${c}')">🗑️</button>
+                    <button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--primary);" ${bindHTMLAction("click", function(event) { prepareAdminForm((a.id), false) })}>✏️</button>
+                    <button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--success);" ${bindHTMLAction("click", function(event) { prepareAdminForm((a.id), true) })}>📋</button>
+                    <button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--purple); border-color:var(--purple);" ${bindHTMLAction("click", function(event) { openBulkCopyAdmin((a.id), (c)) })}>🔁</button>
+                    <button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--danger);" ${bindHTMLAction("click", function(event) { removeAdmin((a.id), (c)) })}>🗑️</button>
                 </div>
             </div>`;
-        }).join('');
+        }).join(''));
     }
 
     // 🌟 ฟังก์ชันสลับลำดับ
@@ -3641,17 +3650,17 @@ async function fetchLogs() {
         
         const targetListEl = document.getElementById('bulk-copy-target-list'); 
         if (targetDrugs.length === 0) { 
-            targetListEl.innerHTML = '<div style="color:gray; text-align:center; padding: 20px;">ไม่พบยาอื่นที่มี Generic ตรงกันเลยครับ</div>'; 
+            setHTML(targetListEl, '<div style="color:gray; text-align:center; padding: 20px;">ไม่พบยาอื่นที่มี Generic ตรงกันเลยครับ</div>'); 
         } else { 
-            targetListEl.innerHTML = targetDrugs.map(d => `
+            setHTML(targetListEl, targetDrugs.map(d => `
                 <label style="display:flex; align-items:center; gap:10px; padding:10px; border-bottom:1px solid #e2e8f0; cursor:pointer; text-align:left; background:#fafafa; border-radius:6px; margin-bottom:5px;">
-                    <input type="checkbox" name="bulk-target-drugs" style="transform: scale(1.2);" value="${d.drug_code}" checked>
+                    <input type="checkbox" name="bulk-target-drugs" style="transform: scale(1.2);" value="${encodeHTML(d.drug_code)}" checked>
                     <div style="flex:1;">
-                        <span class="badge" style="background:#e2e8f0; color:#475569; font-size:0.7rem;">${d.drug_code}</span> 
-                        <b style="color:var(--dark);">${d.drug_name}</b> 
-                        <small style="color:gray;">(${d.dosage_form || '-'})</small>
+                        <span class="badge" style="background:#e2e8f0; color:#475569; font-size:0.7rem;">${encodeHTML(d.drug_code)}</span> 
+                        <b style="color:var(--dark);">${encodeHTML(d.drug_name)}</b> 
+                        <small style="color:gray;">(${encodeHTML(d.dosage_form) || '-'})</small>
                     </div>
-                </label>`).join(''); 
+                </label>`).join('')); 
         } 
         openModal('bulk-copy-modal'); 
     }
@@ -3749,7 +3758,7 @@ async function fetchLogs() {
         const {data} = await supabaseClient.from('drug_contents').select('*, generics(generic_name, generic_type, generic_pharm_mapping(class_name))').eq('drug_code', c); 
         currentIngredientsList = data || [];
         
-        document.getElementById('current-ingredients-list').innerHTML = currentIngredientsList.map(i => {
+        setHTML(document.getElementById('current-ingredients-list'), currentIngredientsList.map(i => {
             const gType = (i.generics?.generic_type || 'drug').toLowerCase();
             const isDrug = gType === 'drug';
             
@@ -3766,17 +3775,17 @@ async function fetchLogs() {
             const typeBadge = !isDrug ? `<span class="badge" style="background:#fef3c7; color:#d97706; border:1px solid #fde68a; font-size:0.65rem;">${encodeHTML(gType)}</span>` : '';
 
             return `
-            <div class="list-item" style="flex-wrap:wrap; gap:10px; border-left: 3px solid ${leftBorder};">
+            <div class="list-item" style="flex-wrap:wrap; gap:10px; border-left: 3px solid ${encodeHTML(leftBorder)};">
                 <div style="flex:1;">
-                    <span style="color:${typeColor}; font-weight:bold;">${i.generics?.generic_name || 'Unknown'}</span> ${typeBadge}<br>
-                    <span style="font-size:0.85rem; color:gray;">${i.amount || '-'} ${i.unit || ''}</span>
+                    <span style="color:${encodeHTML(typeColor)}; font-weight:bold;">${encodeHTML(i.generics?.generic_name) || 'Unknown'}</span> ${typeBadge}<br>
+                    <span style="font-size:0.85rem; color:gray;">${encodeHTML(i.amount) || '-'} ${encodeHTML(i.unit) || ''}</span>
                 </div>
                 <div style="display:flex; gap:5px;">
-                    <button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--primary);" onclick="prepareIngredientForm('${i.generic_code}')">✏️</button>
-                    <button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--danger);" onclick="removeIngredient('${i.drug_code}', '${i.generic_code}')">🗑️</button>
+                    <button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--primary);" ${bindHTMLAction("click", function(event) { prepareIngredientForm((i.generic_code)) })}>✏️</button>
+                    <button class="btn btn-outline" style="padding:4px 8px; font-size:0.7rem; color:var(--danger);" ${bindHTMLAction("click", function(event) { removeIngredient((i.drug_code), (i.generic_code)) })}>🗑️</button>
                 </div>
             </div>`;
-        }).join(''); 
+        }).join('')); 
     }
 
     function prepareIngredientForm(genericCode) {
@@ -3885,7 +3894,7 @@ async function fetchLogs() {
         clearCrClCalc();
         document.getElementById('adj-drug-name').innerText = generateStandardDrugName(drug);
         const container = document.getElementById('adj-content-container');
-        container.innerHTML = '<div style="text-align:center; padding:20px; color:gray;">กำลังดึงข้อมูล Clinical Guideline...</div>';
+        setHTML(container, '<div style="text-align:center; padding:20px; color:gray;">กำลังดึงข้อมูล Clinical Guideline...</div>');
         
         // 🚨 ซ่อน/แสดง กล่องเครื่องคิดเลขของ Modal หากไม่มียาตัวไหนต้องประเมินไตเลย 🚨
         const needsAnyRenal = (drug.drug_contents || []).some(c => c.generics?.needs_renal_adj);
@@ -3900,7 +3909,7 @@ async function fetchLogs() {
         const genericCodes = (drug.drug_contents || []).map(c => c.generics?.generic_code).filter(Boolean);
         
         if (genericCodes.length === 0) {
-            container.innerHTML = '<div style="text-align:center; padding:20px; color:red;">ไม่พบรหัสยาสามัญสำหรับอ้างอิง</div>';
+            setHTML(container, '<div style="text-align:center; padding:20px; color:red;">ไม่พบรหัสยาสามัญสำหรับอ้างอิง</div>');
             return;
         }
     
@@ -3911,12 +3920,12 @@ async function fetchLogs() {
             .in('generic_code', genericCodes);
     
         if (error) {
-            container.innerHTML = `<div style="color:red; padding:20px;">Error: ${error.message}</div>`;
+            setHTML(container, `<div style="color:red; padding:20px;">Error: ${encodeHTML(error.message)}</div>`);
             return;
         }
     
         if (!data || data.length === 0) {
-            container.innerHTML = '<div style="text-align:center; padding:30px; background:#f8fafc; border-radius:8px;">✅ <b>ยังไม่มีข้อมูลระบุว่าต้องปรับขนาดยา</b><br><small style="color:gray;">(หรือยังไม่ได้นำเข้าข้อมูลในระบบ)</small></div>';
+            setHTML(container, '<div style="text-align:center; padding:30px; background:#f8fafc; border-radius:8px;">✅ <b>ยังไม่มีข้อมูลระบุว่าต้องปรับขนาดยา</b><br><small style="color:gray;">(หรือยังไม่ได้นำเข้าข้อมูลในระบบ)</small></div>');
             return;
         }
     
@@ -3936,7 +3945,7 @@ async function fetchLogs() {
     
             html += `
             <div class="section-box" style="margin-bottom:15px; border-left:4px solid var(--danger); background: white;">
-                <h4 style="margin-top:0; color:var(--dark); margin-bottom:10px;">🧪 ตัวยา: <span style="color:var(--primary);">${c.generics.generic_name}</span></h4>
+                <h4 style="margin-top:0; color:var(--dark); margin-bottom:10px;">🧪 ตัวยา: <span style="color:var(--primary);">${encodeHTML(c.generics.generic_name)}</span></h4>
             `;
     
             const crclData = genAdjs.filter(d => d.criterion_type === 'CrCl').sort((a,b) => (b.max_value || 999) - (a.max_value || 999));
@@ -3960,18 +3969,18 @@ async function fetchLogs() {
                     }
     
                     const rowClass = isCrCl ? 'crcl-row' : '';
-                    const dataAttrs = isCrCl ? `data-min="${item.min_value !== null ? item.min_value : ''}" data-max="${item.max_value !== null ? item.max_value : ''}"` : '';
+                    const dataAttrs = isCrCl ? `data-min="${item.min_value !== null ? encodeHTML(item.min_value) : ''}" data-max="${item.max_value !== null ? encodeHTML(item.max_value) : ''}"` : '';
     
                     return `
-                    <tr class="${rowClass}" ${dataAttrs} style="transition: 0.3s;">
-                        <td style="font-weight:bold; white-space:nowrap; padding:8px; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; text-align:center;">${rangeText}</td>
-                        <td style="padding:8px; border-bottom:1px solid #e2e8f0; background:white; white-space: pre-line;">${item.recommendation} ${item.note ? `<br><small style="color:gray;"><i>* ${item.note}</i></small>` : ''}</td>
+                    <tr class="${encodeHTML(rowClass)}" ${dataAttrs} style="transition: 0.3s;">
+                        <td style="font-weight:bold; white-space:nowrap; padding:8px; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; text-align:center;">${encodeHTML(rangeText)}</td>
+                        <td style="padding:8px; border-bottom:1px solid #e2e8f0; background:white; white-space: pre-line;">${encodeHTML(item.recommendation)} ${item.note ? `<br><small style="color:gray;"><i>* ${encodeHTML(item.note)}</i></small>` : ''}</td>
                     </tr>`;
                 }).join('');
     
                 return `
                 <div style="margin-bottom: 15px;">
-                    <div style="font-size:0.85rem; font-weight:bold; background:#f1f5f9; padding:4px 10px; border-radius:6px 6px 0 0; border:1px solid #e2e8f0; border-bottom:none;">${title}</div>
+                    <div style="font-size:0.85rem; font-weight:bold; background:#f1f5f9; padding:4px 10px; border-radius:6px 6px 0 0; border:1px solid #e2e8f0; border-bottom:none;">${encodeHTML(title)}</div>
                     <table style="width:100%; border-collapse:collapse; font-size:0.85rem; border:1px solid #e2e8f0;">
                         ${rows}
                     </table>
@@ -3991,7 +4000,7 @@ async function fetchLogs() {
             html += `</div>`;
         });
     
-        document.getElementById('adj-content-container').innerHTML = html;
+        setHTML(document.getElementById('adj-content-container'), html);
         calculateCrCl();
     }
     
@@ -4060,7 +4069,7 @@ async function fetchLogs() {
         // ถ้าเคยโหลดไปแล้ว ไม่ต้องเรียก DB ซ้ำ (Cache in DOM)
         if (container.dataset.loaded === 'true') return;
         
-        container.innerHTML = '<div style="text-align:center; padding:10px; color:gray;">⏳ กำลังดึงข้อมูล Clinical Guideline...</div>';
+        setHTML(container, '<div style="text-align:center; padding:10px; color:gray;">⏳ กำลังดึงข้อมูล Clinical Guideline...</div>');
         
         const drug = allDrugsRaw.find(d => d.drug_code === drugCode);
         const genericCodes = (drug.drug_contents || []).map(c => c.generics?.generic_code).filter(Boolean);
@@ -4069,17 +4078,17 @@ async function fetchLogs() {
         const { data, error } = await supabaseClient.from('generic_adjustments').select('*').in('generic_code', genericCodes);
             
         if (error) {
-            container.innerHTML = `<div style="color:red; text-align:center;">Error: ${error.message}</div>`;
+            setHTML(container, `<div style="color:red; text-align:center;">Error: ${encodeHTML(error.message)}</div>`);
             return;
         }
         if (!data || data.length === 0) {
-            container.innerHTML = '<div style="color:gray; text-align:center;">✅ ไม่มีข้อมูลระบุเงื่อนไขการปรับขนาดยา</div>';
+            setHTML(container, '<div style="color:gray; text-align:center;">✅ ไม่มีข้อมูลระบุเงื่อนไขการปรับขนาดยา</div>');
             container.dataset.loaded = 'true';
             return;
         }
     
         // สร้าง HTML และฝังลงไป
-        container.innerHTML = buildInlineAdjHTML(drugCode, data, drug.drug_contents);
+        setHTML(container, buildInlineAdjHTML(drugCode, data, drug.drug_contents));
         container.dataset.loaded = 'true';
     }
     
@@ -4099,38 +4108,38 @@ async function fetchLogs() {
             <div style="background:white; border:1px solid #e2e8f0; padding:12px; border-radius:8px; margin-bottom:15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                 <div style="font-size:0.85rem; font-weight:bold; color:var(--primary); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
                     <span>🧮 ประเมินการทำงานไต (CG & CKD-EPI 2021)</span>
-                    <button class="btn btn-outline btn-sm" onclick="clearInlineCrCl('${drugCode}')" style="font-size:0.75rem; padding:2px 8px; height:auto; min-height:24px;">ล้างค่า</button>
+                    <button class="btn btn-outline btn-sm" ${bindHTMLAction("click", function(event) { clearInlineCrCl((drugCode)) })} style="font-size:0.75rem; padding:2px 8px; height:auto; min-height:24px;">ล้างค่า</button>
                 </div>
                 
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px;">
-                    <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">เพศ</label><select id="calc-gender-${drugCode}" onchange="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"><option value="M">ชาย</option><option value="F">หญิง</option></select></div>
-                    <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">อายุ (ปี)</label><input type="number" id="calc-age-${drugCode}" placeholder="ปี" oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
-                    <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">น้ำหนัก (kg)</label><input type="number" id="calc-wt-${drugCode}" placeholder="กก." oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
-                    <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">ส่วนสูง (cm)</label><input type="number" id="calc-ht-${drugCode}" placeholder="ซม." oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
-                    <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">SCr (mg/dL)</label><input type="number" id="calc-scr-${drugCode}" placeholder="SCr" oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
+                    <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">เพศ</label><select id="calc-gender-${encodeHTML(drugCode)}" ${bindHTMLAction("change", function(event) { calculateInlineCrCl((drugCode)) })} style="margin:0; padding:6px; font-size:0.85rem; height:32px;"><option value="M">ชาย</option><option value="F">หญิง</option></select></div>
+                    <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">อายุ (ปี)</label><input type="number" id="calc-age-${encodeHTML(drugCode)}" placeholder="ปี" ${bindHTMLAction("input", function(event) { calculateInlineCrCl((drugCode)) })} style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
+                    <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">น้ำหนัก (kg)</label><input type="number" id="calc-wt-${encodeHTML(drugCode)}" placeholder="กก." ${bindHTMLAction("input", function(event) { calculateInlineCrCl((drugCode)) })} style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
+                    <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">ส่วนสูง (cm)</label><input type="number" id="calc-ht-${encodeHTML(drugCode)}" placeholder="ซม." ${bindHTMLAction("input", function(event) { calculateInlineCrCl((drugCode)) })} style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
+                    <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">SCr (mg/dL)</label><input type="number" id="calc-scr-${encodeHTML(drugCode)}" placeholder="SCr" ${bindHTMLAction("input", function(event) { calculateInlineCrCl((drugCode)) })} style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
                 </div>
                 
                 <div style="margin-top:12px; padding:10px; border-radius:8px; border:1px dashed #cbd5e1; background:#f8fafc; display:flex; align-items:center; gap:10px;">
                     <label style="font-size:0.75rem; font-weight:bold; color:#475569; margin:0;">หรือระบุ eGFR จาก Lab โดยตรง:</label>
-                    <input type="number" id="manual-egfr-${drugCode}" placeholder="mL/min/1.73m²" oninput="calculateInlineCrCl('${drugCode}')" style="margin:0; padding:6px; font-size:0.85rem; height:32px; border-color:var(--indigo); flex:1;">
+                    <input type="number" id="manual-egfr-${encodeHTML(drugCode)}" placeholder="mL/min/1.73m²" ${bindHTMLAction("input", function(event) { calculateInlineCrCl((drugCode)) })} style="margin:0; padding:6px; font-size:0.85rem; height:32px; border-color:var(--indigo); flex:1;">
                 </div>
 
                 <div style="margin-top:12px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                     <div style="background:#fef08a; border:1px solid #facc15; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
-                        🟡 <b>CrCl (Cockcroft-Gault):</b><br><b id="result-crcl-${drugCode}" style="color:#92400e; font-size:1.1rem;">-</b> <small>mL/min</small>
+                        🟡 <b>CrCl (Cockcroft-Gault):</b><br><b id="result-crcl-${encodeHTML(drugCode)}" style="color:#92400e; font-size:1.1rem;">-</b> <small>mL/min</small>
                     </div>
                     <div style="background:#dcfce7; border:1px solid #bbf7d0; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
-                        🟢 <b>eGFR (Normalized):</b><br><b id="result-egfr-${drugCode}" style="color:#166534; font-size:1.1rem;">-</b> <small>mL/min/1.73m²</small>
+                        🟢 <b>eGFR (Normalized):</b><br><b id="result-egfr-${encodeHTML(drugCode)}" style="color:#166534; font-size:1.1rem;">-</b> <small>mL/min/1.73m²</small>
                     </div>
                     <div style="background:#f1f5f9; border:1px solid #cbd5e1; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
-                        📐 <b>BSA (Mosteller):</b><br><b id="result-bsa-${drugCode}" style="color:#334155; font-size:1.1rem;">-</b> <small>m²</small>
+                        📐 <b>BSA (Mosteller):</b><br><b id="result-bsa-${encodeHTML(drugCode)}" style="color:#334155; font-size:1.1rem;">-</b> <small>m²</small>
                     </div>
                     <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:8px 12px; border-radius:6px; font-size:0.85rem;">
-                        🔄 <b>Absolute GFR:</b><br><b id="result-abs-gfr-${drugCode}" style="color:#1e40af; font-size:1.1rem;">-</b> <small>mL/min</small>
+                        🔄 <b>Absolute GFR:</b><br><b id="result-abs-gfr-${encodeHTML(drugCode)}" style="color:#1e40af; font-size:1.1rem;">-</b> <small>mL/min</small>
                     </div>
                 </div>
 
-                <div id="dynamic-warning-${drugCode}" style="display:none; margin-top:10px; background:#fff7ed; border:1px solid #fdba74; padding:10px 12px; border-radius:6px; font-size:0.85rem; color:#c2410c; line-height:1.5;"></div>
+                <div id="dynamic-warning-${encodeHTML(drugCode)}" style="display:none; margin-top:10px; background:#fff7ed; border:1px solid #fdba74; padding:10px 12px; border-radius:6px; font-size:0.85rem; color:#c2410c; line-height:1.5;"></div>
                 
                 <div style="margin-top:10px; background:#fef2f2; border:1px solid #fee2e2; padding:10px 12px; border-radius:6px; font-size:0.75rem; color:#991b1b; line-height:1.5;">
                     <b style="font-size:0.8rem;">⚠️ ข้อจำกัดทางคลินิก (SCr-based equations):</b>
@@ -4151,7 +4160,7 @@ async function fetchLogs() {
             const genAdjs = adjData.filter(d => d.generic_code === genCode);
             if (genAdjs.length === 0) return;
 
-            html += `<div style="margin-bottom:15px; border-left:4px solid var(--danger); padding-left:10px;"><h4 style="margin:0 0 10px 0; color:var(--dark);">🧪 ตัวยา: <span style="color:var(--primary);">${c.generics.generic_name}</span></h4>`;
+            html += `<div style="margin-bottom:15px; border-left:4px solid var(--danger); padding-left:10px;"><h4 style="margin:0 0 10px 0; color:var(--dark);">🧪 ตัวยา: <span style="color:var(--primary);">${encodeHTML(c.generics.generic_name)}</span></h4>`;
             
             const buildTable = (title, items) => {
                 if (items.length === 0) return '';
@@ -4164,10 +4173,10 @@ async function fetchLogs() {
                     if (item.criterion_type === 'CrCl') rowClass = `crcl-row-${drugCode}`;
                     else if (item.criterion_type === 'eGFR') rowClass = `egfr-row-${drugCode}`;
                     
-                    const dataAttrs = `data-min="${item.min_value !== null ? item.min_value : ''}" data-max="${item.max_value !== null ? item.max_value : ''}"`;
-                    return `<tr class="${rowClass}" ${dataAttrs} style="transition:0.3s;"><td style="padding:8px; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; text-align:center; font-weight:bold; white-space:nowrap;">${rangeText}</td><td style="padding:8px; border-bottom:1px solid #e2e8f0; white-space: pre-line;">${item.recommendation} ${item.note ? `<br><small style="color:gray;"><i>* ${item.note}</i></small>` : ''}</td></tr>`;
+                    const dataAttrs = `data-min="${item.min_value !== null ? encodeHTML(item.min_value) : ''}" data-max="${item.max_value !== null ? encodeHTML(item.max_value) : ''}"`;
+                    return `<tr class="${encodeHTML(rowClass)}" ${dataAttrs} style="transition:0.3s;"><td style="padding:8px; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; text-align:center; font-weight:bold; white-space:nowrap;">${encodeHTML(rangeText)}</td><td style="padding:8px; border-bottom:1px solid #e2e8f0; white-space: pre-line;">${encodeHTML(item.recommendation)} ${item.note ? `<br><small style="color:gray;"><i>* ${encodeHTML(item.note)}</i></small>` : ''}</td></tr>`;
                 }).join('');
-                return `<div style="margin-bottom:12px;"><div style="font-size:0.85rem; font-weight:bold; background:#e2e8f0; padding:6px 10px; border-radius:6px 6px 0 0; color:var(--dark);">${title}</div><table style="width:100%; border-collapse:collapse; font-size:0.85rem; border:1px solid #e2e8f0; background:white;">${rows}</table></div>`;
+                return `<div style="margin-bottom:12px;"><div style="font-size:0.85rem; font-weight:bold; background:#e2e8f0; padding:6px 10px; border-radius:6px 6px 0 0; color:var(--dark);">${encodeHTML(title)}</div><table style="width:100%; border-collapse:collapse; font-size:0.85rem; border:1px solid #e2e8f0; background:white;">${rows}</table></div>`;
             };
 
             // 🚨 เลือกโชว์ตามค่า Flag ของยาสามัญ 🚨
@@ -4198,7 +4207,7 @@ async function fetchLogs() {
         if (latestUpdate) {
             const aDate = new Date(latestUpdate).toLocaleDateString('th-TH', { year: '2-digit', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
             const aUser = latestUser ? latestUser.split('@')[0] : 'System';
-            html += `<div style="font-size:0.75rem; color:#94a3b8; margin-top:10px; text-align:right; border-top:1px dashed #cbd5e1; padding-top:8px;">🕒 อัปเดตข้อมูลปรับขนาดยาล่าสุด: ${aDate} น. โดย ${aUser}</div>`;
+            html += `<div style="font-size:0.75rem; color:#94a3b8; margin-top:10px; text-align:right; border-top:1px dashed #cbd5e1; padding-top:8px;">🕒 อัปเดตข้อมูลปรับขนาดยาล่าสุด: ${encodeHTML(aDate)} น. โดย ${encodeHTML(aUser)}</div>`;
         }
         return html;
     }
@@ -4306,13 +4315,13 @@ async function fetchLogs() {
             });
         };
 
-        applyHighlight(`.crcl-row-${drugCode}`, valForCrClRow, '#fef08a'); // เหลือง
-        applyHighlight(`.egfr-row-${drugCode}`, valForEgfrRow, '#dcfce7'); // เขียวอ่อน
+        applyHighlight(`.${CSS.escape(`crcl-row-${drugCode}`)}`, valForCrClRow, '#fef08a'); // เหลือง
+        applyHighlight(`.${CSS.escape(`egfr-row-${drugCode}`)}`, valForEgfrRow, '#dcfce7'); // เขียวอ่อน
 
         // 🌟 6. Dynamic Warning Logic (เช็กว่ากำลังดูตารางไหนอยู่ แล้วดึงค่ามั่วมาหรือเปล่า)
         let warnings = [];
-        const hasCrClTable = document.querySelectorAll(`.crcl-row-${drugCode}`).length > 0;
-        const hasEgfrTable = document.querySelectorAll(`.egfr-row-${drugCode}`).length > 0;
+        const hasCrClTable = document.querySelectorAll(`.${CSS.escape(`crcl-row-${drugCode}`)}`).length > 0;
+        const hasEgfrTable = document.querySelectorAll(`.${CSS.escape(`egfr-row-${drugCode}`)}`).length > 0;
 
         if (hasCrClTable) {
             if (crclStatus === 'fallback_abs') {
@@ -4331,7 +4340,7 @@ async function fetchLogs() {
         // แสดงกล่องเตือน
         const warningBox = document.getElementById(`dynamic-warning-${drugCode}`);
         if (warnings.length > 0) {
-            warningBox.innerHTML = warnings.join('<br><br>');
+            setHTML(warningBox, warnings.join('<br><br>'));
             warningBox.style.display = 'block';
             
             // ถ้ามีการใช้ค่าตรงๆ ไม่ตรง Ref ให้กล่องเป็นสีแดงเข้ม
@@ -4347,7 +4356,7 @@ async function fetchLogs() {
             }
         } else {
             warningBox.style.display = 'none';
-            warningBox.innerHTML = '';
+            setHTML(warningBox, '');
         }
     }
     
@@ -4487,10 +4496,10 @@ async function fetchLogs() {
         const ratio = s_kcal / s_vol;
 
         if (isLiquid) {
-            document.getElementById('nutri-calc-info').innerHTML = `
+            setHTML(document.getElementById('nutri-calc-info'), `
                 <span class="badge" style="background:#e0f2fe; color:#0369a1;">แบบน้ำ (Ready to feed)</span>
-                <span class="badge" style="background:#fef08a; color:#a16207;">สูตรมาตรฐาน: ${s_vol} ml = ${s_kcal} kcal</span>
-            `;
+                <span class="badge" style="background:#fef08a; color:#a16207;">สูตรมาตรฐาน: ${encodeHTML(s_vol)} ml = ${encodeHTML(s_kcal)} kcal</span>
+            `);
             document.getElementById('lbl-res-box1-title').innerText = 'จำนวนขวด/กล่อง';
             document.getElementById('lbl-res-box1-unit').innerText = 'ขวด';
             document.getElementById('lbl-res-box2-title').innerText = 'ปริมาตรของเหลวที่ใช้';
@@ -4501,10 +4510,10 @@ async function fetchLogs() {
             const g_scoop = activeNutriConfig.grams_per_scoop;
             const totalGrams = (scoops * g_scoop).toFixed(1);
             
-            document.getElementById('nutri-calc-info').innerHTML = `
+            setHTML(document.getElementById('nutri-calc-info'), `
                 <span class="badge" style="background:#e2e8f0; color:#475569;">แบบผง (Powder)</span>
-                <span class="badge" style="background:#fef08a; color:#a16207;">สูตรมาตรฐาน: ${scoops} ช้อน (${totalGrams}g) ชงได้ ${s_vol} ml = ${s_kcal} kcal</span>
-            `;
+                <span class="badge" style="background:#fef08a; color:#a16207;">สูตรมาตรฐาน: ${encodeHTML(scoops)} ช้อน (${encodeHTML(totalGrams)}g) ชงได้ ${encodeHTML(s_vol)} ml = ${encodeHTML(s_kcal)} kcal</span>
+            `);
             document.getElementById('lbl-res-box1-title').innerText = 'ใช้ผงปริมาณ';
             document.getElementById('lbl-res-box1-unit').innerText = 'ช้อน';
             document.getElementById('lbl-res-box2-title').innerText = 'น้ำหนักรวม';
@@ -4513,14 +4522,14 @@ async function fetchLogs() {
         }
 
         // วาด Dropdown เลือก Kcal/ml
-        document.getElementById('nutri-calc-ratio').innerHTML = `
-            <option value="${ratio}">ความเข้มข้นปกติ (${ratio.toFixed(2)} kcal/ml)</option>
+        setHTML(document.getElementById('nutri-calc-ratio'), `
+            <option value="${encodeHTML(ratio)}">ความเข้มข้นปกติ (${encodeHTML(ratio.toFixed(2))} kcal/ml)</option>
             <option value="1">1:1 (1 kcal/ml)</option>
             <option value="1.2">1.2:1 (1.2 kcal/ml)</option>
             <option value="1.5">1.5:1 (1.5 kcal/ml)</option>
             <option value="2">2:1 (2 kcal/ml)</option>
             <option value="custom">กำหนดเอง...</option>
-        `;
+        `);
 
         // รีเซ็ตค่า
         document.getElementById('nutri-calc-ratio').selectedIndex = 0;
@@ -4537,7 +4546,7 @@ async function fetchLogs() {
         document.getElementById('nutri-res-fat').innerText = '-';
         
         const noteEl = document.getElementById('nutri-res-note');
-        noteEl.innerHTML = activeNutriConfig.preparation_note ? `<b>💡 Note:</b> ${encodeHTML(activeNutriConfig.preparation_note)}` : '';
+        setHTML(noteEl, activeNutriConfig.preparation_note ? `<b>💡 Note:</b> ${encodeHTML(activeNutriConfig.preparation_note)}` : '');
 
         openModal('nutri-calc-modal');
     }
@@ -4623,27 +4632,27 @@ async function fetchLogs() {
         const meData = drug.med_error_knowledge || [];
         
         if (meData.length === 0) {
-            listEl.innerHTML = '<div style="color:gray; font-size:0.9rem;">(ยังไม่มีการระบุรายละเอียดข้อผิดพลาดสำหรับยานี้ในระบบ)</div>';
+            setHTML(listEl, '<div style="color:gray; font-size:0.9rem;">(ยังไม่มีการระบุรายละเอียดข้อผิดพลาดสำหรับยานี้ในระบบ)</div>');
         } else {
-            listEl.innerHTML = meData.map((me, idx) => `
+            setHTML(listEl, meData.map((me, idx) => `
                 <div style="background:#fffcfc; border:1px solid #fecdd3; border-radius:8px; padding:15px; margin-bottom:15px; position:relative;">
                     <div style="position:absolute; top:-12px; left:15px; background:var(--danger); color:white; padding:2px 10px; border-radius:15px; font-size:0.8rem; font-weight:bold;">
-                        ${me.error_type || 'ข้อควรระวังทั่วไป'}
+                        ${encodeHTML(me.error_type) || 'ข้อควรระวังทั่วไป'}
                     </div>
                     
-                    ${me.image_url ? `<img src="${encodeHTML(me.image_url)}" alt="ME Warning" style="max-width:100%; height:auto; border-radius:6px; margin-top:10px; margin-bottom:10px; border:1px solid #e2e8f0;">` : ''}
+                    ${me.image_url ? `<img src="${encodeHTML(safeURL(me.image_url))}" alt="ME Warning" style="max-width:100%; height:auto; border-radius:6px; margin-top:10px; margin-bottom:10px; border:1px solid #e2e8f0;">` : ''}
                     
                     <div style="margin-top:15px; font-size:0.95rem; line-height:1.5;">
                         <b style="color:var(--dark);">⚠️ ปัญหา/เหตุการณ์:</b><br>
-                        <span style="color:#475569;">${me.error_description ? me.error_description.replace(/\n/g, '<br>') : '-'}</span>
+                        <span style="color:#475569;">${me.error_description ? textWithBreaks(me.error_description) : '-'}</span>
                     </div>
                     
                     <div style="margin-top:15px; font-size:0.95rem; line-height:1.5; background:#f0fdf4; border-left:4px solid var(--success); padding:10px; border-radius:6px;">
                         <b style="color:#166534;">🛡️ วิธีป้องกัน:</b><br>
-                        <span style="color:#15803d;">${me.prevention_tip ? me.prevention_tip.replace(/\n/g, '<br>') : 'ปฏิบัติตามมาตรฐานการให้ยาอย่างเคร่งครัด'}</span>
+                        <span style="color:#15803d;">${me.prevention_tip ? textWithBreaks(me.prevention_tip) : 'ปฏิบัติตามมาตรฐานการให้ยาอย่างเคร่งครัด'}</span>
                     </div>
                 </div>
-            `).join('');
+            `).join(''));
         }
     
         openModal('me-knowledge-modal');
@@ -4675,29 +4684,29 @@ async function fetchLogs() {
     
     async function fetchCurrentMeRules(code) {
         const listEl = document.getElementById('me-admin-list');
-        listEl.innerHTML = '<div style="color:gray; text-align:center;">กำลังโหลด...</div>';
+        setHTML(listEl, '<div style="color:gray; text-align:center;">กำลังโหลด...</div>');
         
         const { data, error } = await supabaseClient.from('med_error_knowledge').select('*').eq('drug_code', code).order('created_at', { ascending: false });
         
         currentMeList = data || [];
         
         if (error || currentMeList.length === 0) {
-            listEl.innerHTML = '<div style="color:gray; text-align:center; padding:10px; border:1px dashed #cbd5e1; border-radius:8px;">ยังไม่มีข้อมูลความเสี่ยง</div>';
+            setHTML(listEl, '<div style="color:gray; text-align:center; padding:10px; border:1px dashed #cbd5e1; border-radius:8px;">ยังไม่มีข้อมูลความเสี่ยง</div>');
             return;
         }
     
-        listEl.innerHTML = currentMeList.map(me => `
+        setHTML(listEl, currentMeList.map(me => `
             <div class="list-item" style="border-left:3px solid var(--danger); flex-direction:column; align-items:flex-start;">
                 <div style="width:100%; display:flex; justify-content:space-between; align-items:flex-start;">
-                    <b style="color:var(--danger);">${me.error_type || 'Unknown Type'}</b>
+                    <b style="color:var(--danger);">${encodeHTML(me.error_type) || 'Unknown Type'}</b>
                     <div style="display:flex; gap:5px;">
-                        <button class="btn btn-outline btn-sm" style="color:var(--primary);" onclick="prepareEditMe(${me.id})">✏️</button>
-                        <button class="btn btn-outline btn-sm" style="color:red;" onclick="deleteMeRule(${me.id}, '${code}')">🗑️</button>
+                        <button class="btn btn-outline btn-sm" style="color:var(--primary);" ${bindHTMLAction("click", function(event) { prepareEditMe((me.id)) })}>✏️</button>
+                        <button class="btn btn-outline btn-sm" style="color:red;" ${bindHTMLAction("click", function(event) { deleteMeRule((me.id), (code)) })}>🗑️</button>
                     </div>
                 </div>
-                <div style="font-size:0.85rem; color:#475569; margin-top:5px;">${me.error_description?.substring(0,60) || ''}...</div>
+                <div style="font-size:0.85rem; color:#475569; margin-top:5px;">${encodeHTML(me.error_description?.substring(0,60)) || ''}...</div>
             </div>
-        `).join('');
+        `).join(''));
     }
     
     function prepareEditMe(id) {
@@ -4792,7 +4801,7 @@ async function fetchLogs() {
             html += `<div style="font-size:0.85rem; font-weight:bold; color:var(--indigo); margin-bottom:5px;">📦 ข้อมูลเฉพาะผลิตภัณฑ์ (Drug Level)</div>`;
             html += `<div style="display:flex; flex-direction:column; gap:8px; margin-bottom:15px;">`;
             dLinks.forEach(l => {
-                html += `<a href="${encodeHTML(l.url)}" target="_blank" style="display:flex; align-items:center; gap:8px; padding:10px; background:white; border:1px solid #cbd5e1; border-radius:8px; text-decoration:none; color:var(--dark); transition:0.2s;" onmouseover="this.style.borderColor='var(--indigo)'" onmouseout="this.style.borderColor='#cbd5e1'">
+                html += `<a href="${encodeHTML(safeURL(l.url))}" target="_blank" style="display:flex; align-items:center; gap:8px; padding:10px; background:white; border:1px solid #cbd5e1; border-radius:8px; text-decoration:none; color:var(--dark); transition:0.2s;" ${bindHTMLAction("mouseover", function(event) { this.style.borderColor='var(--indigo)' })} ${bindHTMLAction("mouseout", function(event) { this.style.borderColor='#cbd5e1' })}>
                             <span>🌐</span> <span style="flex:1;">${encodeHTML(l.link_title)}</span> <span>↗️</span>
                          </a>`;
             });
@@ -4814,7 +4823,7 @@ async function fetchLogs() {
                 html += `<div style="font-size:0.8rem; color:gray; margin-bottom:5px; margin-top:5px;">ส่วนประกอบ: ${encodeHTML(gName)}</div>`;
                 html += `<div style="display:flex; flex-direction:column; gap:8px; margin-bottom:15px;">`;
                 gLinksMap[gName].forEach(l => {
-                    html += `<a href="${encodeHTML(l.url)}" target="_blank" style="display:flex; align-items:center; gap:8px; padding:10px; background:white; border:1px solid #bbf7d0; border-radius:8px; text-decoration:none; color:var(--dark); transition:0.2s;" onmouseover="this.style.borderColor='var(--success)'" onmouseout="this.style.borderColor='#bbf7d0'">
+                    html += `<a href="${encodeHTML(safeURL(l.url))}" target="_blank" style="display:flex; align-items:center; gap:8px; padding:10px; background:white; border:1px solid #bbf7d0; border-radius:8px; text-decoration:none; color:var(--dark); transition:0.2s;" ${bindHTMLAction("mouseover", function(event) { this.style.borderColor='var(--success)' })} ${bindHTMLAction("mouseout", function(event) { this.style.borderColor='#bbf7d0' })}>
                                 <span>📄</span> <span style="flex:1;">${encodeHTML(l.link_title)}</span> <span>↗️</span>
                              </a>`;
                 });
@@ -4822,7 +4831,7 @@ async function fetchLogs() {
             });
         }
     
-        container.innerHTML = html || '<div style="color:gray; text-align:center;">ไม่พบลิงก์อ้างอิง</div>';
+        setHTML(container, html || '<div style="color:gray; text-align:center;">ไม่พบลิงก์อ้างอิง</div>');
         openModal('link-viewer-modal');
     }
     
@@ -4831,7 +4840,7 @@ async function fetchLogs() {
         // mode จะมีค่าเป็น 'drug' หรือ 'generic'
         document.getElementById('link-admin-mode').value = mode;
         document.getElementById('link-admin-code').value = code;
-        document.getElementById('link-admin-title').innerHTML = mode === 'drug' ? '🔗 จัดการลิงก์ (ยาหลัก)' : '🔗 จัดการลิงก์ (ยาสามัญ)';
+        setHTML(document.getElementById('link-admin-title'), mode === 'drug' ? '🔗 จัดการลิงก์ (ยาหลัก)' : '🔗 จัดการลิงก์ (ยาสามัญ)');
         document.getElementById('link-admin-name').innerText = name;
         
         document.getElementById('link-admin-title-input').value = '';
@@ -4843,7 +4852,7 @@ async function fetchLogs() {
     
     async function fetchCurrentLinksAdmin(mode, code) {
         const listEl = document.getElementById('link-admin-list');
-        listEl.innerHTML = '<div style="color:gray; text-align:center;">กำลังโหลด...</div>';
+        setHTML(listEl, '<div style="color:gray; text-align:center;">กำลังโหลด...</div>');
         
         const tableName = mode === 'drug' ? 'drug_links' : 'generic_links';
         const colName = mode === 'drug' ? 'drug_code' : 'generic_code';
@@ -4851,19 +4860,19 @@ async function fetchLogs() {
         const { data, error } = await supabaseClient.from(tableName).select('*').eq(colName, code).order('created_at', { ascending: false });
         
         if (error || !data || data.length === 0) {
-            listEl.innerHTML = '<div style="color:gray; text-align:center; padding:10px; border:1px dashed #cbd5e1; border-radius:8px;">ยังไม่มีลิงก์เชื่อมโยง</div>';
+            setHTML(listEl, '<div style="color:gray; text-align:center; padding:10px; border:1px dashed #cbd5e1; border-radius:8px;">ยังไม่มีลิงก์เชื่อมโยง</div>');
             return;
         }
     
-        listEl.innerHTML = data.map(l => `
+        setHTML(listEl, data.map(l => `
             <div class="list-item" style="border-left:3px solid var(--indigo); align-items:center;">
                 <div style="flex:1; overflow:hidden;">
                     <b style="color:var(--dark); display:block; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${encodeHTML(l.link_title)}</b>
-                    <a href="${encodeHTML(l.url)}" target="_blank" style="font-size:0.75rem; color:var(--primary); text-decoration:none; display:block; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${encodeHTML(l.url)}</a>
+                    <a href="${encodeHTML(safeURL(l.url))}" target="_blank" style="font-size:0.75rem; color:var(--primary); text-decoration:none; display:block; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${encodeHTML(l.url)}</a>
                 </div>
-                <button class="btn btn-outline btn-sm" style="color:red; margin-left:10px;" onclick="deleteLink(${l.id}, '${mode}', '${code}')">🗑️ ลบ</button>
+                <button class="btn btn-outline btn-sm" style="color:red; margin-left:10px;" ${bindHTMLAction("click", function(event) { deleteLink((l.id), (mode), (code)) })}>🗑️ ลบ</button>
             </div>
-        `).join('');
+        `).join(''));
     }
     
     async function saveLink() {
@@ -5077,7 +5086,7 @@ async function fetchLogs() {
     function renderChangelogModal(data) {
         document.getElementById('changelog-version-title').innerText = data.version;
         document.getElementById('changelog-date').innerText = new Date(data.release_date).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
-        document.getElementById('changelog-content').innerHTML = data.features;
+        setHTML(document.getElementById('changelog-content'), safeRichHTML(data.features));
         openModal('changelog-modal');
     }
     
@@ -5116,29 +5125,29 @@ async function fetchLogs() {
     
     async function fetchChangelogAdminList() {
         const listEl = document.getElementById('changelog-admin-list');
-        listEl.innerHTML = '<div style="color:gray; text-align:center;">กำลังโหลด...</div>';
+        setHTML(listEl, '<div style="color:gray; text-align:center;">กำลังโหลด...</div>');
     
         const { data, error } = await supabaseClient.from('changelogs').select('*').order('release_date', { ascending: false }).order('id', { ascending: false });
     
         if (error || !data || data.length === 0) {
-            listEl.innerHTML = '<div style="color:gray; text-align:center; padding:10px;">ยังไม่มีประวัติการอัปเดต</div>';
+            setHTML(listEl, '<div style="color:gray; text-align:center; padding:10px;">ยังไม่มีประวัติการอัปเดต</div>');
             return;
         }
     
-        listEl.innerHTML = data.map(c => `
+        setHTML(listEl, data.map(c => `
             <div class="list-item" style="border-left:3px solid ${c.is_active ? '#f59e0b' : '#cbd5e1'}; align-items:flex-start;">
                 <div style="flex:1;">
-                    <b style="color:${c.is_active ? '#d97706' : 'gray'};">${c.version}</b> 
-                    <span class="badge" style="background:#e2e8f0; color:#475569; font-size:0.7rem;">${new Date(c.release_date).toLocaleDateString('th-TH')}</span>
+                    <b style="color:${c.is_active ? '#d97706' : 'gray'};">${encodeHTML(c.version)}</b> 
+                    <span class="badge" style="background:#e2e8f0; color:#475569; font-size:0.7rem;">${encodeHTML(new Date(c.release_date).toLocaleDateString('th-TH'))}</span>
                     ${!c.is_active ? '<span class="badge" style="background:#fee2e2; color:#b91c1c; font-size:0.7rem;">ซ่อน</span>' : ''}
-                    <div style="font-size:0.85rem; color:#475569; margin-top:5px;">${c.features.substring(0, 50)}...</div>
+                    <div style="font-size:0.85rem; color:#475569; margin-top:5px;">${encodeHTML(c.features.substring(0, 50))}...</div>
                 </div>
                 <div style="display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end; max-width:100px;">
-                    <button class="btn btn-outline btn-sm" style="color:var(--primary);" onclick="prepareEditChangelog(${c.id})">✏️</button>
-                    <button class="btn btn-outline btn-sm" style="color:red;" onclick="deleteChangelog(${c.id})">🗑️</button>
+                    <button class="btn btn-outline btn-sm" style="color:var(--primary);" ${bindHTMLAction("click", function(event) { prepareEditChangelog((c.id)) })}>✏️</button>
+                    <button class="btn btn-outline btn-sm" style="color:red;" ${bindHTMLAction("click", function(event) { deleteChangelog((c.id)) })}>🗑️</button>
                 </div>
             </div>
-        `).join('');
+        `).join(''));
     }
     
     function prepareEditChangelog(id) {
@@ -5193,7 +5202,7 @@ async function fetchLogs() {
     async function forceRefreshData() {
         const btn = document.getElementById('btn-force-refresh');
         if (btn) {
-            btn.innerHTML = "⏳ กำลังโหลด...";
+            setHTML(btn, "⏳ กำลังโหลด...");
             btn.disabled = true;
         }
         
@@ -5203,7 +5212,7 @@ async function fetchLogs() {
         // 2. เคลียร์หน้าจอยาให้กลายเป็นสถานะกำลังโหลด
         const container = document.getElementById('drug-list-container');
         if (container) {
-            container.innerHTML = '<div style="text-align:center; padding:50px; color:var(--primary);">🔄 กำลังดึงข้อมูลล่าสุดจากเซิร์ฟเวอร์...</div>';
+            setHTML(container, '<div style="text-align:center; padding:50px; color:var(--primary);">🔄 กำลังดึงข้อมูลล่าสุดจากเซิร์ฟเวอร์...</div>');
         }
         
         // 3. สั่งให้ระบบวิ่งไปดึง Master Data และข้อมูลยาทั้งหมดใหม่
@@ -5216,7 +5225,7 @@ async function fetchLogs() {
         
         // 4. คืนสถานะปุ่มกลับมาเหมือนเดิม
         if (btn) {
-            btn.innerHTML = "🔄 รีเฟรชข้อมูล";
+            setHTML(btn, "🔄 รีเฟรชข้อมูล");
             btn.disabled = false;
         }
     }
@@ -5325,7 +5334,7 @@ async function fetchLogs() {
         fetchDrugs(); // รีเฟรชข้อมูลยาให้โชว์รูปใหม่
     }
     function openImageViewer(url) {
-        document.getElementById('full-size-image').src = url; // โหลดรูปเข้ากล่อง
+        document.getElementById('full-size-image').src = safeURL(url); // โหลดรูปเข้ากล่อง
         openModal('image-viewer-modal'); // สั่งให้กล่องลอยขึ้นมา
     }
     let currentGeneLabList = [];
@@ -5349,28 +5358,28 @@ async function fetchLogs() {
 
     async function fetchGeneLabs(code) {
         const listEl = document.getElementById('gl-list');
-        listEl.innerHTML = '<div style="color:gray; text-align:center;">กำลังโหลด...</div>';
+        setHTML(listEl, '<div style="color:gray; text-align:center;">กำลังโหลด...</div>');
         
         const { data, error } = await supabaseClient.from('generic_gene_lab').select('*').eq('generic_code', code).order('created_at', { ascending: false });
         currentGeneLabList = data || [];
 
         if (error || currentGeneLabList.length === 0) {
-            listEl.innerHTML = '<div style="color:gray; text-align:center; padding:10px; border:1px dashed #cbd5e1; border-radius:8px;">ยังไม่มีข้อมูล Gene / Lab</div>';
+            setHTML(listEl, '<div style="color:gray; text-align:center; padding:10px; border:1px dashed #cbd5e1; border-radius:8px;">ยังไม่มีข้อมูล Gene / Lab</div>');
             return;
         }
 
-        listEl.innerHTML = currentGeneLabList.map(gl => `
+        setHTML(listEl, currentGeneLabList.map(gl => `
             <div class="list-item" style="border-left: 3px solid #059669; align-items:flex-start;">
                 <div style="flex:1;">
-                    <b style="color:#059669;">${gl.test_name}</b>
-                    <div style="margin-top:4px; font-size:0.85rem; color:#475569; white-space:pre-line;">${gl.description || '-'}</div>
+                    <b style="color:#059669;">${encodeHTML(gl.test_name)}</b>
+                    <div style="margin-top:4px; font-size:0.85rem; color:#475569; white-space:pre-line;">${encodeHTML(gl.description) || '-'}</div>
                 </div>
                 <div style="display:flex; gap:5px;">
-                    <button class="btn btn-outline btn-sm" style="color:var(--primary);" onclick="prepareEditGeneLab(${gl.id})">✏️</button>
-                    <button class="btn btn-outline btn-sm" style="color:red;" onclick="deleteGeneLab(${gl.id}, '${code}')">🗑️</button>
+                    <button class="btn btn-outline btn-sm" style="color:var(--primary);" ${bindHTMLAction("click", function(event) { prepareEditGeneLab((gl.id)) })}>✏️</button>
+                    <button class="btn btn-outline btn-sm" style="color:red;" ${bindHTMLAction("click", function(event) { deleteGeneLab((gl.id), (code)) })}>🗑️</button>
                 </div>
             </div>
-        `).join('');
+        `).join(''));
     }
 
     function prepareEditGeneLab(id) {
@@ -5441,7 +5450,7 @@ async function fetchLogs() {
             // อัปเดต Datalist ทุกจุดในหน้าเว็บ
             const optionsHtml = allUniqueGeneLabs.map(name => `<option value="${encodeHTML(name)}"></option>`).join('');
             document.querySelectorAll('.gl-shared-datalist').forEach(dl => {
-                dl.innerHTML = optionsHtml;
+                setHTML(dl, optionsHtml);
             });
         }
     }
@@ -5539,7 +5548,7 @@ async function fetchLogs() {
         const filtered = allGenerics.filter(g => (g.generic_name||'').toLowerCase().includes(q) || (g.generic_code||'').toLowerCase().includes(q));
         
         if (filtered.length === 0) { 
-            listEl.innerHTML = '<div style="color:gray; padding:10px; grid-column: 1 / -1;">ไม่พบยาสามัญที่ค้นหา</div>'; 
+            setHTML(listEl, '<div style="color:gray; padding:10px; grid-column: 1 / -1;">ไม่พบยาสามัญที่ค้นหา</div>'); 
             return; 
         }
 
@@ -5548,13 +5557,13 @@ async function fetchLogs() {
 
         filtered.forEach(g => {
             const isSelected = bulkGeneLabSelectedGenerics.has(g.generic_code);
-            const safeCode = encodeHTML(g.generic_code);
-            const safeName = encodeHTML(g.generic_name);
+            const safeCode = g.generic_code;
+            const safeName = g.generic_name;
             
             const html = `
-            <label id="label-bgl-${safeCode}" style="display:flex; align-items:flex-start; gap:10px; padding:10px; border:1px solid ${isSelected ? '#059669' : '#e2e8f0'}; border-radius:8px; cursor:pointer; background:${isSelected ? '#ecfdf5' : '#f8fafc'}; font-size:0.9rem; text-align:left; transition:0.2s;">
-                <input type="checkbox" class="bulk-gl-gen-cb" style="margin-top: 4px; transform: scale(1.2);" value="${safeCode}" ${isSelected ? 'checked' : ''} onchange="handleBulkGeneLabCheck(this)">
-                <span style="color:var(--dark); font-weight:bold; flex:1;">${safeName}</span>
+            <label id="label-bgl-${encodeHTML(safeCode)}" style="display:flex; align-items:flex-start; gap:10px; padding:10px; border:1px solid ${isSelected ? '#059669' : '#e2e8f0'}; border-radius:8px; cursor:pointer; background:${isSelected ? '#ecfdf5' : '#f8fafc'}; font-size:0.9rem; text-align:left; transition:0.2s;">
+                <input type="checkbox" class="bulk-gl-gen-cb" style="margin-top: 4px; transform: scale(1.2);" value="${encodeHTML(safeCode)}" ${isSelected ? 'checked' : ''} ${bindHTMLAction("change", function(event) { handleBulkGeneLabCheck(this) })}>
+                <span style="color:var(--dark); font-weight:bold; flex:1;">${encodeHTML(safeName)}</span>
             </label>`;
 
             if (isSelected) inGroupHtml += html;
@@ -5565,7 +5574,7 @@ async function fetchLogs() {
         if (inGroupHtml) finalHtml += `<div style="grid-column: 1 / -1; font-weight:bold; color:#059669; border-bottom: 2px solid #059669; padding-bottom:5px; margin-top: 5px;">🟢 เลือกแล้ว</div>${inGroupHtml}`;
         if (outGroupHtml) finalHtml += `<div style="grid-column: 1 / -1; font-weight:bold; color:var(--dark); border-bottom: 2px solid #cbd5e1; padding-bottom:5px; margin-top: 15px;">⚪ ยังไม่ถูกเลือก</div>${outGroupHtml}`;
 
-        listEl.innerHTML = finalHtml;
+        setHTML(listEl, finalHtml);
     }
 
     function handleBulkGeneLabCheck(checkbox) {
@@ -5647,7 +5656,7 @@ async function fetchLogs() {
 
     async function fetchCurrentAliases(code) {
         const listEl = document.getElementById('current-alias-list');
-        listEl.innerHTML = '<div style="color:gray; text-align:center;">กำลังโหลด...</div>';
+        setHTML(listEl, '<div style="color:gray; text-align:center;">กำลังโหลด...</div>');
 
         const { data, error } = await supabaseClient.from('drug_nickname')
             .select('*')
@@ -5655,16 +5664,16 @@ async function fetchLogs() {
             .order('nickname', { ascending: true });
 
         if (error || !data || data.length === 0) {
-            listEl.innerHTML = '<div style="color:gray; text-align:center; padding:10px; border:1px dashed #cbd5e1; border-radius:8px;">ยังไม่มีชื่อพ้อง</div>';
+            setHTML(listEl, '<div style="color:gray; text-align:center; padding:10px; border:1px dashed #cbd5e1; border-radius:8px;">ยังไม่มีชื่อพ้อง</div>');
             return;
         }
 
-        listEl.innerHTML = data.map(a => `
+        setHTML(listEl, data.map(a => `
             <div class="list-item" style="border-left:3px solid var(--purple); align-items:center;">
                 <span style="flex:1; color:var(--dark); font-weight:bold;">${encodeHTML(a.nickname)}</span>
-                <button class="btn btn-outline btn-sm" style="color:red;" onclick="removeAlias(${a.id}, '${code}')">🗑️ ลบ</button>
+                <button class="btn btn-outline btn-sm" style="color:red;" ${bindHTMLAction("click", function(event) { removeAlias((a.id), (code)) })}>🗑️ ลบ</button>
             </div>
-        `).join('');
+        `).join(''));
     }
 
     async function addAlias() {
@@ -5720,7 +5729,7 @@ async function fetchLogs() {
         sourceAliases.forEach(a => {
             optionsHtml += `<option value="${encodeHTML(a.nickname)}">📌 เฉพาะคำว่า: "${encodeHTML(a.nickname)}"</option>`;
         });
-        selectEl.innerHTML = optionsHtml;
+        setHTML(selectEl, optionsHtml);
 
         // 1. หากลุ่มยาสามัญของต้นฉบับ
         const currentDrug = allDrugsRaw.find(d => d.drug_code === sourceCode);
@@ -5740,17 +5749,17 @@ async function fetchLogs() {
         
         const targetListEl = document.getElementById('alias-bulk-target-list');
         if (targetDrugs.length === 0) {
-            targetListEl.innerHTML = '<div style="color:gray; text-align:center; padding: 20px;">ไม่พบยาอื่นที่มี Generic ตรงกันเลยครับ</div>';
+            setHTML(targetListEl, '<div style="color:gray; text-align:center; padding: 20px;">ไม่พบยาอื่นที่มี Generic ตรงกันเลยครับ</div>');
         } else {
-            targetListEl.innerHTML = targetDrugs.map(d => `
+            setHTML(targetListEl, targetDrugs.map(d => `
                 <label style="display:flex; align-items:center; gap:10px; padding:10px; border-bottom:1px solid #e2e8f0; cursor:pointer; text-align:left; background:#fafafa; border-radius:6px; margin-bottom:5px;">
-                    <input type="checkbox" name="alias-bulk-target-drugs" style="transform: scale(1.2);" value="${d.drug_code}" checked>
+                    <input type="checkbox" name="alias-bulk-target-drugs" style="transform: scale(1.2);" value="${encodeHTML(d.drug_code)}" checked>
                     <div style="flex:1;">
-                        <span class="badge" style="background:#f3e8ff; color:#6d28d9; border:1px solid #e9d5ff; font-size:0.7rem;">${d.drug_code}</span> 
-                        <b style="color:var(--dark);">${d.drug_name}</b> 
-                        <small style="color:gray;">(${d.dosage_form || '-'})</small>
+                        <span class="badge" style="background:#f3e8ff; color:#6d28d9; border:1px solid #e9d5ff; font-size:0.7rem;">${encodeHTML(d.drug_code)}</span> 
+                        <b style="color:var(--dark);">${encodeHTML(d.drug_name)}</b> 
+                        <small style="color:gray;">(${encodeHTML(d.dosage_form) || '-'})</small>
                     </div>
-                </label>`).join('');
+                </label>`).join(''));
         }
         openModal('alias-bulk-copy-modal');
     }
@@ -5874,7 +5883,7 @@ async function fetchLogs() {
         );
 
         if (filtered.length === 0) {
-            listEl.innerHTML = '<div style="color:gray; text-align:center; padding:20px; border:1px dashed #cbd5e1; border-radius:8px;">ไม่พบแหล่งอ้างอิงที่ค้นหา</div>';
+            setHTML(listEl, '<div style="color:gray; text-align:center; padding:20px; border:1px dashed #cbd5e1; border-radius:8px;">ไม่พบแหล่งอ้างอิงที่ค้นหา</div>');
             return;
         }
 
@@ -5894,24 +5903,24 @@ async function fetchLogs() {
                 // ปุ่มแก้ไข/ลบ จะโผล่มาก็ต่อเมื่อ isAdmin = true
                 const adminActions = isAdmin ? `
                     <div style="display:flex; gap:5px; align-items:center; margin-top:10px; border-top:1px dashed #e2e8f0; padding-top:8px;">
-                        <button class="btn btn-outline btn-sm" style="color:var(--primary);" onclick="prepareEditExternalLink(${l.id})">✏️ แก้ไข</button>
-                        <button class="btn btn-outline btn-sm" style="color:var(--danger);" onclick="deleteExternalLink(${l.id})">🗑️ ลบ</button>
+                        <button class="btn btn-outline btn-sm" style="color:var(--primary);" ${bindHTMLAction("click", function(event) { prepareEditExternalLink((l.id)) })}>✏️ แก้ไข</button>
+                        <button class="btn btn-outline btn-sm" style="color:var(--danger);" ${bindHTMLAction("click", function(event) { deleteExternalLink((l.id)) })}>🗑️ ลบ</button>
                     </div>
                 ` : '';
 
                 html += `
                     <div class="list-item" style="border-left:3px solid var(--warning); align-items:stretch; flex-direction:column; background:white; border-radius:8px; padding:12px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,0.05); border:1px solid #e2e8f0;">
-                        <a href="${encodeHTML(l.url)}" target="_blank" style="font-weight:bold; color:var(--dark); text-decoration:none; display:flex; align-items:center; gap:8px; font-size:1rem; transition:0.2s;" onmouseover="this.style.color='var(--warning)'" onmouseout="this.style.color='var(--dark)'">
+                        <a href="${encodeHTML(safeURL(l.url))}" target="_blank" style="font-weight:bold; color:var(--dark); text-decoration:none; display:flex; align-items:center; gap:8px; font-size:1rem; transition:0.2s;" ${bindHTMLAction("mouseover", function(event) { this.style.color='var(--warning)' })} ${bindHTMLAction("mouseout", function(event) { this.style.color='var(--dark)' })}>
                             <span>🌐</span> ${encodeHTML(l.title)}
                         </a>
-                        ${l.description ? `<div style="font-size:0.85rem; color:#475569; margin-top:5px; padding-left:26px;">${encodeHTML(l.description).replace(/\n/g, '<br>')}</div>` : ''}
+                        ${l.description ? `<div style="font-size:0.85rem; color:#475569; margin-top:5px; padding-left:26px;">${textWithBreaks(l.description)}</div>` : ''}
                         ${adminActions}
                     </div>
                 `;
             });
         }
 
-        listEl.innerHTML = html;
+        setHTML(listEl, html);
     }
 
     // อัปเดต: เพิ่มพารามิเตอร์เพื่อสั่งพับเก็บได้
@@ -6029,7 +6038,7 @@ async function fetchLogs() {
     // 🌟 ฟังก์ชันสำหรับสลับสถานะ Online / Offline จากหน้า Card โดยตรง (เฉพาะ Admin)
     async function toggleQuickStatus(btnElement, code, newStatus) {
         const originalText = btnElement.innerHTML;
-        btnElement.innerHTML = '⏳...';
+        setHTML(btnElement, '⏳...');
         btnElement.disabled = true;
 
         const { error } = await supabaseClient
@@ -6045,7 +6054,7 @@ async function fetchLogs() {
             } else {
                 alert("เกิดข้อผิดพลาดในการเปลี่ยนสถานะ: " + error.message);
             }
-            btnElement.innerHTML = originalText;
+            setHTML(btnElement, originalText);
             btnElement.disabled = false;
             return;
         }
@@ -6140,14 +6149,14 @@ async function fetchLogs() {
 
         // 4. วาด HTML ลง Modal
         if (geneArray.length === 0) {
-            listEl.innerHTML = '<div style="color:gray; text-align:center; padding:20px; border:1px dashed #cbd5e1; border-radius:8px;">ไม่พบข้อมูล Gene หรือยาที่ค้นหา</div>';
+            setHTML(listEl, '<div style="color:gray; text-align:center; padding:20px; border:1px dashed #cbd5e1; border-radius:8px;">ไม่พบข้อมูล Gene หรือยาที่ค้นหา</div>');
             return;
         }
 
         // เรียงลำดับชื่อ Gene ตามตัวอักษร A-Z
         geneArray.sort((a, b) => a.testName.localeCompare(b.testName));
 
-        listEl.innerHTML = geneArray.map(g => {
+        setHTML(listEl, geneArray.map(g => {
             let drugListHtml = '';
             
             // เช็กว่ามียาที่เกี่ยวข้องไหม ถ้าไม่มีให้ขึ้นข้อความบอก
@@ -6164,15 +6173,16 @@ async function fetchLogs() {
             return `
             <div class="list-item" style="border-left:4px solid #059669; align-items:stretch; flex-direction:column; background:white; border-radius:8px; padding:15px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.05); border:1px solid #e2e8f0;">
                 <div style="font-weight:bold; color:#059669; font-size:1.1rem; margin-bottom:8px;">🧬 ${encodeHTML(g.testName)}</div>
-                ${g.description ? `<div style="font-size:0.85rem; color:#065f46; margin-bottom:12px; padding:10px; background:#ecfdf5; border-radius:6px; border: 1px dashed #a7f3d0; line-height:1.4;">${encodeHTML(g.description).replace(/\n/g, '<br>')}</div>` : ''}
+                ${g.description ? `<div style="font-size:0.85rem; color:#065f46; margin-bottom:12px; padding:10px; background:#ecfdf5; border-radius:6px; border: 1px dashed #a7f3d0; line-height:1.4;">${textWithBreaks(g.description)}</div>` : ''}
                 <div style="font-size:0.85rem; font-weight:bold; color:var(--dark); margin-bottom:8px;">💊 ยาที่ต้องระวัง:</div>
                 <div style="display:flex; flex-wrap:wrap;">
                     ${drugListHtml}
                 </div>
             </div>
             `;
-        }).join('');
+        }).join(''));
     }
 </script>
 </body>
 </html>
+
