@@ -195,12 +195,16 @@ function renderGeneric(value) {
 }
 function renderTrade(value) {
     const box=document.createElement('div');box.className='generic-chips';
-    const name=String(value || '').trim();
-    if(!name){box.textContent='—';return box;}
-    const chip=document.createElement('button');chip.type='button';chip.className='generic-chip trade-chip';chip.textContent=name;
-    chip.setAttribute('aria-label','ค้นหาชื่อการค้า '+name);
-    chip.addEventListener('click',()=>{$('search').value=name;applyFilters();$('search').focus();});
-    box.append(chip);return box;
+    const names=genericNames(value);
+    if(!names.length){box.textContent='—';return box;}
+    names.forEach((name,index)=>{
+        if(index){const plus=document.createElement('span');plus.className='generic-plus';plus.textContent='+';plus.setAttribute('aria-hidden','true');box.append(plus);}
+        const chip=document.createElement('button');chip.type='button';chip.className='generic-chip trade-chip';chip.textContent=name;
+        chip.setAttribute('aria-label','ค้นหาชื่อการค้า '+name);
+        chip.addEventListener('click',()=>{$('search').value=name;applyFilters();$('search').focus();});
+        box.append(chip);
+    });
+    return box;
 }
 // Reuse the main app's persisted Supabase login. Visibility does not grant Google Sheet permissions.
 async function initAuth() {
