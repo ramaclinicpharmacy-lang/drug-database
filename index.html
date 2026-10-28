@@ -438,6 +438,7 @@
     <div class="modal-content" style="max-width: 850px; width: 95%;">
         <h3 style="color:var(--danger); margin-top:0;">⚠️ การปรับขนาดยาตามการทำงานของไตและตับ</h3>
         <h4 id="adj-drug-name" style="margin-bottom: 15px; color:var(--dark);"></h4>
+        <div id="adjustment-reference-warning"></div>
 
         <!-- Smart Calculator Section -->
         <div class="section-box" style="background:#f8fafc; border-color:#cbd5e1; margin-bottom: 20px;">
@@ -472,6 +473,7 @@
         </div>
 
         <!-- พื้นที่แสดงผลตารางปรับยาแยกตาม Generic -->
+        <div id="modal-adjustment-warning" role="status" aria-live="polite" style="display:none; margin-bottom:12px; padding:12px; border:2px solid #dc2626; border-radius:8px; background:#fef2f2; color:#991b1b;"></div>
         <div id="adj-content-container">
             <div style="text-align:center; padding:20px; color:gray;">กำลังโหลดข้อมูล...</div>
         </div>
@@ -3890,11 +3892,13 @@ async function fetchLogs() {
         const drug = allDrugsRaw.find(d => d.drug_code === drugCode);
         if (!drug) return;
     
+        setHTML(document.getElementById('adjustment-reference-warning'), adjustmentReferenceWarning());
         // เคลียร์ค่าเครื่องคิดเลข และเปิดหน้าต่าง
         clearCrClCalc();
         document.getElementById('adj-drug-name').innerText = generateStandardDrugName(drug);
         const container = document.getElementById('adj-content-container');
         setHTML(container, '<div style="text-align:center; padding:20px; color:gray;">กำลังดึงข้อมูล Clinical Guideline...</div>');
+        showAdjustmentWarnings(document.getElementById('modal-adjustment-warning'), []);
         
         // 🚨 ซ่อน/แสดง กล่องเครื่องคิดเลขของ Modal หากไม่มียาตัวไหนต้องประเมินไตเลย 🚨
         const needsAnyRenal = (drug.drug_contents || []).some(c => c.generics?.needs_renal_adj);
@@ -3925,7 +3929,7 @@ async function fetchLogs() {
         }
     
         if (!data || data.length === 0) {
-            setHTML(container, '<div style="text-align:center; padding:30px; background:#f8fafc; border-radius:8px;">✅ <b>ยังไม่มีข้อมูลระบุว่าต้องปรับขนาดยา</b><br><small style="color:gray;">(หรือยังไม่ได้นำเข้าข้อมูลในระบบ)</small></div>');
+            setHTML(container, '<div style="text-align:center; padding:30px; background:#f8fafc; border-radius:8px;">⚠️ <b>ยังไม่มีข้อมูลเงื่อนไขการปรับขนาดยาในระบบ</b><br><small>ไม่สามารถสรุปว่าไม่ต้องปรับขนาดยา กรุณาตรวจสอบ Reference ปัจจุบัน</small></div>');
             return;
         }
     
@@ -4023,32 +4027,70 @@ async function fetchLogs() {
             resultEl.innerText = '-';
         }
     
-        // Auto-Highlight แถวของ CrCl (eGFR จะไม่เข้าเงื่อนไขนี้เพราะไม่มี class .crcl-row)
-        const rows = document.querySelectorAll('.crcl-row');
-        rows.forEach(row => {
-            // เคลียร์สีเก่าก่อนเสมอ
-            row.style.backgroundColor = '';
-            
-            if (crcl !== null) {
-                const minAttr = row.dataset.min;
-                const maxAttr = row.dataset.max;
-                
-                const min = minAttr !== '' ? parseFloat(minAttr) : null;
-                const max = maxAttr !== '' ? parseFloat(maxAttr) : null;
-    
-                let isMatch = true;
-                
-                // เช็กทีละเงื่อนไข
-                if (min !== null && crcl < min) isMatch = false;
-                if (max !== null && crcl > max) isMatch = false;
-    
-                // ถ้าตกช่วงไหน ไฮไลต์สีเหลือง
-                if (isMatch) {
-                    row.style.backgroundColor = '#fef08a'; // สีเหลืองเตือน
-                }
-            }
-        });
+        const result = highlightAdjustmentRows(document.getElementById('adjustment-modal'), '.crcl-row', crcl, '#fef08a');
+        showAdjustmentWarnings(document.getElementById('modal-adjustment-warning'), adjustmentHighlightWarnings(result, 'CrCl'));
     }
+
+    // Each table represents one generic and one metric. Never choose between overlapping rules.
+    function highlightAdjustmentRows(root, selector, value, color) {
+        const rows = [...root.querySelectorAll(selector)];
+        const result = { hasRows: rows.length > 0, missing: false, overlap: false, invalidRange: false, noMatch: false };
+        const tables = new Map();
+        rows.forEach(row => {
+            row.style.backgroundColor = '';
+            const table = row.closest('table');
+            if (!tables.has(table)) tables.set(table, []);
+            tables.get(table).push(row);
+        });
+        if (!Number.isFinite(value) || value <= 0) {
+            result.missing = result.hasRows;
+            return result;
+        }
+        tables.forEach(tableRows => {
+            let invalid = false;
+            const matches = tableRows.filter(row => {
+                const minText = (row.dataset.min ?? '').trim();
+                const maxText = (row.dataset.max ?? '').trim();
+                const min = minText === '' ? -Infinity : Number(minText);
+                const max = maxText === '' ? Infinity : Number(maxText);
+                if ((minText !== '' && !Number.isFinite(min)) || (maxText !== '' && !Number.isFinite(max)) || min > max) {
+                    invalid = true;
+                    return false;
+                }
+                return value >= min && value <= max;
+            });
+            if (invalid) result.invalidRange = true;
+            else if (matches.length > 1) result.overlap = true;
+            else if (matches.length === 1) matches[0].style.backgroundColor = color;
+            else result.noMatch = true;
+        });
+        return result;
+    }
+
+    function adjustmentHighlightWarnings(result, metric) {
+        const label = encodeHTML(metric);
+        const warnings = [];
+        if (result.missing) warnings.push(`⚠️ <b>ตาราง ${label}:</b> ข้อมูลไม่เพียงพอสำหรับประเมินเกณฑ์นี้ ระบบจึงไม่ไฮไลต์แถว`);
+        if (result.overlap) warnings.push(`🚨 <b>ตาราง ${label} มีช่วงเกณฑ์ทับซ้อน:</b> ค่าที่ประเมินตรงกับมากกว่า 1 แถวในตารางเดียวกัน ระบบจึงไม่ไฮไลต์ตารางนั้น กรุณาตรวจสอบ Reference ปัจจุบันและทบทวนเกณฑ์ก่อนใช้คำแนะนำ`);
+        if (result.invalidRange) warnings.push(`🚨 <b>ตาราง ${label} มีช่วงเกณฑ์ไม่ถูกต้อง:</b> ระบบจึงไม่ไฮไลต์ตารางนั้น กรุณาตรวจสอบข้อมูลและ Reference ปัจจุบัน`);
+        if (result.noMatch) warnings.push(`⚠️ <b>ตาราง ${label}:</b> ไม่พบช่วงเกณฑ์ที่ตรงกับค่าที่ประเมิน กรุณาตรวจสอบ Reference ปัจจุบัน`);
+        return warnings;
+    }
+
+    function showAdjustmentWarnings(box, warnings) {
+        setHTML(box, warnings.join('<br><br>'));
+        box.style.display = warnings.length ? 'block' : 'none';
+    }
+
+    function adjustmentReferenceWarning() {
+        return `<aside class="adjustment-reference-warning" role="note" aria-label="คำเตือนให้ตรวจสอบ Reference ปัจจุบัน" style="margin:12px 0 16px; padding:16px; border:3px solid #dc2626; border-left-width:8px; border-radius:10px; background:#fff1f2; color:#881337; line-height:1.7;">
+            <strong style="display:block; font-size:1.05rem; margin-bottom:6px;">🚨 ข้อมูลการปรับขนาดยาอาจมีการอัปเดต</strong>
+            <strong>ต้องตรวจสอบกับ Reference ปัจจุบันเสมอก่อนใช้คำแนะนำหรือปรับขนาดยา</strong>
+            <div style="margin-top:8px;">ตรวจสอบจาก <a href="https://www.micromedexsolutions.com/micromedex2/librarian/" target="_blank" rel="noopener noreferrer" style="font-weight:bold; color:#9f1239; text-decoration:underline;">Micromedex</a>, <b>Lexidrug app</b> และ <b>Sanford Guide สำหรับยาปฏิชีวนะ</b></div>
+            <div style="margin-top:6px; font-size:0.85rem;">สีไฮไลต์ช่วยเทียบช่วงค่าเท่านั้น ต้องพิจารณาเงื่อนไขของยาและผู้ป่วยร่วมกับ Reference ปัจจุบัน</div>
+        </aside>`;
+    }
+
     // 📌 เปิด/ปิด ส่วนแสดงผลปรับโดสใน Card
     async function toggleInlineAdj(drugCode) {
         // ถ้าย่อ Card อยู่ ให้กาง Card ออกก่อน
@@ -4069,7 +4111,7 @@ async function fetchLogs() {
         // ถ้าเคยโหลดไปแล้ว ไม่ต้องเรียก DB ซ้ำ (Cache in DOM)
         if (container.dataset.loaded === 'true') return;
         
-        setHTML(container, '<div style="text-align:center; padding:10px; color:gray;">⏳ กำลังดึงข้อมูล Clinical Guideline...</div>');
+        setHTML(container, adjustmentReferenceWarning() + '<div style="text-align:center; padding:10px; color:gray;">⏳ กำลังดึงข้อมูล Clinical Guideline...</div>');
         
         const drug = allDrugsRaw.find(d => d.drug_code === drugCode);
         const genericCodes = (drug.drug_contents || []).map(c => c.generics?.generic_code).filter(Boolean);
@@ -4078,11 +4120,11 @@ async function fetchLogs() {
         const { data, error } = await supabaseClient.from('generic_adjustments').select('*').in('generic_code', genericCodes);
             
         if (error) {
-            setHTML(container, `<div style="color:red; text-align:center;">Error: ${encodeHTML(error.message)}</div>`);
+            setHTML(container, adjustmentReferenceWarning() + `<div style="color:red; text-align:center;">Error: ${encodeHTML(error.message)}</div>`);
             return;
         }
         if (!data || data.length === 0) {
-            setHTML(container, '<div style="color:gray; text-align:center;">✅ ไม่มีข้อมูลระบุเงื่อนไขการปรับขนาดยา</div>');
+            setHTML(container, adjustmentReferenceWarning() + '<div style="color:#92400e; text-align:center;">⚠️ ยังไม่มีข้อมูลเงื่อนไขการปรับขนาดยาในระบบ จึงไม่สามารถสรุปว่าไม่ต้องปรับขนาดยา กรุณาตรวจสอบ Reference ปัจจุบัน</div>');
             container.dataset.loaded = 'true';
             return;
         }
@@ -4090,6 +4132,7 @@ async function fetchLogs() {
         // สร้าง HTML และฝังลงไป
         setHTML(container, buildInlineAdjHTML(drugCode, data, drug.drug_contents));
         container.dataset.loaded = 'true';
+        if (document.getElementById(`calc-gender-${drugCode}`)) calculateInlineCrCl(drugCode);
     }
     
     function buildInlineAdjHTML(drugCode, adjData, drugContents) {
@@ -4102,6 +4145,8 @@ async function fetchLogs() {
         </div>
         `;
         
+        html += adjustmentReferenceWarning();
+
         // ซ่อนกล่องเครื่องคิดเลขถ้าไม่ต้องปรับตามไต
         if (needsAnyRenal) {
             html += `
@@ -4139,7 +4184,7 @@ async function fetchLogs() {
                     </div>
                 </div>
 
-                <div id="dynamic-warning-${encodeHTML(drugCode)}" style="display:none; margin-top:10px; background:#fff7ed; border:1px solid #fdba74; padding:10px 12px; border-radius:6px; font-size:0.85rem; color:#c2410c; line-height:1.5;"></div>
+                <div id="dynamic-warning-${encodeHTML(drugCode)}" role="status" aria-live="polite" aria-atomic="true" style="display:none; margin-top:10px; background:#fff7ed; border:1px solid #fdba74; padding:10px 12px; border-radius:6px; font-size:0.85rem; color:#c2410c; line-height:1.5;"></div>
                 
                 <div style="margin-top:10px; background:#fef2f2; border:1px solid #fee2e2; padding:10px 12px; border-radius:6px; font-size:0.75rem; color:#991b1b; line-height:1.5;">
                     <b style="font-size:0.8rem;">⚠️ ข้อจำกัดทางคลินิก (SCr-based equations):</b>
@@ -4229,7 +4274,8 @@ async function fetchLogs() {
         const wt = parseFloat(document.getElementById(`calc-wt-${drugCode}`).value);
         const ht = parseFloat(document.getElementById(`calc-ht-${drugCode}`).value);
         const scr = parseFloat(document.getElementById(`calc-scr-${drugCode}`).value);
-        const manualeGFR = parseFloat(document.getElementById(`manual-egfr-${drugCode}`).value);
+        const manualInput = document.getElementById(`manual-egfr-${drugCode}`).value.trim();
+        const manualeGFR = Number(manualInput);
 
         const resCrCl = document.getElementById(`result-crcl-${drugCode}`);
         const resNormalizedeGFR = document.getElementById(`result-egfr-${drugCode}`);
@@ -4259,8 +4305,8 @@ async function fetchLogs() {
         }
 
         // 3. ตรวจสอบ eGFR (CKD-EPI หรือ Manual)
-        if (!isNaN(manualeGFR) && manualeGFR > 0) {
-            egfrNorm = manualeGFR;
+        if (manualInput !== '') {
+            if (Number.isFinite(manualeGFR) && manualeGFR > 0) egfrNorm = manualeGFR;
         } else if (age > 0 && scr > 0) {
             const kappa = (gender === 'F') ? 0.7 : 0.9;
             const alpha = (gender === 'F') ? -0.241 : -0.302;
@@ -4277,89 +4323,25 @@ async function fetchLogs() {
             resAbsoluteGFR.innerText = '-';
         }
 
-        // 🌟 5. การสลับค่า (Fallback Logic)
-        let valForCrClRow = null;
-        let crclStatus = 'none';
-
-        if (crcl !== null && crcl > 0) {
-            valForCrClRow = crcl;
-            crclStatus = 'ideal'; // ✅ มีข้อมูลครบ ใช้ CG ได้ตรงตัว
-        } else if (absGFR !== null && absGFR > 0) {
-            valForCrClRow = absGFR;
-            crclStatus = 'fallback_abs'; // ⚠️ ใช้การแปลง (มี eGFR + BSA)
-        } else if (egfrNorm !== null && egfrNorm > 0) {
-            valForCrClRow = egfrNorm;
-            crclStatus = 'fallback_egfr_direct'; // 🚨 อันตราย! มี eGFR แต่ไม่มี BSA เอา eGFR มาเทียบดื้อๆ เลย
+        // Compare each table only with its own metric; Absolute GFR remains informational.
+        const container = document.getElementById(`inline-adj-container-${drugCode}`);
+        const crclResult = highlightAdjustmentRows(container, `.${CSS.escape(`crcl-row-${drugCode}`)}`, crcl, '#fef08a');
+        const egfrResult = highlightAdjustmentRows(container, `.${CSS.escape(`egfr-row-${drugCode}`)}`, egfrNorm, '#dcfce7');
+        const warnings = [
+            ...adjustmentHighlightWarnings(crclResult, 'CrCl'),
+            ...adjustmentHighlightWarnings(egfrResult, 'eGFR')
+        ];
+        if (manualInput !== '' && (!Number.isFinite(manualeGFR) || manualeGFR <= 0)) {
+            warnings.push('⚠️ ค่า eGFR จาก Lab ไม่ถูกต้อง กรุณาระบุค่าตัวเลขที่มากกว่า 0 ระบบจะไม่ใช้ค่าคำนวณอื่นแทนค่าที่กรอก');
         }
-
-        let valForEgfrRow = null;
-        let egfrStatus = 'none';
-
-        if (egfrNorm !== null && egfrNorm > 0) {
-            valForEgfrRow = egfrNorm;
-            egfrStatus = 'ideal'; // ✅ ใช้ eGFR ตรงตัว
-        } else if (crcl !== null && crcl > 0) {
-            valForEgfrRow = crcl;
-            egfrStatus = 'fallback_crcl_direct'; // 🚨 อันตราย! มี CrCl แต่เอาไปเทียบตาราง eGFR ดื้อๆ
-        }
-
-        // ไฮไลต์สีลงตาราง
-        const applyHighlight = (selector, val, color) => {
-            document.querySelectorAll(selector).forEach(row => {
-                row.style.backgroundColor = 'white';
-                if (val !== null) {
-                    const min = row.dataset.min !== '' ? parseFloat(row.dataset.min) : -Infinity;
-                    const max = row.dataset.max !== '' ? parseFloat(row.dataset.max) : Infinity;
-                    if (val >= min && val <= max) row.style.backgroundColor = color;
-                }
-            });
-        };
-
-        applyHighlight(`.${CSS.escape(`crcl-row-${drugCode}`)}`, valForCrClRow, '#fef08a'); // เหลือง
-        applyHighlight(`.${CSS.escape(`egfr-row-${drugCode}`)}`, valForEgfrRow, '#dcfce7'); // เขียวอ่อน
-
-        // 🌟 6. Dynamic Warning Logic (เช็กว่ากำลังดูตารางไหนอยู่ แล้วดึงค่ามั่วมาหรือเปล่า)
-        let warnings = [];
-        const hasCrClTable = document.querySelectorAll(`.${CSS.escape(`crcl-row-${drugCode}`)}`).length > 0;
-        const hasEgfrTable = document.querySelectorAll(`.${CSS.escape(`egfr-row-${drugCode}`)}`).length > 0;
-
-        if (hasCrClTable) {
-            if (crclStatus === 'fallback_abs') {
-                warnings.push('⚠️ <b>ตารางอ้างอิง CrCl:</b> ระบบใช้ <b>Absolute GFR</b> (แปลงจาก eGFR) แทน เนื่องจากขาดข้อมูลน้ำหนักเพื่อคำนวณ Cockcroft-Gault');
-            } else if (crclStatus === 'fallback_egfr_direct') {
-                warnings.push('🚨 <b>ตารางอ้างอิง CrCl:</b> ระบบใช้ <b>eGFR ที่ยังไม่ได้แปลงค่า (Normalized)</b> มาเทียบโดยตรง เนื่องจากหา BSA ไม่ได้! <u>โปรดระวังการประเมินผิดพลาดอย่างหนักในผู้ป่วยที่มีรูปร่างผิดปกติ</u>');
-            }
-        }
-
-        if (hasEgfrTable) {
-            if (egfrStatus === 'fallback_crcl_direct') {
-                warnings.push('🚨 <b>ตารางอ้างอิง eGFR:</b> ระบบดึงค่า <b>CrCl (Absolute)</b> มาเทียบตาราง eGFR โดยตรง! (ไม่ตรงกับ Reference ยา) <u>อาจเสี่ยง Over/Under-dose</u>');
-            }
-        }
-
-        // แสดงกล่องเตือน
         const warningBox = document.getElementById(`dynamic-warning-${drugCode}`);
-        if (warnings.length > 0) {
-            setHTML(warningBox, warnings.join('<br><br>'));
-            warningBox.style.display = 'block';
-            
-            // ถ้ามีการใช้ค่าตรงๆ ไม่ตรง Ref ให้กล่องเป็นสีแดงเข้ม
-            if (warnings.some(w => w.includes('🚨'))) {
-                warningBox.style.background = '#fef2f2';
-                warningBox.style.borderColor = '#fca5a5';
-                warningBox.style.color = '#b91c1c';
-            } else {
-                // ถ้าแค่แปลงค่าเฉยๆ ให้เตือนสีส้ม
-                warningBox.style.background = '#fff7ed';
-                warningBox.style.borderColor = '#fdba74';
-                warningBox.style.color = '#c2410c';
-            }
-        } else {
-            warningBox.style.display = 'none';
-            setHTML(warningBox, '');
-        }
+        const urgent = crclResult.overlap || egfrResult.overlap || crclResult.invalidRange || egfrResult.invalidRange;
+        warningBox.style.background = urgent ? '#fef2f2' : '#fff7ed';
+        warningBox.style.border = urgent ? '2px solid #dc2626' : '1px solid #fdba74';
+        warningBox.style.color = urgent ? '#991b1b' : '#9a3412';
+        showAdjustmentWarnings(warningBox, warnings);
     }
-    
+
     // -------------------------------------------------------------
     // 🍼 ฝั่ง Admin: จัดการข้อมูล Nutrition Config
     // -------------------------------------------------------------

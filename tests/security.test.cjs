@@ -241,3 +241,142 @@ test('IV search, pair details, edit form object and remove buttons remain usable
         assert.equal(await page.locator('.drug-chip').count(), 1);
     });
 });
+
+test('renal tables use only their own metric, retain independent values, and clear old highlights', async () => {
+    await openPage('index', async page => {
+        await page.waitForSelector('.drug-card');
+        const result = await page.evaluate(async code => {
+            window.__fixtures.generic_adjustments = ['CrCl', 'eGFR'].map(criterion_type => ({
+                generic_code: 'G1', adj_type: 'renal', criterion_type, min_value: 0, max_value: 200, recommendation: 'ตรวจ Reference'
+            }));
+            await toggleInlineAdj(code);
+            const get = prefix => document.getElementById(`${prefix}-${code}`);
+            const count = metric => [...document.querySelectorAll(`.${CSS.escape(`${metric}-row-${code}`)}`)].filter(row => row.style.backgroundColor !== '').length;
+            get('manual-egfr').value = '45';
+            calculateInlineCrCl(code);
+            const manualOnly = { crcl: get('result-crcl').innerText, egfr: get('result-egfr').innerText, yellow: count('crcl'), green: count('egfr'), warning: get('dynamic-warning').innerText };
+            get('calc-wt').value = '70'; get('calc-ht').value = '170';
+            calculateInlineCrCl(code);
+            const absoluteOnly = { absolute: get('result-abs-gfr').innerText, yellow: count('crcl') };
+            get('calc-age').value = '60'; get('calc-scr').value = '1';
+            calculateInlineCrCl(code);
+            const both = { crcl: get('result-crcl').innerText, egfr: get('result-egfr').innerText, yellow: count('crcl'), green: count('egfr') };
+            get('manual-egfr').value = '-5';
+            calculateInlineCrCl(code);
+            const invalidManual = { egfr: get('result-egfr').innerText, yellow: count('crcl'), green: count('egfr'), warning: get('dynamic-warning').innerText };
+            clearInlineCrCl(code);
+            const cleared = { yellow: count('crcl'), green: count('egfr'), warning: get('dynamic-warning').innerText };
+            return { manualOnly, absoluteOnly, both, invalidManual, cleared };
+        }, code);
+        assert.equal(result.manualOnly.crcl, '-');
+        assert.equal(result.manualOnly.egfr, '45.0');
+        assert.equal(result.manualOnly.yellow, 0);
+        assert.equal(result.manualOnly.green, 1);
+        assert.ok(result.manualOnly.warning.includes('ข้อมูลไม่เพียงพอ'));
+        assert.notEqual(result.absoluteOnly.absolute, '-');
+        assert.equal(result.absoluteOnly.yellow, 0, 'Absolute GFR must never substitute for CrCl');
+        assert.equal(result.both.crcl, '77.8');
+        assert.equal(result.both.egfr, '45.0');
+        assert.equal(result.both.yellow, 1);
+        assert.equal(result.both.green, 1);
+        assert.equal(result.invalidManual.egfr, '-');
+        assert.equal(result.invalidManual.yellow, 1);
+        assert.equal(result.invalidManual.green, 0);
+        assert.ok(result.invalidManual.warning.includes('ไม่ถูกต้อง'));
+        assert.equal(result.cleared.yellow + result.cleared.green, 0);
+        assert.ok(result.cleared.warning.includes('CrCl') && result.cleared.warning.includes('eGFR'));
+    });
+});
+
+test('overlap detection is scoped to a metric and generic, and recovers away from a boundary', async () => {
+    await openPage('index', async page => {
+        await page.waitForSelector('.drug-card');
+        const result = await page.evaluate(async code => {
+            const drug = allDrugsRaw[0];
+            drug.drug_contents.push({ generics: { generic_code: 'G2', generic_name: 'Second generic', needs_renal_adj: true } });
+            window.__fixtures.generic_adjustments = [
+                { generic_code: 'G1', criterion_type: 'eGFR', adj_type: 'renal', min_value: 0, max_value: 30, recommendation: 'A' },
+                { generic_code: 'G1', criterion_type: 'eGFR', adj_type: 'renal', min_value: 30, max_value: 60, recommendation: 'B' },
+                { generic_code: 'G2', criterion_type: 'eGFR', adj_type: 'renal', min_value: 0, max_value: 60, recommendation: 'C' }
+            ];
+            await toggleInlineAdj(code);
+            const input = document.getElementById(`manual-egfr-${code}`);
+            const snapshot = () => {
+                const rows = [...document.querySelectorAll(`.${CSS.escape(`egfr-row-${code}`)}`)];
+                return { colors: rows.map(row => row.style.backgroundColor), warning: document.getElementById(`dynamic-warning-${code}`).innerText };
+            };
+            input.value = '30'; calculateInlineCrCl(code);
+            const boundary = snapshot();
+            input.value = '29.9'; calculateInlineCrCl(code);
+            return { boundary, recovered: snapshot() };
+        }, code);
+        assert.deepEqual(result.boundary.colors.slice(0, 2), ['', '']);
+        assert.notEqual(result.boundary.colors[2], '');
+        assert.ok(result.boundary.warning.includes('ทับซ้อน'));
+        assert.equal(result.recovered.colors.filter(Boolean).length, 2, 'different generic tables may each have one match');
+        assert.ok(!result.recovered.warning.includes('ทับซ้อน'));
+    });
+});
+
+test('invalid and uncovered ranges are reported without choosing a recommendation', async () => {
+    await openPage('index', async page => {
+        const result = await page.evaluate(() => {
+            const root = document.createElement('div');
+            setHTML(root, '<table><tr class="test-row" data-min="abc" data-max="60"><td>Bad rule</td></tr><tr class="test-row" data-min="0" data-max="60"><td>Would match</td></tr></table>');
+            const invalid = highlightAdjustmentRows(root, '.test-row', 30, '#fef08a');
+            const invalidCount = [...root.querySelectorAll('tr')].filter(row => row.style.backgroundColor).length;
+            setHTML(root, '<table><tr class="test-row" data-min="0" data-max="10"><td>Range</td></tr></table>');
+            const uncovered = highlightAdjustmentRows(root, '.test-row', 30, '#fef08a');
+            return { invalid, invalidCount, uncovered };
+        });
+        assert.equal(result.invalid.invalidRange, true);
+        assert.equal(result.invalidCount, 0);
+        assert.equal(result.uncovered.noMatch, true);
+    });
+});
+
+test('reference warning is prominent even with no adjustment data, and appears in the modal', async () => {
+    await openPage('index', async page => {
+        await page.waitForSelector('.drug-card');
+        await page.evaluate(async code => {
+            window.__fixtures.generic_adjustments = [];
+            await toggleInlineAdj(code);
+        }, code);
+        const banner = page.locator('[id^="inline-adj-container-"] .adjustment-reference-warning');
+        assert.ok((await banner.innerText()).includes('อาจมีการอัปเดต'));
+        assert.ok((await banner.innerText()).includes('Reference ปัจจุบันเสมอ'));
+        assert.ok((await banner.innerText()).includes('Lexidrug app'));
+        assert.ok((await banner.innerText()).includes('Sanford Guide สำหรับยาปฏิชีวนะ'));
+        assert.equal(await banner.locator('a').getAttribute('href'), 'https://www.micromedexsolutions.com/micromedex2/librarian/');
+        assert.equal(await banner.evaluate(node => getComputedStyle(node).borderLeftWidth), '8px');
+        assert.ok((await page.locator('[id^="inline-adj-container-"]').innerText()).includes('ไม่สามารถสรุปว่าไม่ต้องปรับขนาดยา'));
+        await page.setViewportSize({ width: 390, height: 844 });
+        if (process.env.RENAL_WARNING_SCREENSHOT) await banner.screenshot({ path: process.env.RENAL_WARNING_SCREENSHOT });
+        await page.evaluate(code => openAdjustmentModal(code), code);
+        assert.equal(await page.locator('#adjustment-reference-warning .adjustment-reference-warning').count(), 1);
+        assert.ok((await page.locator('#adj-content-container').innerText()).includes('ไม่สามารถสรุปว่าไม่ต้องปรับขนาดยา'));
+    });
+});
+
+test('legacy CrCl modal suppresses ambiguous boundary highlights too', async () => {
+    await openPage('index', async page => {
+        await page.waitForSelector('.drug-card');
+        const result = await page.evaluate(async code => {
+            await openAdjustmentModal(code);
+            renderAdjustments([
+                { generic_code: 'G1', criterion_type: 'CrCl', adj_type: 'renal', min_value: 0, max_value: 30, recommendation: 'A' },
+                { generic_code: 'G1', criterion_type: 'CrCl', adj_type: 'renal', min_value: 30, max_value: 60, recommendation: 'B' }
+            ], allDrugsRaw[0].drug_contents);
+            document.getElementById('calc-age').value = '80';
+            document.getElementById('calc-weight').value = '72';
+            document.getElementById('calc-scr').value = '2';
+            calculateCrCl();
+            return { value: document.getElementById('result-crcl').innerText,
+                highlighted: [...document.querySelectorAll('#adjustment-modal .crcl-row')].filter(row => row.style.backgroundColor).length,
+                warning: document.getElementById('modal-adjustment-warning').innerText };
+        }, code);
+        assert.equal(result.value, '30.0');
+        assert.equal(result.highlighted, 0);
+        assert.ok(result.warning.includes('ทับซ้อน'));
+    });
+});
