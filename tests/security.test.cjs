@@ -254,7 +254,7 @@ test('renal tables use only their own metric, retain independent values, and cle
             const count = metric => [...document.querySelectorAll(`.${CSS.escape(`${metric}-row-${code}`)}`)].filter(row => row.style.backgroundColor !== '').length;
             get('manual-egfr').value = '45';
             calculateInlineCrCl(code);
-            const manualOnly = { crcl: get('result-crcl').innerText, egfr: get('result-egfr').innerText, yellow: count('crcl'), green: count('egfr'), warning: get('dynamic-warning').innerText };
+            const manualOnly = { crcl: get('result-crcl').innerText, egfr: get('result-egfr').innerText, yellow: count('crcl'), green: count('egfr'), warning: get('dynamic-warning').innerText, method: get('egfr-label').innerText, source: get('egfr-source').innerText };
             get('calc-wt').value = '70'; get('calc-ht').value = '170';
             calculateInlineCrCl(code);
             const absoluteOnly = { absolute: get('result-abs-gfr').innerText, yellow: count('crcl') };
@@ -263,15 +263,17 @@ test('renal tables use only their own metric, retain independent values, and cle
             const both = { crcl: get('result-crcl').innerText, egfr: get('result-egfr').innerText, yellow: count('crcl'), green: count('egfr') };
             get('manual-egfr').value = '-5';
             calculateInlineCrCl(code);
-            const invalidManual = { egfr: get('result-egfr').innerText, yellow: count('crcl'), green: count('egfr'), warning: get('dynamic-warning').innerText };
+            const invalidManual = { egfr: get('result-egfr').innerText, yellow: count('crcl'), green: count('egfr'), warning: get('dynamic-warning').innerText, method: get('egfr-label').innerText, source: get('egfr-source').innerText };
             clearInlineCrCl(code);
-            const cleared = { yellow: count('crcl'), green: count('egfr'), warning: get('dynamic-warning').innerText };
+            const cleared = { yellow: count('crcl'), green: count('egfr'), warning: get('dynamic-warning').innerText, method: get('egfr-label').innerText, source: get('egfr-source').innerText };
             return { manualOnly, absoluteOnly, both, invalidManual, cleared };
         }, code);
         assert.equal(result.manualOnly.crcl, '-');
         assert.equal(result.manualOnly.egfr, '45.0');
         assert.equal(result.manualOnly.yellow, 0);
         assert.equal(result.manualOnly.green, 1);
+        assert.equal(result.manualOnly.method, 'eGFR (ค่าจาก Lab):');
+        assert.ok(result.manualOnly.source.includes('ตรวจสอบสูตรจากรายงานผล'));
         assert.ok(result.manualOnly.warning.includes('ข้อมูลไม่เพียงพอ'));
         assert.notEqual(result.absoluteOnly.absolute, '-');
         assert.equal(result.absoluteOnly.yellow, 0, 'Absolute GFR must never substitute for CrCl');
@@ -284,6 +286,7 @@ test('renal tables use only their own metric, retain independent values, and cle
         assert.equal(result.invalidManual.green, 0);
         assert.ok(result.invalidManual.warning.includes('ไม่ถูกต้อง'));
         assert.equal(result.cleared.yellow + result.cleared.green, 0);
+        assert.equal(result.cleared.method, 'eGFR (CKD-EPI 2021, creatinine):');
         assert.ok(result.cleared.warning.includes('CrCl') && result.cleared.warning.includes('eGFR'));
     });
 });
