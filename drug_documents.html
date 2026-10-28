@@ -6,18 +6,19 @@
 <title>เอกสารกำกับยา | Rama Clinic Pharmacy DB</title>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-:root{--primary:#2563eb;--ink:#1e293b;--muted:#64748b;--border:#e2e8f0}*{box-sizing:border-box}body{margin:0;padding:20px;background:#f1f5f9;color:var(--ink);font-family:Sarabun,sans-serif}.wrap{max-width:1400px;margin:auto}header,.panel{background:white;border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}h1{font-size:1.5rem;margin:0 0 6px}p{margin:6px 0}.muted{color:var(--muted);font-size:.88rem}.actions,.filters,.pager{display:flex;align-items:center;gap:10px;flex-wrap:wrap}button,.button,input,select{font:inherit;border:1px solid #cbd5e1;border-radius:8px;padding:9px 12px;background:white;color:var(--ink)}button,.button{cursor:pointer;text-decoration:none;display:inline-block}button:hover,.button:hover{background:#eff6ff}button:disabled{opacity:.5;cursor:default}.primary{background:var(--primary);border-color:var(--primary);color:white}.primary:hover{background:#1d4ed8}label{display:flex;flex-direction:column;gap:5px;font-size:.88rem}.search{flex:1;min-width:230px}.search input{width:100%}.filters{align-items:flex-end;margin-bottom:14px}#status{padding:12px;border-radius:8px;background:#eff6ff;margin:12px 0;white-space:pre-line}#status.error{background:#fff7ed;color:#9a3412}#status[hidden]{display:none}.table-wrap{overflow:auto;border:1px solid var(--border);border-radius:10px}table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid var(--border);overflow-wrap:anywhere}th{background:#f8fafc;white-space:nowrap}tbody tr:last-child td{border-bottom:0}td:nth-child(1),td:nth-child(2){min-width:140px}td:nth-child(4){min-width:180px}td:last-child{min-width:230px}.files{display:flex;flex-wrap:wrap;gap:10px}.file{border:1px solid var(--border);border-radius:8px;padding:8px;width:112px;text-align:center;font-size:.78rem}.thumb{width:94px;height:112px;border:0;background:#f8fafc;padding:0;display:flex;align-items:center;justify-content:center;margin-bottom:5px}.thumb img{width:100%;height:100%;object-fit:contain}.file a{display:block;color:#1d4ed8;margin:5px 0}.file-state{display:block;color:var(--muted);min-height:2.4em}.pager{justify-content:flex-end;margin-top:14px}.empty{text-align:center;padding:32px;color:var(--muted)}dialog{border:0;border-radius:12px;padding:18px;width:min(1000px,96vw);max-width:96vw}dialog::backdrop{background:#0f172abb}dialog iframe{width:100%;height:68vh;border:1px solid var(--border);margin-top:12px}.dialog-head{display:flex;justify-content:space-between;gap:10px;align-items:center}#preview-title{font-size:1rem;margin:0}.badge{display:inline-block;font-size:.76rem;background:#f1f5f9;border-radius:5px;padding:2px 6px;margin-top:6px}.note{line-height:1.65}@media(max-width:600px){body{padding:10px}header,.panel{padding:14px}h1{font-size:1.2rem}.filters label{width:100%}.pager{justify-content:center}}
+:root{--primary:#2563eb;--ink:#1e293b;--muted:#64748b;--border:#e2e8f0}*{box-sizing:border-box}body{margin:0;padding:20px;background:#f1f5f9;color:var(--ink);font-family:Sarabun,sans-serif}.wrap{max-width:1400px;margin:auto}header,.panel{background:white;border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}h1{font-size:1.5rem;margin:0 0 6px}p{margin:6px 0}.muted{color:var(--muted);font-size:.88rem}.actions,.filters,.pager{display:flex;align-items:center;gap:10px;flex-wrap:wrap}button,.button,input,select{font:inherit;border:1px solid #cbd5e1;border-radius:8px;padding:9px 12px;background:white;color:var(--ink)}button,.button{cursor:pointer;text-decoration:none;display:inline-block}button:hover,.button:hover{background:#eff6ff}button:disabled{opacity:.5;cursor:default}.primary{background:var(--primary);border-color:var(--primary);color:white}.primary:hover{background:#1d4ed8}label{display:flex;flex-direction:column;gap:5px;font-size:.88rem}.search{flex:1;min-width:230px}.search input{width:100%}.filters{align-items:flex-end;margin-bottom:14px}#status{padding:12px;border-radius:8px;background:#eff6ff;margin:12px 0;white-space:pre-line}#status.error{background:#fff7ed;color:#9a3412}#status[hidden]{display:none}.table-wrap{overflow:auto;border:1px solid var(--border);border-radius:10px}table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid var(--border);overflow-wrap:anywhere}th{background:#f8fafc;white-space:nowrap}tbody tr:last-child td{border-bottom:0}td:first-child{min-width:110px;white-space:nowrap}td:nth-child(2),td:nth-child(3){min-width:140px}td:nth-child(5){min-width:180px}td:last-child{min-width:230px}.files{display:flex;flex-wrap:wrap;gap:10px}.file{border:1px solid var(--border);border-radius:8px;padding:8px;width:112px;text-align:center;font-size:.78rem}.thumb{width:94px;height:112px;border:0;background:#f8fafc;padding:0;display:flex;align-items:center;justify-content:center;margin-bottom:5px}.thumb img{width:100%;height:100%;object-fit:contain}.file a{display:block;color:#1d4ed8;margin:5px 0}.file-state{display:block;color:var(--muted);min-height:2.4em}.pager{justify-content:flex-end;margin-top:14px}.empty{text-align:center;padding:32px;color:var(--muted)}dialog{border:0;border-radius:12px;padding:18px;width:min(1000px,96vw);max-width:96vw}dialog::backdrop{background:#0f172abb}dialog iframe{width:100%;height:68vh;border:1px solid var(--border);margin-top:12px}.dialog-head{display:flex;justify-content:space-between;gap:10px;align-items:center}#preview-title{font-size:1rem;margin:0}.badge{display:inline-block;font-size:.76rem;background:#f1f5f9;border-radius:5px;padding:2px 6px;margin-top:6px}.note{line-height:1.65}@media(max-width:600px){body{padding:10px}header,.panel{padding:14px}h1{font-size:1.2rem}.filters label{width:100%}.pager{justify-content:center}}
 </style>
 </head>
 <body>
 <main class="wrap">
 <header><div><h1>📄 เอกสารกำกับยา</h1><p class="muted">Rama Clinic Pharmacy DB · การตอบแบบฟอร์ม 1</p></div><div class="actions"><a class="button" href="index.html">กลับหน้าหลัก</a><button id="refresh" class="primary" type="button">รีเฟรชข้อมูล</button></div></header>
 <section class="panel" aria-label="ค้นหาเอกสาร">
-<div class="filters"><label class="search">ค้นหาทุกคอลัมน์<input id="search" type="search" placeholder="Generic, Trade, ประเภท, ชื่อเอกสาร, Version หรือลิงก์" autocomplete="off"></label><label>ประเภทเอกสาร<select id="type"><option value="">ทั้งหมด</option></select></label><label>สถานะอนุมัติ<select id="approval"><option value="">ทั้งหมด</option><option value="yes">อนุมัติแล้ว (Yes)</option><option value="other">ยังไม่อนุมัติ / ไม่ระบุ</option></select></label><button id="clear" type="button">ล้างตัวกรอง</button></div>
+<div class="filters"><label class="search">ค้นหาทุกคอลัมน์<input id="search" type="search" placeholder="เลขแถว, Generic, Trade, ประเภท, ชื่อเอกสาร, Version หรือลิงก์" autocomplete="off"></label><label>ประเภทเอกสาร<select id="type"><option value="">ทั้งหมด</option></select></label><label>สถานะอนุมัติ<select id="approval"><option value="">ทั้งหมด</option><option value="yes">อนุมัติแล้ว (Yes)</option><option value="other">ยังไม่อนุมัติ / ไม่ระบุ</option></select></label><button id="clear" type="button">ล้างตัวกรอง</button></div>
 <p id="summary" aria-live="polite" class="muted">ยังไม่ได้โหลดข้อมูล</p><p id="updated" class="muted"></p>
 <div id="status" role="status">กำลังโหลดข้อมูล…</div>
-<div class="table-wrap"><table aria-label="รายการเอกสารกำกับยา"><thead><tr><th scope="col">Generic</th><th scope="col">Trade</th><th scope="col">ประเภทเอกสาร</th><th scope="col">ชื่อเอกสาร</th><th scope="col">Version</th><th scope="col">ไฟล์เอกสาร</th></tr></thead><tbody id="rows"></tbody></table></div>
+<div class="table-wrap"><table aria-label="รายการเอกสารกำกับยา"><thead><tr><th scope="col">แถวในชีต</th><th scope="col">Generic</th><th scope="col">Trade</th><th scope="col">ประเภทเอกสาร</th><th scope="col">ชื่อเอกสาร</th><th scope="col">Version</th><th scope="col">ไฟล์เอกสาร</th></tr></thead><tbody id="rows"></tbody></table></div>
 <div class="pager"><label>รายการต่อหน้า<select id="page-size"><option>10</option><option selected>20</option><option>50</option></select></label><button id="previous" type="button">ก่อนหน้า</button><span id="page-info"></span><button id="next" type="button">ถัดไป</button></div>
+<p class="muted note">กด “แก้ในชีต” เพื่อเปิดช่อง Approve และหมายเหตุของแถวนั้นใน Google Sheets หลังแก้ไขให้กด “รีเฟรชข้อมูล” หากมีการแทรก ลบ หรือเรียงแถวในชีต ให้รีเฟรชและตรวจชื่อยาก่อนแก้ไข</p>
 <p class="muted note">ภาพย่อใช้ตรวจเบื้องต้นเท่านั้น หากแสดงไม่ได้อาจเกิดจากสิทธิ์เข้าถึง เครือข่าย หรือ Google Drive ไม่รองรับภาพย่อ กรุณาเปิดต้นฉบับเพื่อตรวจสอบ ภาพย่อที่แสดงได้ไม่ได้ยืนยันว่าทุกหน้าในไฟล์สมบูรณ์</p>
 </section>
 </main>
@@ -75,11 +76,12 @@ function mapRows(rows) {
     const expected = ['Generic name','Trade name','ประเภทเอกสาร','เอกสารอัพโหลด','ชื่อเอกสาร','Version','Approve'];
     const indexes = expected.map(name => headers.findIndex(h => normalize(h) === normalize(name)));
     if (indexes.some(i => i < 0)) throw new Error('ไม่พบคอลัมน์ที่ต้องใช้ในชีต การตอบแบบฟอร์ม 1');
-    return rows.slice(1).map(row => indexes.map(i => String(row[i] ?? '').trim()))
-        .filter(values => values.slice(0,6).some(Boolean))
-        .map(values => {
+    // Capture physical sheet row numbers before removing blank rows or filtering results.
+    return rows.slice(1).map((row,index) => ({sheetRow:index+2,values:indexes.map(i => String(row[i] ?? '').trim())}))
+        .filter(record => record.values.slice(0,6).some(Boolean))
+        .map(({sheetRow,values}) => {
             const [generic,trade,type,links,title,version,approval] = values;
-            return {generic,trade,type,links,title,version,approval,files:extractFiles(links),search:normalize(values.join(' '))};
+            return {sheetRow,generic,trade,type,links,title,version,approval,files:extractFiles(links),search:normalize([sheetRow,...values].join(' '))};
         });
 }
 
@@ -95,7 +97,7 @@ async function loadData() {
     try {
         // The CSV range omits submitter and timestamp. Email in I is discarded by mapRows.
         const url=new URL(`https://docs.google.com/spreadsheets/d/${SOURCE.id}/export`);
-        url.search=new URLSearchParams({format:'csv',gid:SOURCE.gid,range:'C:J'}).toString();
+        url.search=new URLSearchParams({format:'csv',gid:SOURCE.gid,range:'C1:J'}).toString();
         const response=await fetch(url,{signal:controller.signal,credentials:'omit',cache:'no-store'});
         if (!response.ok) throw new Error(`Google Sheets ตอบกลับ ${response.status}`);
         const text=await response.text();
@@ -121,6 +123,9 @@ function applyFilters() {
     filtered=records.filter(r=>terms.every(t=>r.search.includes(t)) && (!type || r.type===type) &&
         (!approval || (approval==='yes' ? normalize(r.approval)==='yes' : normalize(r.approval)!=='yes')));
     page=1; render();
+}
+function sheetRowURL(sheetRow) {
+    return `https://docs.google.com/spreadsheets/d/${SOURCE.id}/edit#gid=${SOURCE.gid}&range=J${sheetRow}:K${sheetRow}`;
 }
 function cell(row,value) {const td=document.createElement('td'); td.textContent=value || '—'; row.append(td); return td;}
 function openPreview(file,record,index) {
@@ -155,11 +160,16 @@ function render() {
     $('rows').replaceChildren();
     filtered.slice(start,start+size).forEach(record=>{
         const tr=document.createElement('tr');
+        const sourceCell=cell(tr,String(record.sheetRow));
+        const edit=document.createElement('a');edit.className='button';edit.href=sheetRowURL(record.sheetRow);
+        edit.target='_blank';edit.rel='noopener noreferrer';edit.textContent='แก้ในชีต';
+        edit.setAttribute('aria-label',`แก้สถานะและหมายเหตุในชีต แถว ${record.sheetRow} ${record.trade || record.generic}`);
+        sourceCell.append(document.createElement('br'),edit);
         [record.generic,record.trade,record.type,record.title,record.version].forEach(value=>cell(tr,value));
-        const titleCell=tr.children[3], badge=document.createElement('span');badge.className='badge';badge.textContent='Approve: '+(record.approval || 'ไม่ระบุ');titleCell.append(document.createElement('br'),badge);
+        const titleCell=tr.children[4], badge=document.createElement('span');badge.className='badge';badge.textContent='Approve: '+(record.approval || 'ไม่ระบุ');titleCell.append(document.createElement('br'),badge);
         const td=document.createElement('td');td.append(renderFiles(record));tr.append(td);$('rows').append(tr);
     });
-    if(!filtered.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=6;td.className='empty';td.textContent=loaded ? 'ไม่พบรายการเอกสารที่ตรงกับเงื่อนไข' : 'ยังไม่มีข้อมูล กรุณาโหลดข้อมูลให้สำเร็จก่อน';tr.append(td);$('rows').append(tr);}
+    if(!filtered.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.className='empty';td.textContent=loaded ? 'ไม่พบรายการเอกสารที่ตรงกับเงื่อนไข' : 'ยังไม่มีข้อมูล กรุณาโหลดข้อมูลให้สำเร็จก่อน';tr.append(td);$('rows').append(tr);}
     $('summary').textContent=`พบ ${filtered.length.toLocaleString('th-TH')} จาก ${records.length.toLocaleString('th-TH')} รายการ`;
     $('page-info').textContent=`หน้า ${page} / ${pages}`;
     $('previous').disabled=page<=1;$('next').disabled=page>=pages;
