@@ -1031,7 +1031,8 @@
             </div>
         </div>
 
-        <div style="margin-top:15px; padding:15px; background:#f0fdf4; border-radius:8px; border:1px solid #bbf7d0;">
+        <div id="nutri-calc-warning" role="alert" style="display:none; margin-top:15px; padding:15px; border:3px solid #b91c1c; border-radius:8px; background:#fef2f2; color:#991b1b; font-weight:bold;"></div>
+        <div id="nutri-calc-results" hidden style="margin-top:15px; padding:15px; background:#f0fdf4; border-radius:8px; border:1px solid #bbf7d0;">
             <div style="font-size:0.85rem; color:#166534; font-weight:bold; margin-bottom:10px;">✅ วิธีการเตรียม (Preparation):</div>
             
             <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
@@ -4467,10 +4468,12 @@ async function fetchLogs() {
 
     function openNutriCalc(code) {
         const drug = allDrugsRaw.find(d => d.drug_code === code);
+        resetNutriCalcResults();
+        activeNutriConfig = null;
         const configData = drug ? drug.nutrition_configs : null;
         const actualConfig = Array.isArray(configData) ? configData[0] : configData;
 
-        if (!drug || !actualConfig || !actualConfig.serving_volume_ml || !actualConfig.serving_kcal) {
+        if (!drug || !actualConfig || !Number.isFinite(Number(actualConfig.serving_volume_ml)) || Number(actualConfig.serving_volume_ml) <= 0 || !Number.isFinite(Number(actualConfig.serving_kcal)) || Number(actualConfig.serving_kcal) <= 0) {
             alert('ข้อมูลสูตรมาตรฐานยังไม่สมบูรณ์ โปรดให้ Admin อัปเดตข้อมูล'); return;
         }
         
@@ -4511,10 +4514,10 @@ async function fetchLogs() {
         // วาด Dropdown เลือก Kcal/ml
         setHTML(document.getElementById('nutri-calc-ratio'), `
             <option value="${encodeHTML(ratio)}">ความเข้มข้นปกติ (${encodeHTML(ratio.toFixed(2))} kcal/ml)</option>
-            <option value="1">1:1 (1 kcal/ml)</option>
-            <option value="1.2">1.2:1 (1.2 kcal/ml)</option>
-            <option value="1.5">1.5:1 (1.5 kcal/ml)</option>
-            <option value="2">2:1 (2 kcal/ml)</option>
+            <option value="1" ${isLiquid && 1 > ratio ? 'disabled' : ''}>1:1 (1 kcal/ml)</option>
+            <option value="1.2" ${isLiquid && 1.2 > ratio ? 'disabled' : ''}>1.2:1 (1.2 kcal/ml)</option>
+            <option value="1.5" ${isLiquid && 1.5 > ratio ? 'disabled' : ''}>1.5:1 (1.5 kcal/ml)</option>
+            <option value="2" ${isLiquid && 2 > ratio ? 'disabled' : ''}>2:1 (2 kcal/ml)</option>
             <option value="custom">กำหนดเอง...</option>
         `);
 
@@ -4538,9 +4541,20 @@ async function fetchLogs() {
         openModal('nutri-calc-modal');
     }
 
+    function resetNutriCalcResults(message = '') {
+        for (const id of ['scoop', 'gram', 'vol', 'kcal', 'protein', 'carb', 'fat']) {
+            document.getElementById(`nutri-res-${id}`).innerText = '-';
+        }
+        document.getElementById('nutri-calc-results').hidden = true;
+        const warning = document.getElementById('nutri-calc-warning');
+        warning.textContent = message;
+        warning.style.display = message ? 'block' : 'none';
+    }
+
     function runNutriCalc() {
+        resetNutriCalcResults();
         if (!activeNutriConfig) return;
-        
+
         const ratioSelect = document.getElementById('nutri-calc-ratio').value;
         const customBox = document.getElementById('nutri-calc-ratio-custom-box');
         
@@ -4555,35 +4569,41 @@ async function fetchLogs() {
 
         const volume = parseFloat(document.getElementById('nutri-calc-volume').value);
 
-        if (isNaN(volume) || volume <= 0 || isNaN(targetKcalPerMl) || targetKcalPerMl <= 0) {
-            document.getElementById('nutri-res-scoop').innerText = '-'; document.getElementById('nutri-res-gram').innerText = '-';
-            document.getElementById('nutri-res-vol').innerText = '-'; document.getElementById('nutri-res-kcal').innerText = '-';
-            document.getElementById('nutri-res-protein').innerText = '-'; document.getElementById('nutri-res-carb').innerText = '-'; document.getElementById('nutri-res-fat').innerText = '-';
-            return;
-        }
+        if (!Number.isFinite(volume) || volume <= 0 || !Number.isFinite(targetKcalPerMl) || targetKcalPerMl <= 0) return;
 
         const isLiquid = activeNutriConfig.product_type === 'liquid';
         const totalKcal = volume * targetKcalPerMl;
-        const s_kcal = activeNutriConfig.serving_kcal;
-        const s_vol = activeNutriConfig.serving_volume_ml;
+        const s_kcal = Number(activeNutriConfig.serving_kcal);
+        const s_vol = Number(activeNutriConfig.serving_volume_ml);
+        const productKcalPerMl = s_kcal / s_vol;
+        if (![s_kcal, s_vol, productKcalPerMl, totalKcal].every(value => Number.isFinite(value) && value > 0)) {
+            resetNutriCalcResults('⚠️ ไม่สามารถคำนวณได้ โปรดตรวจสอบข้อมูลพลังงานและปริมาตรของผลิตภัณฑ์');
+            return;
+        }
+        if (isLiquid && targetKcalPerMl > productKcalPerMl) {
+            resetNutriCalcResults(`⚠️ ไม่สามารถเตรียมตามเป้าหมายนี้ได้: ความเข้มข้นที่เลือก (${targetKcalPerMl} kcal/ml) สูงกว่าสูตรน้ำต้นฉบับ (${productKcalPerMl.toFixed(4)} kcal/ml) ปริมาตรอาหารที่ต้องใช้จะเกินปริมาตรรวมที่กำหนด โปรดตรวจสอบคำสั่งและเลือกสูตรที่เหมาะสม`);
+            return;
+        }
+        const multiplier = totalKcal / s_kcal;
+        if (!Number.isFinite(multiplier) || !Number.isFinite(multiplier * s_vol)) {
+            resetNutriCalcResults('⚠️ ค่าที่กรอกอยู่นอกช่วงที่คำนวณได้ โปรดตรวจสอบข้อมูล');
+            return;
+        }
+        document.getElementById('nutri-calc-results').hidden = false;
 
         document.getElementById('nutri-res-kcal').innerText = Math.round(totalKcal);
 
         if (isLiquid) {
-            const productKcalPerMl = s_kcal / s_vol;
             const productVolumeNeeded = totalKcal / productKcalPerMl; 
             const bottlesNeeded = productVolumeNeeded / s_vol;
 
             document.getElementById('nutri-res-scoop').innerText = bottlesNeeded.toFixed(2);
             document.getElementById('nutri-res-gram').innerText = productVolumeNeeded.toFixed(0);
 
-            if (productVolumeNeeded < volume - 1) { 
-                document.getElementById('nutri-res-water-section').style.display = 'flex';
-                document.getElementById('nutri-res-vol').innerText = volume;
-                document.getElementById('lbl-water-title').innerText = '💧 เติมน้ำเจือจางให้ได้ปริมาตร';
-            } else {
-                document.getElementById('nutri-res-water-section').style.display = 'none'; 
-            }
+            document.getElementById('nutri-res-water-section').style.display = 'flex';
+            document.getElementById('nutri-res-vol').innerText = volume;
+            document.getElementById('lbl-water-title').innerText = targetKcalPerMl < productKcalPerMl
+                ? '💧 เติมน้ำเจือจางให้ได้ปริมาตรรวม' : 'ปริมาตรรวม (ใช้สูตรน้ำเดิม ไม่เติมน้ำ)';
 
         } else {
             const scoops = activeNutriConfig.scoops_per_serving;
@@ -4600,7 +4620,6 @@ async function fetchLogs() {
         }
 
         // คำนวณ Macros ตามสัดส่วน Kcal
-        const multiplier = totalKcal / s_kcal;
         document.getElementById('nutri-res-protein').innerText = activeNutriConfig.protein_per_serving ? (activeNutriConfig.protein_per_serving * multiplier).toFixed(1) : '-';
         document.getElementById('nutri-res-carb').innerText = activeNutriConfig.carb_per_serving ? (activeNutriConfig.carb_per_serving * multiplier).toFixed(1) : '-';
         document.getElementById('nutri-res-fat').innerText = activeNutriConfig.fat_per_serving ? (activeNutriConfig.fat_per_serving * multiplier).toFixed(1) : '-';

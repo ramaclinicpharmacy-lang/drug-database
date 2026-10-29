@@ -520,3 +520,66 @@ test('label parser retains operators and units without inventing an exact rankin
         assert.equal(result.invalidBase.display, 'ตรวจสอบฐาน kcal');
     });
 });
+
+test('ready-to-feed calculator blocks impossible concentrations, clears stale results, and recovers', async () => {
+    await openPage('index', async page => {
+        await page.waitForFunction(() => allDrugsRaw.length > 0);
+        await page.evaluate(() => {
+            allDrugsRaw[0].nutrition_configs = { product_type: 'liquid', serving_volume_ml: 250, serving_kcal: 250,
+                protein_per_serving: 10, carb_per_serving: 30, fat_per_serving: 10 };
+            openNutriCalc(allDrugsRaw[0].drug_code);
+        });
+        assert.equal(await page.locator('#nutri-calc-ratio option[value="1.5"]').isDisabled(), true);
+        await page.locator('#nutri-calc-volume').fill('300');
+        assert.equal(await page.locator('#nutri-res-gram').innerText(), '300');
+        assert.equal(await page.locator('#nutri-res-kcal').innerText(), '300');
+        assert.equal(await page.locator('#nutri-res-water-section').isVisible(), true);
+        assert.match(await page.locator('#lbl-water-title').innerText(), /ไม่เติมน้ำ/);
+        await page.locator('#nutri-calc-ratio').selectOption('custom');
+        await page.locator('#nutri-calc-ratio-custom').fill('1.5');
+        assert.equal(await page.locator('#nutri-calc-results').isVisible(), false);
+        assert.match(await page.locator('#nutri-calc-warning').innerText(), /สูงกว่าสูตรน้ำต้นฉบับ/);
+        for (const id of ['scoop', 'gram', 'vol', 'kcal', 'protein', 'carb', 'fat']) {
+            assert.equal(await page.locator(`#nutri-res-${id}`).innerText(), '-');
+        }
+        await page.locator('#nutri-calc-ratio-custom').fill('0.8');
+        assert.equal(await page.locator('#nutri-calc-warning').isVisible(), false);
+        assert.equal(await page.locator('#nutri-res-gram').innerText(), '240');
+        assert.equal(await page.locator('#nutri-res-vol').innerText(), '300');
+        assert.equal(await page.locator('#nutri-res-kcal').innerText(), '240');
+        assert.equal(await page.locator('#nutri-res-protein').innerText(), '9.6');
+        assert.match(await page.locator('#lbl-water-title').innerText(), /เจือจาง/);
+        // No 1 ml tolerance: even slight over-concentration must be blocked.
+        await page.locator('#nutri-calc-ratio-custom').fill('1.0001');
+        assert.equal(await page.locator('#nutri-calc-results').isVisible(), false);
+        for (const value of [0, -1, Infinity, NaN]) {
+            await page.evaluate(value => {
+                document.getElementById('nutri-calc-ratio').value = '1';
+                activeNutriConfig.serving_kcal = value;
+                runNutriCalc();
+            }, value);
+            assert.equal(await page.locator('#nutri-calc-results').isVisible(), false);
+        }
+        await page.evaluate(() => {
+            allDrugsRaw[0].nutrition_configs.serving_kcal = 250;
+            openNutriCalc(allDrugsRaw[0].drug_code);
+        });
+        assert.equal(await page.locator('#nutri-calc-results').isVisible(), false);
+        assert.equal(await page.locator('#nutri-calc-warning').isVisible(), false);
+    });
+});
+
+test('powder concentration selection and calculation remain available', async () => {
+    await openPage('index', async page => {
+        await page.waitForFunction(() => allDrugsRaw.length > 0);
+        await page.evaluate(() => openNutriCalc(allDrugsRaw[0].drug_code));
+        assert.equal(await page.locator('#nutri-calc-ratio option[value="2"]').isDisabled(), false);
+        await page.locator('#nutri-calc-ratio').selectOption('2');
+        await page.locator('#nutri-calc-volume').fill('300');
+        assert.equal(await page.locator('#nutri-res-kcal').innerText(), '600');
+        assert.equal(await page.locator('#nutri-res-scoop').innerText(), '12.0');
+        assert.equal(await page.locator('#nutri-res-gram').innerText(), '60.0');
+        await page.locator('#nutri-calc-volume').fill('');
+        assert.equal(await page.locator('#nutri-calc-results').isVisible(), false);
+    });
+});
