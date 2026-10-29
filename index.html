@@ -864,6 +864,7 @@
                 <input type="text" id="input-unit" placeholder="หน่วย" style="flex:1;">
             </div>
             
+            <div id="ingredient-save-error" role="alert" hidden style="margin-top:12px; padding:12px; border:2px solid #b91c1c; background:#fef2f2; color:#991b1b; font-weight:bold; white-space:pre-wrap;"></div>
             <div style="display:flex; gap:10px; margin-top:10px;">
                 <button class="btn btn-primary" id="btn-save-ingredient" style="flex:2; height:42px;" onclick="addIngredient()">+ เพิ่ม</button>
                 
@@ -1448,6 +1449,7 @@
     let expandedCards = new Set();
     let currentIngredientsList = [];
     let editingIngredientCode = null;
+    let ingredientSaveInProgress = false;
     let currentPage = 1; let itemsPerPage = 10; let filteredDrugsList = []; 
     let inactivityTimer; const TIMEOUT_MS = 120 * 60 * 1000; 
     let activePharmTags = [];
@@ -3604,7 +3606,7 @@ async function fetchLogs() {
         const admin = currentAdminsList.find(a => a.id === adminId);
         if (!admin) return;
         adminFormLoading = true;
-        const unlock = lockAdministrationControls('admin-manager-modal');
+        const unlock = lockModalControls('admin-manager-modal');
         try {
             const { data: fluids, error } = await supabaseClient.from('administration_fluids')
                 .select('fluid_short_name').eq('administration_id', adminId);
@@ -3651,7 +3653,7 @@ async function fetchLogs() {
         return data;
     }
 
-    function lockAdministrationControls(modalId) {
+    function lockModalControls(modalId) {
         const controls = Array.from(document.querySelectorAll(`#${modalId} button, #${modalId} input, #${modalId} select, #${modalId} textarea`));
         const states = controls.map(control => control.disabled);
         controls.forEach(control => control.disabled = true);
@@ -3685,7 +3687,7 @@ async function fetchLogs() {
             };
             const fluidNames = Array.from(document.querySelectorAll('input[name="comp-fluids"]:checked')).map(cb => cb.value);
             adminSaveInProgress = true;
-            unlock = lockAdministrationControls('admin-manager-modal');
+            unlock = lockModalControls('admin-manager-modal');
             button.innerText = 'กำลังบันทึก...';
             await saveAdministrationWithFluids(payload, fluidNames, editingAdminId);
             saved = true;
@@ -3755,7 +3757,7 @@ async function fetchLogs() {
             const targets = Array.from(document.querySelectorAll('input[name="bulk-target-drugs"]:checked'));
             if (!targets.length) return alert('กรุณาเลือกยาปลายทางอย่างน้อย 1 รายการ');
             adminCopyInProgress = true;
-            unlock = lockAdministrationControls('bulk-copy-modal');
+            unlock = lockModalControls('bulk-copy-modal');
             button.innerText = 'กำลังคัดลอก...';
             const { data: sourceFluids, error: readError } = await supabaseClient.from('administration_fluids')
                 .select('fluid_short_name').eq('administration_id', adminId);
@@ -3796,6 +3798,8 @@ async function fetchLogs() {
     }
 
     function resetIngredientForm() { 
+        document.getElementById('ingredient-save-error').hidden = true;
+        document.getElementById('ingredient-save-error').textContent = '';
         editingIngredientCode = null; 
         document.getElementById('select-generic').disabled = false; 
         
@@ -3906,34 +3910,54 @@ async function fetchLogs() {
         }
     }
 
-    async function addIngredient() { 
-        const drug_code = document.getElementById('target-drug-code').value; 
-        const generic_code = document.getElementById('select-generic').value; 
-        const amtRaw = document.getElementById('input-amount').value; 
-        const unitRaw = document.getElementById('input-unit').value; 
-        
-        if (!generic_code) return alert('กรุณาเลือกยาสามัญ');
-
-        // 🌟 ดักจับความปลอดภัย: แปลงค่าว่างให้เป็น null เพื่อไม่ให้ Database Error
-        const amount = amtRaw === '' ? null : parseFloat(amtRaw);
-        const unit = unitRaw.trim() === '' ? null : unitRaw.trim();
-
-        if (editingIngredientCode && editingIngredientCode !== generic_code) {
-            await supabaseClient.from('drug_contents').delete().match({ drug_code: drug_code, generic_code: editingIngredientCode });
+    async function addIngredient() {
+        if (ingredientSaveInProgress) return;
+        const errorBox = document.getElementById('ingredient-save-error');
+        errorBox.hidden = true;
+        const drug_code = document.getElementById('target-drug-code').value;
+        const generic_code = document.getElementById('select-generic').value;
+        const originalGenericCode = editingIngredientCode;
+        const amountInput = document.getElementById('input-amount');
+        const amtRaw = amountInput.value.trim();
+        const amount = amtRaw === '' ? null : Number(amtRaw);
+        const unit = document.getElementById('input-unit').value.trim() || null;
+        const button = document.getElementById('btn-save-ingredient');
+        const originalLabel = button.innerText;
+        let unlock = () => {};
+        let saved = false;
+        try {
+            if (!drug_code || !generic_code) throw new Error('กรุณาเลือกยาและยาสามัญ');
+            if (amountInput.validity.badInput || (amount !== null && !Number.isFinite(amount))) {
+                throw new Error('กรุณาระบุปริมาณเป็นตัวเลขที่ถูกต้อง');
+            }
+            ingredientSaveInProgress = true;
+            unlock = lockModalControls('ingredient-modal');
+            button.innerText = 'กำลังบันทึก...';
+            // Updating the existing row is one atomic statement, including a key
+            // change. Never delete first or upsert a missing edit into a new row.
+            const query = originalGenericCode !== null
+                ? supabaseClient.from('drug_contents').update({ generic_code, amount, unit })
+                    .match({ drug_code, generic_code: originalGenericCode })
+                : supabaseClient.from('drug_contents').upsert({ drug_code, generic_code, amount, unit });
+            const { data, error } = await query.select('drug_code, generic_code').single();
+            if (error) throw error;
+            if (!data || data.drug_code !== drug_code || data.generic_code !== generic_code) {
+                throw new Error('ไม่พบส่วนประกอบที่บันทึก กรุณาตรวจสอบรายการล่าสุดและสิทธิ์การแก้ไข');
+            }
+            saved = true;
+        } catch (error) {
+            errorBox.textContent = '⚠️ บันทึกไม่สำเร็จหรือยังยืนยันผลไม่ได้ ค่าที่กรอกยังอยู่ โปรดตรวจสอบรายการล่าสุดก่อนลองบันทึกซ้ำ\n' + (error.message || 'ไม่สามารถติดต่อระบบได้');
+            errorBox.hidden = false;
+        } finally {
+            ingredientSaveInProgress = false;
+            unlock();
+            button.innerText = originalLabel;
         }
-
-        const {error} = await supabaseClient.from('drug_contents').upsert({ 
-            drug_code: drug_code, 
-            generic_code: generic_code, 
-            amount: amount, 
-            unit: unit 
-        }); 
-        
-        if (error) return alert("เกิดข้อผิดพลาดในการบันทึก: " + error.message);
-        
-        resetIngredientForm();
-        fetchCurrentIngredients(drug_code); 
-        fetchDrugs(); 
+        if (saved) {
+            resetIngredientForm();
+            fetchCurrentIngredients(drug_code);
+            fetchDrugs();
+        }
     }
 
     async function removeIngredient(d, g) { 

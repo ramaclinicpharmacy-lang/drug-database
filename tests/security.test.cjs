@@ -722,3 +722,132 @@ test('opening an administration never replaces the form with an unread fluid sel
         assert.equal(await page.locator('#btn-save-admin').isDisabled(), false);
     });
 });
+
+async function prepareIngredientSaveTest(page) {
+    await page.waitForFunction(() => allDrugsRaw.length > 0);
+    await page.evaluate(async () => {
+        window.__fixtures.drug_contents[0].generic_code = 'G1';
+        await openIngredientManager(allDrugsRaw[0].drug_code, 'Test');
+        prepareIngredientForm('G1');
+        document.getElementById('input-amount').value = '500';
+        document.getElementById('input-unit').value = 'mg';
+        window.__ingredientRequests = [];
+        window.__ingredientOutcome = {data:{drug_code:allDrugsRaw[0].drug_code,generic_code:'G1'},error:null};
+        const originalFrom = window.__mockClient.from;
+        window.__mockClient.from = table => {
+            const q = originalFrom(table);
+            if (table !== 'drug_contents') return q;
+            for (const name of ['update','upsert']) {
+                const original = q[name];
+                q[name] = payload => { q.payload = payload; return original(payload); };
+            }
+            q.match = filter => { q.filter = filter; return q; };
+            const originalThen = q.then;
+            q.then = (yes,no) => {
+                if (q.operation === 'select') return originalThen(yes,no);
+                window.__ingredientRequests.push({operation:q.operation,payload:q.payload,filter:q.filter});
+                if (window.__ingredientDeferred) return new Promise(resolve => { window.__finishIngredient = resolve; }).then(yes,no);
+                if (window.__ingredientNetworkFailure) return Promise.reject(new Error('Network lost')).then(yes,no);
+                return Promise.resolve(window.__ingredientOutcome).then(yes,no);
+            };
+            return q;
+        };
+    });
+}
+
+test('ingredient edits use a single matched UPDATE and preserve the form on failure', async () => {
+    await openPage('index', async page => {
+        await prepareIngredientSaveTest(page);
+        await page.evaluate(async () => {
+            window.__ingredientOutcome={data:null,error:{message:'<img src=x onerror="window.__xss=1"> constraint failure'}};
+            await addIngredient();
+        });
+        const calls = await page.evaluate(() => window.__ingredientRequests);
+        assert.equal(calls.length,1);
+        assert.equal(calls[0].operation,'update');
+        assert.deepEqual(calls[0].filter,{drug_code:code,generic_code:'G1'});
+        assert.deepEqual(calls[0].payload,{generic_code:'G1',amount:500,unit:'mg'});
+        assert.equal(await page.locator('#input-amount').inputValue(),'500');
+        assert.equal(await page.locator('#input-unit').inputValue(),'mg');
+        assert.equal(await page.evaluate(() => editingIngredientCode),'G1');
+        assert.equal(await page.locator('#select-generic').isDisabled(),true);
+        assert.equal(await page.locator('#btn-save-ingredient').isDisabled(),false);
+        assert.equal(await page.locator('#ingredient-save-error').isVisible(),true);
+        assert.equal(await page.locator('#ingredient-save-error img').count(),0);
+        assert.equal(await page.evaluate(() => window.__writes.filter(w => w.table==='drug_contents' && w.operation==='delete').length),0);
+        await page.evaluate(async () => {
+            window.__ingredientOutcome={data:{drug_code:allDrugsRaw[0].drug_code,generic_code:'G1'},error:null};
+            await addIngredient();
+        });
+        assert.equal(await page.locator('#input-amount').inputValue(),'');
+        assert.equal(await page.locator('#input-unit').inputValue(),'');
+        assert.equal(await page.evaluate(() => editingIngredientCode),null);
+        assert.equal(await page.locator('#select-generic').isDisabled(),false);
+        assert.equal(await page.locator('#ingredient-save-error').isVisible(),false);
+    });
+});
+
+test('ingredient key changes stay in UPDATE and missing rows never fall back to upsert', async () => {
+    await openPage('index', async page => {
+        await prepareIngredientSaveTest(page);
+        await page.evaluate(async () => {
+            const option=document.createElement('option');option.value='G2';option.textContent='Generic B';
+            document.getElementById('select-generic').append(option);
+            document.getElementById('select-generic').value='G2';
+            window.__ingredientOutcome={data:null,error:{message:'duplicate key'}};
+            await addIngredient();
+        });
+        const first=await page.evaluate(() => window.__ingredientRequests[0]);
+        assert.equal(first.operation,'update');
+        assert.equal(first.filter.generic_code,'G1');
+        assert.equal(first.payload.generic_code,'G2');
+        for (const mode of ['missing','network','empty']) {
+            await page.evaluate(async mode => {
+                window.__ingredientNetworkFailure=mode==='network';
+                window.__ingredientOutcome=mode==='missing'
+                    ? {data:null,error:{message:'JSON object requested, multiple (or no) rows returned',code:'PGRST116'}}
+                    : {data:null,error:null};
+                await addIngredient();
+            },mode);
+            assert.equal(await page.evaluate(() => editingIngredientCode),'G1');
+            assert.equal(await page.locator('#select-generic').inputValue(),'G2');
+            assert.equal(await page.locator('#input-amount').inputValue(),'500');
+            assert.equal(await page.locator('#btn-save-ingredient').isDisabled(),false);
+        }
+        assert.equal(await page.evaluate(() => window.__writes.filter(w=>w.table==='drug_contents' && w.operation!=='update').length),0);
+    });
+});
+
+test('ingredient submit guards prevent duplicate writes and preserve blank/zero amounts', async () => {
+    await openPage('index', async page => {
+        await prepareIngredientSaveTest(page);
+        await page.evaluate(async () => {
+            window.__ingredientDeferred=true;
+            window.__ingredientPromise=addIngredient();
+            await addIngredient();
+        });
+        assert.equal(await page.evaluate(() => window.__ingredientRequests.length),1);
+        assert.equal(await page.locator('#input-amount').isDisabled(),true);
+        assert.equal(await page.locator('#btn-save-ingredient').isDisabled(),true);
+        await page.evaluate(async () => {
+            window.__finishIngredient(window.__ingredientOutcome);
+            await window.__ingredientPromise;
+            window.__ingredientDeferred=false;
+            document.getElementById('select-generic').value='G1';
+            document.getElementById('input-amount').value='0';
+            document.getElementById('input-unit').value=' mg ';
+            await addIngredient();
+            document.getElementById('select-generic').value='G1';
+            document.getElementById('input-amount').value='';
+            document.getElementById('input-unit').value='';
+            await addIngredient();
+        });
+        const calls=await page.evaluate(()=>window.__ingredientRequests);
+        assert.equal(calls[1].operation,'upsert');
+        assert.equal(calls[1].payload.amount,0);
+        assert.equal(calls[1].payload.unit,'mg');
+        assert.equal(calls[2].payload.amount,null);
+        assert.equal(calls[2].payload.unit,null);
+        assert.equal(await page.locator('#select-generic').isDisabled(),false);
+    });
+});
