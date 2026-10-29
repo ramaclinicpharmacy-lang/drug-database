@@ -583,3 +583,142 @@ test('powder concentration selection and calculation remain available', async ()
         assert.equal(await page.locator('#nutri-calc-results').isVisible(), false);
     });
 });
+
+test('administration editor uses one RPC, preserves failed inputs, and prevents duplicate submission', async () => {
+    await openPage('index', async page => {
+        await page.waitForFunction(() => allDrugsRaw.length > 0);
+        await page.evaluate(async () => {
+            await openAdminManager(allDrugsRaw[0].drug_code, 'Test');
+            editingAdminId = 1;
+            document.getElementById('input-instruction').value = '60 min';
+            document.getElementById('input-min-conc').value = '0';
+            document.getElementById('input-max-conc').value = '10';
+            document.getElementById('input-conc-unit').value = 'mg/ml';
+            document.querySelector('input[name="comp-fluids"]').checked = true;
+            window.__rpcCalls = [];
+            window.__mockClient.rpc = (name, args) => {
+                window.__rpcCalls.push({name, args});
+                return new Promise(resolve => { window.__finishSave = resolve; });
+            };
+            window.__savePromise = addAdministration();
+            await addAdministration();
+        });
+        assert.equal(await page.locator('#btn-save-admin').isDisabled(), true);
+        assert.equal(await page.locator('#input-instruction').isDisabled(), true);
+        assert.equal(await page.evaluate(() => window.__rpcCalls.length), 1);
+        const sent = await page.evaluate(() => window.__rpcCalls[0]);
+        assert.equal(sent.name, 'save_administration_with_fluids');
+        assert.equal(sent.args.p_administration_id, 1);
+        assert.equal(sent.args.p_instructions, '60 min');
+        assert.equal(sent.args.p_min_conc, 0);
+        assert.equal(sent.args.p_max_conc, 10);
+        assert.equal(sent.args.p_fluid_names.length, 1);
+        await page.evaluate(async () => {
+            window.__finishSave({data: null, error: {message: '<img src=x onerror="window.__xss=1"> fluid insert failed'}});
+            await window.__savePromise;
+        });
+        assert.equal(await page.locator('#input-instruction').inputValue(), '60 min');
+        assert.equal(await page.evaluate(() => editingAdminId), 1);
+        assert.equal(await page.locator('#btn-save-admin').isDisabled(), false);
+        assert.equal(await page.locator('#admin-save-error').isVisible(), true);
+        assert.equal(await page.locator('#admin-save-error img').count(), 0);
+        assert.equal(await page.locator('input[name="comp-fluids"]:checked').count(), 1);
+        assert.equal(await page.evaluate(() => window.__writes.filter(w => ['drug_administrations','administration_fluids'].includes(w.table)).length), 0);
+        await page.evaluate(async () => {
+            window.__mockClient.rpc = async () => ({data: 1, error: null});
+            await addAdministration();
+        });
+        assert.equal(await page.locator('#input-instruction').inputValue(), '');
+        assert.equal(await page.evaluate(() => editingAdminId), null);
+        assert.equal(await page.locator('#admin-save-error').isVisible(), false);
+        assert.equal(await page.locator('#btn-save-admin').isDisabled(), false);
+    });
+});
+
+test('administration create and copy keep forms on network failure or missing RPC without unsafe fallback', async () => {
+    await openPage('index', async page => {
+        await page.waitForFunction(() => allDrugsRaw.length > 0);
+        await page.evaluate(async () => {
+            await openAdminManager(allDrugsRaw[0].drug_code, 'Test');
+            document.getElementById('input-instruction').value = '30 min';
+            window.__rpcCalls = [];
+        });
+        for (const mode of ['network', 'missing', 'empty']) {
+            await page.evaluate(async mode => {
+                window.__mockClient.rpc = async (name, args) => {
+                    window.__rpcCalls.push({name,args});
+                    if (mode === 'network') throw new Error('Network lost');
+                    return mode === 'missing' ? {data:null,error:{message:'Function not found',code:'PGRST202'}} : {data:null,error:null};
+                };
+                await addAdministration();
+            }, mode);
+            assert.equal(await page.locator('#input-instruction').inputValue(), '30 min');
+            assert.equal(await page.locator('#admin-save-error').isVisible(), true);
+            assert.equal(await page.locator('#btn-save-admin').isDisabled(), false);
+        }
+        const args = await page.evaluate(() => window.__rpcCalls[0].args);
+        assert.equal(args.p_administration_id, null);
+        assert.deepEqual(args.p_fluid_names, []);
+        assert.equal(await page.evaluate(() => window.__writes.filter(w => ['drug_administrations','administration_fluids'].includes(w.table)).length), 0);
+    });
+});
+
+test('bulk administration copy counts only complete saves and aborts if source fluids cannot be read', async () => {
+    await openPage('index', async page => {
+        await page.waitForFunction(() => allDrugsRaw.length > 0);
+        await page.evaluate(async () => {
+            await openAdminManager(allDrugsRaw[0].drug_code, 'Test');
+            document.getElementById('bulk-copy-admin-id').value = '1';
+            const group = document.getElementById('bulk-copy-target-list');
+            group.replaceChildren();
+            for (const value of ['TARGET1','TARGET2']) {
+                const checkbox = document.createElement('input');
+                checkbox.type='checkbox'; checkbox.name='bulk-target-drugs'; checkbox.value=value; checkbox.checked=true;
+                group.append(checkbox);
+            }
+            window.__fixtures.administration_fluids = [{administration_id:1,fluid_short_name:'NSS'}];
+            window.__rpcCalls = [];
+            window.__mockClient.rpc = async (name,args) => {
+                window.__rpcCalls.push({name,args});
+                return args.p_drug_code === 'TARGET1' ? {data: 2,error:null} : {data:null,error:{message:'fluid rejected'}};
+            };
+            await executeBulkCopyAdmin();
+        });
+        assert.equal(await page.locator('input[name="bulk-target-drugs"][value="TARGET1"]').isChecked(), false);
+        assert.equal(await page.locator('input[name="bulk-target-drugs"][value="TARGET2"]').isChecked(), true);
+        const calls = await page.evaluate(() => window.__rpcCalls);
+        assert.equal(calls.length, 2);
+        assert.deepEqual(calls[0].args.p_fluid_names, ['NSS']);
+        await page.evaluate(async () => {
+            const originalFrom = window.__mockClient.from;
+            window.__mockClient.from = table => table === 'administration_fluids'
+                ? {select: () => ({eq:async () => ({data:null,error:{message:'read failed'}})})}
+                : originalFrom(table);
+            await executeBulkCopyAdmin();
+        });
+        assert.equal(await page.evaluate(() => window.__rpcCalls.length), 2);
+        assert.equal(await page.locator('input[name="bulk-target-drugs"][value="TARGET2"]').isChecked(), true);
+        assert.equal(await page.evaluate(() => window.__writes.filter(w => ['drug_administrations','administration_fluids'].includes(w.table)).length), 0);
+    });
+});
+
+test('opening an administration never replaces the form with an unread fluid selection', async () => {
+    await openPage('index', async page => {
+        await page.waitForFunction(() => allDrugsRaw.length > 0);
+        await page.evaluate(async () => {
+            await openAdminManager(allDrugsRaw[0].drug_code, 'Test');
+            document.getElementById('input-instruction').value = 'Unsaved draft';
+            document.querySelector('input[name="comp-fluids"]').checked = true;
+            const originalFrom = window.__mockClient.from;
+            window.__mockClient.from = table => table === 'administration_fluids'
+                ? {select: () => ({eq:async () => ({data:null,error:{message:'read failed'}})})}
+                : originalFrom(table);
+            await prepareAdminForm(1, false);
+        });
+        assert.equal(await page.locator('#input-instruction').inputValue(), 'Unsaved draft');
+        assert.equal(await page.locator('input[name="comp-fluids"]:checked').count(), 1);
+        assert.equal(await page.evaluate(() => editingAdminId), null);
+        assert.equal(await page.locator('#admin-save-error').isVisible(), true);
+        assert.equal(await page.locator('#btn-save-admin').isDisabled(), false);
+    });
+});

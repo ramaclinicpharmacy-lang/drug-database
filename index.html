@@ -840,6 +840,7 @@
             </div>
             <label style="margin-top:10px; display:block; font-size:0.85rem; font-weight:bold;">สารน้ำที่ใช้ได้:</label>
             <div id="fluid-checkbox-group" class="chip-container"></div>
+            <div id="admin-save-error" role="alert" hidden style="margin-top:12px; padding:12px; border:2px solid #b91c1c; background:#fef2f2; color:#991b1b; font-weight:bold; white-space:pre-wrap;"></div>
             <div style="display:flex; gap:10px; margin-top:20px;">
                 <button class="btn btn-primary" id="btn-save-admin" style="flex:1; height:45px;" onclick="addAdministration()">+ บันทึก</button>
                 <button class="btn btn-outline hidden" id="btn-cancel-edit" style="flex:1; height:45px;" onclick="resetAdminForm()">ยกเลิก</button>
@@ -1430,6 +1431,9 @@
 
     let isAdmin = false, allDrugsRaw = [], allGenerics = [], allRoutes = [], allFluids = [], allDosageForms = [], allTags = [], allNlem = [], allPharmClasses = [];
     let editingAdminId = null; let currentAdminsList = [];
+    let adminSaveInProgress = false;
+    let adminFormLoading = false;
+    let adminCopyInProgress = false;
     let allExternalLinks = [];
     let editingExtLinkId = null;
     let selectedPharmFilters = []; 
@@ -3498,6 +3502,8 @@ async function fetchLogs() {
     async function deleteMaster(table, col, val) { if(confirm("ลบข้อมูล Master ตัวนี้?")) { await supabaseClient.from(table).delete().eq(col, val); loadAllData(); } }
     
     function resetAdminForm() { 
+        document.getElementById('admin-save-error').hidden = true;
+        document.getElementById('admin-save-error').textContent = '';
         editingAdminId = null; 
         if(document.getElementById('select-route').options.length > 0) document.getElementById('select-route').selectedIndex = 0; 
         document.getElementById('input-instruction').value = ''; 
@@ -3593,45 +3599,113 @@ async function fetchLogs() {
         fetchDrugs(); // อัปเดตหน้าบ้านด้วย
     }
 
-    async function prepareAdminForm(adminId, isCopy) { 
-        const admin = currentAdminsList.find(a => a.id === adminId); if(!admin) return; 
-        document.getElementById('select-route').value = admin.route_code; 
-        document.getElementById('input-instruction').value = admin.instructions || ''; 
-        document.getElementById('input-min-conc').value = admin.min_conc || ''; 
-        document.getElementById('input-max-conc').value = admin.max_conc || ''; 
-        document.getElementById('input-conc-unit').value = admin.conc_unit || ''; 
-        const { data: fluids } = await supabaseClient.from('administration_fluids').select('fluid_short_name').eq('administration_id', adminId); 
-        const fluidNames = (fluids || []).map(f => f.fluid_short_name); 
-        document.querySelectorAll('input[name="comp-fluids"]').forEach(cb => cb.checked = fluidNames.includes(cb.value)); 
-        if (isCopy) { editingAdminId = null; document.getElementById('btn-save-admin').innerText = "💾 บันทึกเป็นใหม่"; document.getElementById('btn-cancel-edit').classList.remove('hidden'); } else { editingAdminId = admin.id; document.getElementById('btn-save-admin').innerText = "💾 ยืนยันแก้ไข"; document.getElementById('btn-cancel-edit').classList.remove('hidden'); } 
+    async function prepareAdminForm(adminId, isCopy) {
+        if (adminSaveInProgress || adminFormLoading) return;
+        const admin = currentAdminsList.find(a => a.id === adminId);
+        if (!admin) return;
+        adminFormLoading = true;
+        const unlock = lockAdministrationControls('admin-manager-modal');
+        try {
+            const { data: fluids, error } = await supabaseClient.from('administration_fluids')
+                .select('fluid_short_name').eq('administration_id', adminId);
+            if (error) throw error;
+            if (!Array.isArray(fluids)) throw new Error('ไม่สามารถอ่านรายการสารน้ำได้');
+            // Only replace the form after the complete fluid selection is loaded.
+            const fluidNames = fluids.map(f => f.fluid_short_name);
+            document.getElementById('select-route').value = admin.route_code;
+            document.getElementById('input-instruction').value = admin.instructions || '';
+            document.getElementById('input-min-conc').value = admin.min_conc ?? '';
+            document.getElementById('input-max-conc').value = admin.max_conc ?? '';
+            document.getElementById('input-conc-unit').value = admin.conc_unit || '';
+            document.querySelectorAll('input[name="comp-fluids"]').forEach(cb => cb.checked = fluidNames.includes(cb.value));
+            editingAdminId = isCopy ? null : admin.id;
+            document.getElementById('btn-save-admin').innerText = isCopy ? '💾 บันทึกเป็นใหม่' : '💾 ยืนยันแก้ไข';
+            document.getElementById('btn-cancel-edit').classList.remove('hidden');
+            document.getElementById('admin-save-error').hidden = true;
+        } catch (error) {
+            const errorBox = document.getElementById('admin-save-error');
+            errorBox.textContent = '⚠️ โหลดรายการสารน้ำไม่สำเร็จ ยังไม่เปลี่ยนค่าบนฟอร์ม กรุณาลองเปิดรายการอีกครั้ง\n' + (error.message || 'ไม่สามารถติดต่อระบบได้');
+            errorBox.hidden = false;
+        } finally {
+            adminFormLoading = false;
+            unlock();
+        }
     }
 
-    async function addAdministration() { 
-        const drug_code = document.getElementById('target-admin-drug-code').value; 
-        const payload = { 
-            drug_code, 
-            route_code: document.getElementById('select-route').value, 
-            instructions: document.getElementById('input-instruction').value, 
-            min_conc: document.getElementById('input-min-conc').value||null, 
-            max_conc: document.getElementById('input-max-conc').value||null, 
-            conc_unit: document.getElementById('input-conc-unit').value||null,
-            rank: editingAdminId ? undefined : 99,
-            updated_by: currentAdminEmail,
-            updated_at: new Date().toISOString()
-        }; 
-        let response = editingAdminId ? await supabaseClient.from('drug_administrations').update(payload).eq('id', editingAdminId).select().single() : await supabaseClient.from('drug_administrations').insert(payload).select().single(); 
-        if (response.error) return alert("Error: " + response.error.message); 
-        if (response.data && response.data.id) { 
-            const new_id = response.data.id; 
-            if (editingAdminId) await supabaseClient.from('administration_fluids').delete().eq('administration_id', editingAdminId); 
-            const selectedFluids = Array.from(document.querySelectorAll('input[name="comp-fluids"]:checked')).map(cb => ({ administration_id: new_id, fluid_short_name: cb.value })); 
-            if (selectedFluids.length > 0) await supabaseClient.from('administration_fluids').insert(selectedFluids); 
-            resetAdminForm(); 
-            fetchCurrentAdmins(drug_code); 
-            fetchDrugs(); 
-        } 
+    // No direct-write fallback: both tables must be committed by the same RPC.
+    async function saveAdministrationWithFluids(payload, fluidNames, administrationId = null) {
+        const { data, error } = await supabaseClient.rpc('save_administration_with_fluids', {
+            p_administration_id: administrationId,
+            p_drug_code: payload.drug_code,
+            p_route_code: payload.route_code,
+            p_instructions: payload.instructions,
+            p_min_conc: payload.min_conc,
+            p_max_conc: payload.max_conc,
+            p_conc_unit: payload.conc_unit,
+            p_fluid_names: fluidNames
+        });
+        if (error) throw error;
+        if (data == null || !/^[1-9]\d*$/.test(String(data))) {
+            throw new Error('ไม่ได้รับผลยืนยันจากระบบบันทึก');
+        }
+        return data;
     }
-    
+
+    function lockAdministrationControls(modalId) {
+        const controls = Array.from(document.querySelectorAll(`#${modalId} button, #${modalId} input, #${modalId} select, #${modalId} textarea`));
+        const states = controls.map(control => control.disabled);
+        controls.forEach(control => control.disabled = true);
+        return () => controls.forEach((control, index) => control.disabled = states[index]);
+    }
+
+    async function addAdministration() {
+        if (adminSaveInProgress || adminFormLoading) return;
+        const errorBox = document.getElementById('admin-save-error');
+        errorBox.hidden = true;
+        const drug_code = document.getElementById('target-admin-drug-code').value;
+        const readConcentration = id => {
+            const value = document.getElementById(id).value.trim();
+            if (value === '') return null;
+            const number = Number(value);
+            if (!Number.isFinite(number)) throw new Error('กรุณาระบุความเข้มข้นเป็นตัวเลขที่ถูกต้อง');
+            return number;
+        };
+        let unlock = () => {};
+        const button = document.getElementById('btn-save-admin');
+        const originalLabel = button.innerText;
+        let saved = false;
+        try {
+            const payload = {
+                drug_code,
+                route_code: document.getElementById('select-route').value,
+                instructions: document.getElementById('input-instruction').value,
+                min_conc: readConcentration('input-min-conc'),
+                max_conc: readConcentration('input-max-conc'),
+                conc_unit: document.getElementById('input-conc-unit').value || null
+            };
+            const fluidNames = Array.from(document.querySelectorAll('input[name="comp-fluids"]:checked')).map(cb => cb.value);
+            adminSaveInProgress = true;
+            unlock = lockAdministrationControls('admin-manager-modal');
+            button.innerText = 'กำลังบันทึก...';
+            await saveAdministrationWithFluids(payload, fluidNames, editingAdminId);
+            saved = true;
+            resetAdminForm();
+        } catch (error) {
+            // A lost response does not prove the server rolled back. Keep inputs
+            // and ask for a list check before a manual retry; never retry blindly.
+            errorBox.textContent = '⚠️ บันทึกไม่สำเร็จหรือยังยืนยันผลไม่ได้ ค่าที่กรอกยังอยู่ โปรดตรวจสอบรายการล่าสุดก่อนลองบันทึกซ้ำ\n' + (error.message || 'ไม่สามารถติดต่อระบบได้');
+            errorBox.hidden = false;
+        } finally {
+            adminSaveInProgress = false;
+            unlock();
+            button.innerText = saved ? '+ บันทึกวิธีใช้' : originalLabel;
+        }
+        if (saved) {
+            fetchCurrentAdmins(drug_code);
+            fetchDrugs();
+        }
+    }
+
     async function removeAdmin(id, code) { if(confirm("ยืนยันลบ?")) { await supabaseClient.from('drug_administrations').delete().eq('id', id); fetchCurrentAdmins(code); fetchDrugs(); } }
 
     async function openBulkCopyAdmin(adminId, drugCode) { 
@@ -3668,63 +3742,56 @@ async function fetchLogs() {
         openModal('bulk-copy-modal'); 
     }
 
-    async function executeBulkCopyAdmin() { 
+    async function executeBulkCopyAdmin() {
+        if (adminCopyInProgress) return;
+        const button = document.querySelector('#bulk-copy-modal button');
+        const originalLabel = button.innerText;
+        let unlock = () => {};
+        let successCount = 0;
         try {
-            const adminId = parseInt(document.getElementById('bulk-copy-admin-id').value); 
-            const sourceAdmin = currentAdminsList.find(a => a.id === adminId); 
-            if (!sourceAdmin) { alert("ไม่พบข้อมูลต้นฉบับ กรุณาปิดแล้วลองใหม่"); return; }
-            
-            const selectedCheckboxes = document.querySelectorAll('input[name="bulk-target-drugs"]:checked'); 
-            const targetDrugCodes = Array.from(selectedCheckboxes).map(cb => cb.value); 
-            if (targetDrugCodes.length === 0) return alert("กรุณาเลือกยาปลายทางอย่างน้อย 1 รายการ"); 
-            
-            const { data: sourceFluids } = await supabaseClient.from('administration_fluids').select('fluid_short_name').eq('administration_id', adminId); 
-            const fluidNames = (sourceFluids || []).map(f => f.fluid_short_name); 
-            
-            let successCount = 0; 
-            let lastError = null;
-
-            for (const tCode of targetDrugCodes) { 
-                const payload = { 
-                    drug_code: tCode, 
-                    route_code: sourceAdmin.route_code, 
-                    instructions: sourceAdmin.instructions || null, 
-                    min_conc: sourceAdmin.min_conc === '' ? null : sourceAdmin.min_conc, 
-                    max_conc: sourceAdmin.max_conc === '' ? null : sourceAdmin.max_conc, 
-                    conc_unit: sourceAdmin.conc_unit || null,
-                    updated_by: currentAdminEmail,
-                    updated_at: new Date().toISOString()
-                }; 
-                
-                const { data: newAdmin, error } = await supabaseClient.from('drug_administrations').insert(payload).select().single(); 
-                
-                if (error) { 
-                    console.error("Copy Error on Drug " + tCode + ":", error); 
-                    lastError = error.message;
-                    continue; 
-                } 
-                
-                if (newAdmin && fluidNames.length > 0) { 
-                    const fluidPayload = fluidNames.map(fn => ({ administration_id: newAdmin.id, fluid_short_name: fn })); 
-                    const {error: fluidError} = await supabaseClient.from('administration_fluids').insert(fluidPayload); 
-                    if(fluidError) {
-                        console.error("Fluid Copy Error:", fluidError);
-                        lastError = fluidError.message;
-                    }
-                } 
-                successCount++; 
-            } 
-            
-            if (successCount > 0) {
-                alert(`✅ คัดลอกวิธีใช้ไปยังยาอื่นจำนวน ${successCount} รายการ สำเร็จเรียบร้อยแล้ว!`); 
-                closeModal('bulk-copy-modal'); 
-                fetchDrugs(); 
-            } else {
-                alert(`❌ คัดลอกไม่สำเร็จเลย! ข้อผิดพลาด:\n${lastError || 'ไม่ทราบสาเหตุ'}`);
+            const adminId = document.getElementById('bulk-copy-admin-id').value;
+            const sourceAdmin = currentAdminsList.find(a => String(a.id) === adminId);
+            if (!sourceAdmin) return alert('ไม่พบข้อมูลต้นฉบับ กรุณาปิดแล้วลองใหม่');
+            const targets = Array.from(document.querySelectorAll('input[name="bulk-target-drugs"]:checked'));
+            if (!targets.length) return alert('กรุณาเลือกยาปลายทางอย่างน้อย 1 รายการ');
+            adminCopyInProgress = true;
+            unlock = lockAdministrationControls('bulk-copy-modal');
+            button.innerText = 'กำลังคัดลอก...';
+            const { data: sourceFluids, error: readError } = await supabaseClient.from('administration_fluids')
+                .select('fluid_short_name').eq('administration_id', adminId);
+            if (readError) throw readError;
+            if (!Array.isArray(sourceFluids)) throw new Error('ไม่สามารถอ่านรายการสารน้ำต้นฉบับได้');
+            const fluidNames = sourceFluids.map(f => f.fluid_short_name);
+            const failures = [];
+            for (const target of targets) {
+                try {
+                    await saveAdministrationWithFluids({
+                        drug_code: target.value,
+                        route_code: sourceAdmin.route_code,
+                        instructions: sourceAdmin.instructions || null,
+                        min_conc: sourceAdmin.min_conc === '' ? null : sourceAdmin.min_conc,
+                        max_conc: sourceAdmin.max_conc === '' ? null : sourceAdmin.max_conc,
+                        conc_unit: sourceAdmin.conc_unit || null
+                    }, fluidNames);
+                    successCount++;
+                    target.checked = false;
+                } catch (error) {
+                    failures.push(`${target.value}: ${error.message || 'ไม่สามารถยืนยันผลได้'}`);
+                }
             }
-        } catch (err) {
-            console.error("Fatal Copy Error:", err);
-            alert("เกิดข้อผิดพลาดร้ายแรง: " + err.message);
+            if (!failures.length) {
+                alert(`✅ คัดลอกวิธีใช้พร้อมสารน้ำสำเร็จ ${successCount} รายการ`);
+                closeModal('bulk-copy-modal');
+            } else {
+                alert(`⚠️ สำเร็จ ${successCount} รายการ อีก ${failures.length} รายการไม่สำเร็จหรือยังยืนยันผลไม่ได้\nโปรดตรวจสอบรายการปลายทางก่อนลองซ้ำ รายการที่ยืนยันสำเร็จถูกนำเครื่องหมายเลือกออกแล้ว\n${failures.join('\n')}`);
+            }
+        } catch (error) {
+            alert('⚠️ ไม่สามารถคัดลอกได้: ' + (error.message || 'ไม่สามารถติดต่อระบบได้'));
+        } finally {
+            adminCopyInProgress = false;
+            unlock();
+            button.innerText = originalLabel;
+            if (successCount > 0) fetchDrugs();
         }
     }
 
