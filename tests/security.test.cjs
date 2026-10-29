@@ -19,13 +19,13 @@ before(async () => {
 });
 after(async () => { await browser?.close(); });
 
-async function openPage(file, run) {
+async function openPage(file, run, fixtureOptions = {}) {
     const page = await browser.newPage();
     page.setDefaultTimeout(5000);
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     page.on('dialog', dialog => dialog.dismiss());
-    await page.addInitScript(({ text, code }) => {
+    await page.addInitScript(({ text, code, fixtureOptions }) => {
         const generic = { generic_code: 'G1', generic_name: text, generic_type: 'drug', special_note: text,
             needs_renal_adj: true, needs_hepatic_adj: true,
             generic_gene_lab: [{ test_name: text, description: text }],
@@ -64,13 +64,20 @@ async function openPage(file, run) {
         window.__writes = [];
         function query(table) {
             const q = { operation: 'select', first: 0, singleRow: false };
-            for (const name of ['select', 'eq', 'neq', 'in', 'order', 'limit', 'match', 'gte', 'lte', 'or']) q[name] = () => q;
+            for (const name of ['eq', 'neq', 'in', 'order', 'limit', 'match', 'gte', 'lte', 'or']) q[name] = () => q;
+            q.select = columns => { q.columns = columns; return q; };
             q.range = first => { q.first = first; return q; };
             q.single = q.maybeSingle = () => { q.singleRow = true; return q; };
             for (const op of ['insert', 'upsert', 'delete', 'update']) q[op] = payload => {
-                q.operation = op; window.__writes.push({ table, operation: op, payload }); return q;
+                q.operation = op; window.__writes.push({ table, operation: op, payload });
+                if (table === 'enteral_nutrients' && op === 'upsert') {
+                    window.__fixtures[table] = window.__fixtures[table].filter(row => row.drug_code !== payload.drug_code);
+                    window.__fixtures[table].push(structuredClone(payload));
+                }
+                return q;
             };
-            q.then = (yes, no) => Promise.resolve({
+            q.then = (yes, no) => Promise.resolve(fixtureOptions.missingBasisColumn && table === 'enteral_nutrients' && q.columns === 'base_kcal'
+                ? { data: null, error: { code: '42703', message: 'column base_kcal does not exist' } } : {
                 data: q.operation !== 'select' ? [] : q.first ? [] : q.singleRow ? null : structuredClone(window.__fixtures[table] || []), error: null
             }).then(yes, no);
             return q;
@@ -81,7 +88,7 @@ async function openPage(file, run) {
                 onAuthStateChange: () => ({}), signOut: async () => ({ error: null }) }
         };
         Object.defineProperty(navigator, 'geolocation', { value: { getCurrentPosition: yes => yes({ coords: { latitude: 13.7665, longitude: 100.5272 } }) } });
-    }, { text, code });
+    }, { text, code, fixtureOptions });
     await page.route('**/*', async route => {
         const url = new URL(route.request().url());
         if (url.hostname === 'ramaclinic.test') {
@@ -381,5 +388,135 @@ test('legacy CrCl modal suppresses ambiguous boundary highlights too', async () 
         assert.equal(result.value, '30.0');
         assert.equal(result.highlighted, 0);
         assert.ok(result.warning.includes('ทับซ้อน'));
+    });
+});
+
+test('label quantities and 250 kcal basis survive save and reopen without normalization', async () => {
+    await openPage('enteral_compare', async page => {
+        await page.waitForFunction(() => allEnteralDrugs.length > 0 && nutrientBasisAvailable);
+        const result = await page.evaluate(async code => {
+            delete nutrientsData[code];
+            openAdminModal(code, 'Label product');
+            document.getElementById('admin-base-kcal').value = '250';
+            addJsonItem('admin-macros-list', 'Protein (g)', '10.00');
+            addJsonItem('admin-macros-list', 'Fat (g)', '0');
+            addJsonItem('admin-minerals-list', 'Sodium', '1,000 mg');
+            addJsonItem('admin-vitamins-list', 'Trace', '<0.01 mg');
+            await saveNutrientData();
+            const payload = window.__writes.find(write => write.table === 'enteral_nutrients').payload;
+            await fetchNutrients();
+            openAdminModal(code, 'Label product');
+            const reopened = {
+                base: document.getElementById('admin-base-kcal').value,
+                values: [...document.querySelectorAll('#admin-macros-list .val-input')].map(input => input.value)
+            };
+            document.getElementById('admin-modal').style.display = 'none';
+            document.querySelector('.product-cb').checked = true;
+            renderTable();
+            const display100 = document.getElementById('compare-table').innerText;
+            document.getElementById('compare-base-kcal').value = '200'; renderTable();
+            return { payload, reopened, display100, display200: document.getElementById('compare-table').innerText };
+        }, code);
+        assert.equal(result.payload.base_kcal, 250);
+        assert.equal(result.payload.macros['Protein (g)'], '10.00');
+        assert.equal(result.payload.macros['Fat (g)'], '0');
+        assert.equal(result.payload.minerals.Sodium, '1,000 mg');
+        assert.equal(result.payload.vitamins.Trace, '<0.01 mg');
+        assert.equal(result.reopened.base, '250');
+        assert.deepEqual(result.reopened.values, ['0', '10.00']);
+        assert.ok(result.display100.includes('4.00'));
+        assert.ok(result.display100.includes('0.00'));
+        assert.ok(result.display100.includes('400.00 mg'));
+        assert.ok(result.display100.includes('< 0.004 mg'));
+        assert.ok(result.display100.includes('ข้อมูลต้นฉบับต่อ 250 kcal'));
+        assert.ok(result.display200.includes('8.00'));
+    });
+});
+
+test('mixed label bases compare on equal energy while legacy records retain a 100 kcal basis', async () => {
+    await openPage('enteral_compare', async page => {
+        await page.waitForFunction(() => allEnteralDrugs.length > 0);
+        const result = await page.evaluate(code => {
+            const legacy = { ...allEnteralDrugs[0], drug_code: 'LEGACY', drug_name: 'Legacy normalized data' };
+            allEnteralDrugs.push(legacy);
+            nutrientsData[code] = { drug_code: code, base_kcal: 250, macros: { Protein: 10 } };
+            nutrientsData.LEGACY = { drug_code: 'LEGACY', macros: { Protein: 4 } };
+            renderSelectors();
+            document.querySelectorAll('.product-cb').forEach(input => { input.checked = true; });
+            renderTable();
+            const at100 = [...document.querySelectorAll('#compare-table tbody tr:last-child td')].slice(1).map(cell => cell.textContent);
+            document.getElementById('compare-base-kcal').value = '200'; renderTable();
+            const at200 = [...document.querySelectorAll('#compare-table tbody tr:last-child td')].slice(1).map(cell => cell.textContent);
+            openAdminModal('LEGACY', 'Legacy normalized data');
+            return { at100, at200, legacyBase: document.getElementById('admin-base-kcal').value, writes: window.__writes.length };
+        }, code);
+        assert.deepEqual(result.at100, ['4.00', '4.00']);
+        assert.deepEqual(result.at200, ['8.00', '8.00']);
+        assert.equal(result.legacyBase, '100');
+        assert.equal(result.writes, 0);
+    });
+});
+
+test('invalid bases, duplicate keys and unconfirmed basis changes never write data', async () => {
+    await openPage('enteral_compare', async page => {
+        await page.waitForFunction(() => nutrientBasisAvailable);
+        const result = await page.evaluate(async code => {
+            openAdminModal(code, 'Product');
+            for (const base of ['', '0', '-1']) {
+                document.getElementById('admin-base-kcal').value = base;
+                await saveNutrientData();
+            }
+            document.getElementById('admin-base-kcal').value = '250';
+            updateNutrientBasisNotice();
+            const changeWarning = document.getElementById('admin-basis-change-warning').innerText;
+            window.confirm = () => false;
+            await saveNutrientData();
+            document.getElementById('admin-base-kcal').value = '100';
+            setHTML(document.getElementById('admin-macros-list'), '');
+            addJsonItem('admin-macros-list', 'Protein', '10');
+            addJsonItem('admin-macros-list', 'Protein', '20');
+            await saveNutrientData();
+            return { changeWarning, writes: window.__writes.length, editorOpen: document.getElementById('admin-modal').style.display };
+        }, code);
+        assert.ok(result.changeWarning.includes('ไม่ถูกคูณหรือหารอัตโนมัติ'));
+        assert.equal(result.writes, 0);
+        assert.equal(result.editorOpen, 'block');
+    });
+});
+
+test('missing database column blocks label-basis saves but preserves legacy 100 kcal editing', async () => {
+    await openPage('enteral_compare', async page => {
+        await page.waitForFunction(() => allEnteralDrugs.length > 0);
+        const result = await page.evaluate(async code => {
+            await fetchNutrients();
+            openAdminModal(code, 'Legacy product');
+            document.getElementById('admin-base-kcal').value = '250';
+            await saveNutrientData();
+            const blocked = window.__writes.length;
+            document.getElementById('admin-base-kcal').value = '100';
+            await saveNutrientData();
+            return { supported: nutrientBasisAvailable, blocked, writes: window.__writes };
+        }, code);
+        assert.equal(result.supported, false);
+        assert.equal(result.blocked, 0);
+        assert.equal(result.writes.length, 1);
+        assert.ok(!Object.prototype.hasOwnProperty.call(result.writes[0].payload, 'base_kcal'));
+    }, { missingBasisColumn: true });
+});
+
+test('label parser retains operators and units without inventing an exact ranking', async () => {
+    await openPage('enteral_compare', async page => {
+        const result = await page.evaluate(() => ({
+            comma: formatNutrientValue('1,000 mg', 0.4),
+            operator: formatNutrientValue('≥ 10 mg', 0.4),
+            malformed: formatNutrientValue('1,00 mg', 0.4),
+            invalidBase: formatNutrientValue(10, NaN)
+        }));
+        assert.equal(result.comma.display, '400.00 mg');
+        assert.equal(result.operator.display, '≥ 4 mg');
+        assert.equal(result.operator.numForCompare, null);
+        assert.ok(result.malformed.display.includes('ไม่แปลงสัดส่วน'));
+        assert.equal(result.malformed.numForCompare, null);
+        assert.equal(result.invalidBase.display, 'ตรวจสอบฐาน kcal');
     });
 });

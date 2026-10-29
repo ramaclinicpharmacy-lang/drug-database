@@ -104,7 +104,7 @@
         <div class="selector-box">
             <div style="display:flex; align-items:center; gap:10px; margin-bottom: 15px; background:#eff6ff; padding:12px; border-radius:8px; border:1px solid #bfdbfe;">
                 <b style="color:#1e40af;">📐 แสดงผลเทียบต่อปริมาณพลังงาน:</b>
-                <input type="number" id="compare-base-kcal" value="100" style="width:100px; margin:0; padding:6px; border:1px solid #93c5fd; border-radius:6px;" onchange="renderTable()" onkeyup="renderTable()">
+                <input type="number" id="compare-base-kcal" value="100" min="0.01" step="any" style="width:100px; margin:0; padding:6px; border:1px solid #93c5fd; border-radius:6px;" onchange="renderTable()" onkeyup="renderTable()">
                 <span style="font-weight:bold; color:var(--dark);">kcal</span>
             </div>
 
@@ -140,23 +140,21 @@
             <h3 style="margin-top:0; color:var(--primary);">🛠️ จัดการสารอาหาร: <span id="admin-drug-name"></span></h3>
             <input type="hidden" id="admin-drug-code">
 
-            <div style="background:#fffbeb; border:1px solid #fde68a; padding:12px; border-radius:8px; margin-bottom:15px; font-size:0.85rem; color:#b45309;">
-                <b>⚠️ ข้อควรระวังเมื่อกลับมาแก้ไขข้อมูล:</b><br>
-                ตัวเลขสารอาหารที่แสดงอยู่ในช่องต่างๆ ตอนนี้คือ <b>"ปริมาณที่แปลงเป็นต่อ 100 kcal แล้ว"</b><br>
-                หากท่านต้องการแก้ไขโดยอ้างอิงจากฉลากขนาดอื่น (เช่น 250 kcal) ให้แก้ช่องด้านล่างเป็น 250 <b><u>แล้วต้องพิมพ์เลขสารอาหารใหม่ทั้งหมดตามฉลากด้วย</u></b> (อย่านำค่า 100 kcal เดิมมาบันทึกหารซ้ำ)
+            <div style="background:#ecfdf5; border:1px solid #86efac; padding:12px; border-radius:8px; margin-bottom:15px; color:#166534; line-height:1.6;">
+                <b>📋 กรอกสารอาหารตามฉลากได้โดยตรง</b><br>
+                เช่น ฉลากระบุโปรตีน 10 g ต่อ 250 kcal ให้กรอกฐานพลังงาน 250 และโปรตีน 10 ระบบจะเก็บตัวเลขตามนี้ และคำนวณสัดส่วนเฉพาะตอนแสดงตารางเปรียบเทียบ
             </div>
-            
+
             <div style="background:#e0e7ff; border:1px solid #c7d2fe; padding:15px; border-radius:8px; margin-bottom:15px;">
-                <b style="color:#4338ca;">🔢 ข้อมูลที่กรอกด้านล่างนี้ อ้างอิงจากปริมาณพลังงาน:</b>
+                <label for="admin-base-kcal" style="color:#4338ca; font-weight:bold;">🔢 ตัวเลขสารอาหารบนฉลากนี้ อ้างอิงต่อพลังงาน:</label>
                 <div style="display:flex; gap:10px; align-items:center; margin-top:5px;">
-                    <input type="number" id="admin-base-kcal" value="100" style="width:120px; padding:6px; border:1px solid #a5b4fc; border-radius:6px; font-weight:bold;"> 
+                    <input type="number" id="admin-base-kcal" value="100" min="0.01" step="any" required oninput="updateNutrientBasisNotice()" style="width:120px; padding:6px; border:1px solid #a5b4fc; border-radius:6px; font-weight:bold;">
                     <span style="font-size:0.9rem; color:var(--dark); font-weight:bold;">kcal</span>
                 </div>
-                <div style="font-size:0.8rem; color:#475569; margin-top:5px;">
-                    * <b>ทริค:</b> ถ้าดูจากฉลากกระป๋องเขียนว่า "ต่อ 250 kcal" ให้แก้ช่องด้านบนเป็น <b>250</b> แล้วพิมพ์สารอาหารตามฉลากได้เลย <u>ระบบจะหารแปลงกลับเป็นมาตรฐานต่อ 100 kcal เพื่อเก็บลงฐานข้อมูลให้อัตโนมัติ</u>
-                </div>
+                <div id="admin-basis-notice" role="status" aria-live="polite" style="font-size:0.85rem; color:#475569; margin-top:8px;"></div>
+                <div id="admin-basis-change-warning" role="status" style="display:none; background:#fff7ed; border:2px solid #f59e0b; color:#92400e; padding:10px; border-radius:6px; margin-top:10px;"></div>
             </div>
-            
+
             <div class="json-group">
                 <div style="font-weight:bold; margin-bottom:10px; color:#c2410c;">🥩 Macronutrients (คาร์บ/โปรตีน/ไขมัน)</div>
                 <div id="admin-macros-list"></div>
@@ -182,7 +180,7 @@
             </div>
 
             <div style="display:flex; gap:10px; margin-top:20px; flex-wrap:wrap;">
-                <button class="btn btn-success" style="flex:2; min-width:200px;" onclick="saveNutrientData()">💾 บันทึกข้อมูลและแปลงเป็นต่อ 100 kcal</button>
+                <button class="btn btn-success" style="flex:2; min-width:200px;" onclick="saveNutrientData()">💾 บันทึกข้อมูลตามฉลาก</button>
                 <button class="btn btn-outline" style="flex:1; min-width:100px; border-color:var(--danger); color:var(--danger);" onclick="clearAllNutrients()">🗑️ ล้างทั้งหมด</button>
                 <button class="btn btn-outline" style="flex:1; min-width:100px;" onclick="document.getElementById('admin-modal').style.display='none'">ยกเลิก</button>
             </div>
@@ -304,7 +302,8 @@
 
         let isAdmin = false;
         let allEnteralDrugs = [];
-        let nutrientsData = {}; 
+        let nutrientsData = {};
+        let nutrientBasisAvailable = false; 
         let rankData = {}; // เก็บข้อมูลลำดับ { "Protein": 1, "Fat": 2 }
 
         async function init() {
@@ -350,11 +349,11 @@
             const { data, error } = await supabaseClient.from('enteral_nutrients').select('*').in('drug_code', codes);
             if (error) throw error;
 
-            if (data) {
-                data.forEach(row => {
-                    nutrientsData[row.drug_code] = row;
-                });
-            }
+            nutrientsData = {};
+            (data || []).forEach(row => { nutrientsData[row.drug_code] = row; });
+            // A missing column must never cause label values to be saved as if they were per 100 kcal.
+            const probe = await supabaseClient.from('enteral_nutrients').select('base_kcal').limit(1);
+            nutrientBasisAvailable = (data || []).some(row => Object.prototype.hasOwnProperty.call(row, 'base_kcal')) || !probe.error;
         }
 
         async function fetchRankings() {
@@ -395,40 +394,32 @@
             renderTable();
         }
 
+        function nutrientBaseKcal(row) {
+            // Existing records were normalized to 100 kcal by the previous editor.
+            if (row?.base_kcal === undefined || row.base_kcal === null) return 100;
+            const value = Number(row.base_kcal);
+            return Number.isFinite(value) && value > 0 ? value : NaN;
+        }
+
         function formatNutrientValue(val, scaleFactor) {
             if (val === undefined || val === null || val === '') return { numForCompare: null, display: '-' };
-            
-            if (typeof val === 'number') {
-                const scaled = val * scaleFactor;
-                return { 
-                    numForCompare: scaled, 
-                    display: scaled > 0 && scaled < 0.01 ? '< 0.01' : scaled.toFixed(2),
-                    isOperator: false
-                };
-            }
-
-            const strVal = String(val).trim();
-            const match = strVal.match(/^([<>])?\s*([\d.]+)(.*)$/);
-            
-            if (match) {
-                const operator = match[1] || '';
-                const num = parseFloat(match[2]);
-                const unit = match[3] || '';
-                
-                if (!isNaN(num)) {
-                    const scaled = num * scaleFactor;
-                    let displayStr = '';
-                    
-                    if (operator) {
-                        displayStr = `${operator} ${scaled > 0 && scaled < 0.01 ? '0.01' : parseFloat(scaled.toFixed(4))}${unit}`;
-                        return { numForCompare: operator === '<' ? scaled - 0.0001 : scaled, display: displayStr, isOperator: true }; 
-                    } else {
-                        displayStr = `${scaled > 0 && scaled < 0.01 ? '< 0.01' : scaled.toFixed(2)}${unit}`;
-                        return { numForCompare: scaled, display: displayStr, isOperator: false };
-                    }
-                }
-            }
-            return { numForCompare: null, display: strVal, isOperator: false };
+            if (!Number.isFinite(scaleFactor) || scaleFactor <= 0) return { numForCompare: null, display: 'ตรวจสอบฐาน kcal' };
+            const text = String(val).trim();
+            // Accept label numbers, correctly grouped thousands, optional operators, and units.
+            const match = text.match(/^([<>]=?|[≤≥])?\s*([+-]?(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)(?:\s*([^\d,.+\-<>=≤≥].*))?$/);
+            if (!match) return { numForCompare: null, display: scaleFactor === 1 ? text : `${text} (ไม่แปลงสัดส่วน)`, isOperator: false };
+            const number = Number(match[2].replace(/,/g, ''));
+            const scaled = number * scaleFactor;
+            if (!Number.isFinite(scaled)) return { numForCompare: null, display: 'คำนวณไม่ได้', isOperator: false };
+            const operator = match[1] || '';
+            const unit = (match[3] || '').trim();
+            const formatted = operator ? String(Number(scaled.toPrecision(8)))
+                : (scaled !== 0 && Math.abs(scaled) < 0.01 ? String(Number(scaled.toPrecision(3))) : scaled.toFixed(2));
+            return {
+                numForCompare: operator ? null : scaled,
+                display: `${operator ? operator + ' ' : ''}${formatted}${unit ? ' ' + unit : ''}`,
+                isOperator: !!operator
+            };
         }
 
         function renderTable() {
@@ -440,8 +431,11 @@
                 return;
             }
 
-            const compareBase = parseFloat(document.getElementById('compare-base-kcal').value) || 100;
-            const scaleFactor = compareBase / 100;
+            const compareBase = Number(document.getElementById('compare-base-kcal').value);
+            if (!Number.isFinite(compareBase) || compareBase <= 0) {
+                setHTML(table, '<tr><td style="padding:20px; color:#b91c1c;">กรุณาระบุพลังงานที่ต้องการเปรียบเทียบเป็นตัวเลขมากกว่า 0 kcal</td></tr>');
+                return;
+            }
 
             const drugsToCompare = allEnteralDrugs.filter(d => selectedCodes.includes(d.drug_code));
             
@@ -469,7 +463,9 @@
                     `;
                 }
 
-                html += `<th style="vertical-align: top;">${tooltipHtml}${calcBtn}${adminBtn}</th>`;
+                const storedBase = nutrientBaseKcal(nutrientsData[d.drug_code]);
+                const basisText = Number.isFinite(storedBase) ? `ข้อมูลต้นฉบับต่อ ${storedBase} kcal` : 'ฐาน kcal ไม่ถูกต้อง';
+                html += `<th style="vertical-align: top;">${tooltipHtml}<br><small style="color:#64748b; font-weight:normal;">${encodeHTML(basisText)}</small>${calcBtn}${adminBtn}</th>`;
             });
             html += `</tr></thead><tbody>`;
 
@@ -501,7 +497,7 @@
                     drugsToCompare.forEach(d => {
                         const nutri = nutrientsData[d.drug_code];
                         let rawVal = (nutri && nutri[categoryKey] && nutri[categoryKey][key] !== undefined && nutri[categoryKey][key] !== "") ? nutri[categoryKey][key] : '-';
-                        let parsed = formatNutrientValue(rawVal, scaleFactor);
+                        let parsed = formatNutrientValue(rawVal, compareBase / nutrientBaseKcal(nutri));
                         
                         // 🌟 ปลดล็อก เอาเงื่อนไข !parsed.isOperator ออก
                         if (parsed.numForCompare !== null) {
@@ -525,7 +521,7 @@
                         let displayVal = '-';
 
                         if (rawVal !== '-') {
-                            const parsed = formatNutrientValue(rawVal, scaleFactor);
+                            const parsed = formatNutrientValue(rawVal, compareBase / nutrientBaseKcal(nutri));
                             displayVal = parsed.display;
                             
                             // 🌟 ปลดล็อก เอาเงื่อนไข !parsed.isOperator ออก
@@ -599,11 +595,11 @@
             document.getElementById('admin-drug-code').value = code;
             document.getElementById('admin-drug-name').innerText = name;
             
-            document.getElementById('admin-base-kcal').value = '100';
-
-            updateSuggestionLists();
-
             const nutri = nutrientsData[code] || {};
+            const base = nutrientBaseKcal(nutri);
+            document.getElementById('admin-base-kcal').value = Number.isFinite(base) ? String(base) : '';
+            updateSuggestionLists();
+            updateNutrientBasisNotice();
             
             buildAdminJsonList('admin-macros-list', nutri.macros || {});
             buildAdminJsonList('admin-vitamins-list', nutri.vitamins || {});
@@ -648,33 +644,33 @@
             container.appendChild(div);
         }
 
-        function scaleRawValueForDB(val, scaleFactor) {
-            if (val === '') return null;
-            if (typeof val === 'number') return parseFloat((val * scaleFactor).toFixed(4));
-            
-            const strVal = String(val).trim();
-            const match = strVal.match(/^([<>])?\s*([\d.]+)(.*)$/);
-            if (match) {
-                const operator = match[1] || '';
-                const num = parseFloat(match[2]);
-                const unit = match[3] || '';
-                if (!isNaN(num)) {
-                    const scaled = num * scaleFactor;
-                    if (operator) return `${operator}${parseFloat(scaled.toFixed(4))}${unit}`;
-                    return parseFloat(scaled.toFixed(4));
-                }
-            }
-            return strVal; 
+        function updateNutrientBasisNotice() {
+            const code = document.getElementById('admin-drug-code').value;
+            const base = Number(document.getElementById('admin-base-kcal').value);
+            const previous = nutrientsData[code];
+            const previousBase = nutrientBaseKcal(previous);
+            const valid = Number.isFinite(base) && base > 0;
+            document.getElementById('admin-basis-notice').textContent = valid
+                ? `บันทึกตัวเลขตามฉลากต่อ ${base} kcal โดยไม่หารแปลงค่า ตารางจะคำนวณสัดส่วนตอนแสดงผล`
+                : 'กรุณาระบุฐานพลังงานเป็นตัวเลขมากกว่า 0 kcal';
+            const warning = document.getElementById('admin-basis-change-warning');
+            const changed = previous && valid && base !== previousBase;
+            warning.textContent = changed
+                ? `กำลังเปลี่ยนฐานจาก ${Number.isFinite(previousBase) ? previousBase : 'ไม่ระบุ'} เป็น ${base} kcal ตัวเลขในช่องจะไม่ถูกคูณหรือหารอัตโนมัติ โปรดตรวจสอบและกรอกทุกค่าตามฉลากฐานใหม่ก่อนบันทึก`
+                : '';
+            warning.style.display = changed ? 'block' : 'none';
         }
 
-        function extractJsonData(containerId, scaleFactor) {
+        function extractJsonData(containerId) {
             const container = document.getElementById(containerId);
-            const obj = {};
+            const obj = Object.create(null);
             container.querySelectorAll('.json-item').forEach(item => {
-                const k = item.querySelector('.key-input').value.trim();
-                const v = item.querySelector('.val-input').value.trim();
-                if (k && v !== '') {
-                    obj[k] = scaleRawValueForDB(v, scaleFactor);
+                const key = item.querySelector('.key-input').value.trim();
+                const value = item.querySelector('.val-input').value.trim();
+                if (!key && value !== '') throw new Error('กรุณาระบุชื่อสารอาหารให้ครบ');
+                if (key && value !== '') {
+                    if (Object.prototype.hasOwnProperty.call(obj, key)) throw new Error(`ชื่อสารอาหารซ้ำในหมวดเดียวกัน: ${key}`);
+                    obj[key] = value; // Preserve label values, units, precision, and inequality operators.
                 }
             });
             return obj;
@@ -682,50 +678,52 @@
 
         async function saveNutrientData() {
             const code = document.getElementById('admin-drug-code').value;
-            const baseKcal = parseFloat(document.getElementById('admin-base-kcal').value) || 100;
-            
-            if (baseKcal !== 100) {
-                const confirmMsg = `⚠️ ยืนยันการคำนวณใหม่?\n\nคุณกำหนดฐานพลังงานไว้ที่ ${baseKcal} kcal\nระบบจะนำตัวเลขสารอาหารทั้งหมดที่คุณกรอกมา "หารและแปลงกลับเป็นต่อ 100 kcal"\n\nหากตัวเลขในช่องยังเป็นค่า 100 kcal เดิมอยู่ การบันทึกนี้จะทำให้ข้อมูลเพี้ยนทันที!\n\nกด OK เพื่อบันทึก หรือ Cancel เพื่อกลับไปแก้ตัวเลข`;
-                if (!confirm(confirmMsg)) {
-                    return; 
-                }
+            const baseKcal = Number(document.getElementById('admin-base-kcal').value);
+            if (!Number.isFinite(baseKcal) || baseKcal <= 0) return alert('กรุณาระบุฐานพลังงานเป็นตัวเลขมากกว่า 0 kcal');
+            if (!nutrientBasisAvailable && baseKcal !== 100) {
+                return alert('การบันทึกฐานพลังงานตามฉลากยังไม่พร้อมใช้งาน กรุณาให้ผู้ดูแลระบบเปิดใช้การจัดเก็บฐาน kcal ก่อน ข้อมูลที่กรอกยังอยู่ครบ');
             }
+            const previous = nutrientsData[code];
+            if (previous && baseKcal !== nutrientBaseKcal(previous) &&
+                !confirm(`ยืนยันเปลี่ยนฐานเป็นต่อ ${baseKcal} kcal?\nตัวเลขที่กรอกจะถูกเก็บตามเดิมโดยไม่คูณหรือหาร กรุณายืนยันว่าทุกค่าตรงกับฉลากฐานใหม่นี้`)) return;
 
-            const scaleFactorTo100 = 100 / baseKcal; 
-            
-            const payload = {
-                drug_code: code,
-                macros: extractJsonData('admin-macros-list', scaleFactorTo100),
-                vitamins: extractJsonData('admin-vitamins-list', scaleFactorTo100),
-                minerals: extractJsonData('admin-minerals-list', scaleFactorTo100),
-                specials: extractJsonData('admin-specials-list', scaleFactorTo100),
-                updated_at: new Date().toISOString()
-            };
+            let payload;
+            try {
+                payload = {
+                    drug_code: code,
+                    ...(nutrientBasisAvailable ? { base_kcal: baseKcal } : {}),
+                    macros: extractJsonData('admin-macros-list'),
+                    vitamins: extractJsonData('admin-vitamins-list'),
+                    minerals: extractJsonData('admin-minerals-list'),
+                    specials: extractJsonData('admin-specials-list'),
+                    updated_at: new Date().toISOString()
+                };
+            } catch (error) { return alert(error.message); }
 
             const btn = document.querySelector('#admin-modal .btn-success');
             setHTML(btn, '⏳ กำลังบันทึก...');
             btn.disabled = true;
-
-            const { error } = await supabaseClient.from('enteral_nutrients').upsert(payload);
-            
-            setHTML(btn, '💾 บันทึกข้อมูลและแปลงเป็นต่อ 100 kcal');
-            btn.disabled = false;
-
-            if (error) {
-                // 🌟 ดักจับ Error กรณี Session หมดอายุ หรือติด RLS (ไม่มีสิทธิ์)
-                const msg = error.message.toLowerCase();
-                if (msg.includes('jwt') || msg.includes('rls') || msg.includes('policy') || error.code === '401' || error.code === '403') {
-                    promptRelogin(); // เรียกหน้าต่างล็อกอินซ้อนขึ้นมา
-                    return; // 🛑 หยุดการทำงานตรงนี้ ข้อมูลที่กรอกไว้จะไม่หาย!
+            try {
+                const { error } = await supabaseClient.from('enteral_nutrients').upsert(payload);
+                if (error) {
+                    const msg = String(error.message || '').toLowerCase();
+                    if (msg.includes('jwt') || msg.includes('rls') || msg.includes('policy') || error.code === '401' || error.code === '403') {
+                        promptRelogin();
+                    } else if (error.code === 'PGRST204' || error.code === '42703') {
+                        alert('การบันทึกฐานพลังงานตามฉลากยังไม่พร้อมใช้งาน กรุณาติดต่อผู้ดูแลระบบ ข้อมูลที่กรอกยังอยู่ครบ');
+                    } else alert('❌ เกิดข้อผิดพลาด: ' + error.message);
+                    return;
                 }
-                // ถ้าเป็น Error อื่นๆ ทั่วไป ค่อยแจ้งเตือนปกติ
-                alert("❌ เกิดข้อผิดพลาด: " + error.message);
-            } else {
-                nutrientsData[code] = payload; 
-                updateSuggestionLists(); 
+                nutrientsData[code] = { ...payload, base_kcal: baseKcal };
+                updateSuggestionLists();
                 document.getElementById('admin-modal').style.display = 'none';
-                renderTable(); 
-                alert("✅ บันทึกข้อมูลสำเร็จ ระบบได้คำนวณและจัดเก็บเป็นสัดส่วนต่อ 100 kcal เรียบร้อยแล้ว");
+                renderTable();
+                alert(`✅ บันทึกข้อมูลตามฉลากต่อ ${baseKcal} kcal แล้ว ตารางจะคำนวณสัดส่วนตามพลังงานที่เลือก`);
+            } catch (error) {
+                alert('❌ บันทึกไม่สำเร็จ: ' + error.message + '\nข้อมูลที่กรอกยังอยู่ครบ กรุณาลองใหม่');
+            } finally {
+                setHTML(btn, '💾 บันทึกข้อมูลตามฉลาก');
+                btn.disabled = false;
             }
         }
 
