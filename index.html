@@ -1395,11 +1395,19 @@
         <div class="section-box" style="background: #ecfdf5; border-color: #a7f3d0;">
             <label style="font-size:0.9rem; font-weight:bold; display:block;">ชื่อ Gene หรือ Lab</label>
             <!-- 🌟 เพิ่ม onchange="onBulkGeneLabNameChange()" -->
-            <input type="text" id="bulk-gl-test-name" list="bulk-gl-test-name-list" placeholder="พิมพ์หรือเลือกชื่อ Gene / Lab..." style="margin-bottom:10px; border-color:#10b981;" onchange="onBulkGeneLabNameChange()">
+            <input type="text" id="bulk-gl-test-name" list="bulk-gl-test-name-list" placeholder="พิมพ์หรือเลือกชื่อ Gene / Lab..." style="margin-bottom:10px; border-color:#10b981;" oninput="invalidateBulkGeneLabSelection()" onchange="onBulkGeneLabNameChange()">
             <datalist id="bulk-gl-test-name-list" class="gl-shared-datalist"></datalist>
 
-            <label style="font-size:0.9rem; font-weight:bold; display:block;">คำอธิบาย / ข้อแนะนำ (ใช้ร่วมกัน)</label>
-            <textarea id="bulk-gl-desc" placeholder="เช่น หากผลเป็น Positive ห้ามใช้ยานี้เด็ดขาด... (เว้นว่างได้)" style="height:60px;"></textarea>
+            <label style="font-size:0.9rem; font-weight:bold; display:block;">คำอธิบาย / ข้อแนะนำสำหรับรายการที่เพิ่มใหม่</label>
+            <textarea id="bulk-gl-desc" placeholder="คำอธิบายสำหรับยาที่เพิ่มใหม่ (เว้นว่างได้)" style="height:60px;"></textarea>
+            <p style="font-size:0.85rem; color:#065f46;">รายการเดิมที่ยังเลือกอยู่จะเก็บคำอธิบายเฉพาะของแต่ละยาไว้</p>
+            <label style="display:flex; gap:8px; align-items:flex-start; color:#991b1b; font-weight:bold;">
+                <input type="checkbox" id="bulk-gl-replace-desc">
+                ใช้คำอธิบายในช่องนี้แทนคำอธิบายเดิมของยาที่เลือกทั้งหมด (เว้นว่าง = ล้างคำอธิบายเดิม)
+            </label>
+            <button class="btn btn-outline" style="margin-top:10px;" onclick="onBulkGeneLabNameChange()">โหลดใหม่ (คืนตัวเลือกและล้างข้อความที่ยังไม่บันทึก)</button>
+            <div id="bulk-gl-status" role="status" style="margin-top:8px; font-size:0.85rem;"></div>
+            <div id="bulk-gl-error" role="alert" hidden style="margin-top:12px; padding:12px; border:2px solid #b91c1c; background:#fef2f2; color:#991b1b; font-weight:bold; white-space:pre-wrap;"></div>
         </div>
 
         <label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">รายชื่อยาสามัญ (ติ๊กเพื่อเลือกผูกพร้อมกัน):</label>
@@ -1412,7 +1420,7 @@
         <div id="bulk-gl-gen-list" style="max-height: 350px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 8px; margin-bottom: 15px; background: white; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; align-items: start;"></div>
         
         <div style="display:flex; gap:10px;">
-            <button class="btn" style="background:#059669; color:white; flex:1; font-size:1rem; height:45px;" onclick="executeBulkGeneLabAdd()">✅ บันทึกข้อมูล</button>
+            <button class="btn" style="background:#059669; color:white; flex:1; font-size:1rem; height:45px;" id="btn-save-bulk-gl" disabled onclick="executeBulkGeneLabAdd()">✅ บันทึกข้อมูล</button>
             <button class="btn btn-outline" style="flex:1; height:45px;" onclick="closeModal('bulk-genelab-modal')">ยกเลิก</button>
         </div>
     </div>
@@ -5602,40 +5610,66 @@ async function fetchLogs() {
 
     // --- ส่วนจัดการ Bulk (ผูกหลายตัวพร้อมกัน) ---
     let bulkGeneLabSelectedGenerics = new Set();
+    let bulkGeneLabExpectedRows = [];
+    let bulkGeneLabLoadedName = null;
+    let bulkGeneLabLoadSequence = 0;
+    let bulkGeneLabSaving = false;
+
+    function invalidateBulkGeneLabSelection() {
+        bulkGeneLabLoadSequence++;
+        bulkGeneLabLoadedName = null;
+        bulkGeneLabExpectedRows = [];
+        bulkGeneLabSelectedGenerics.clear();
+        document.getElementById('bulk-gl-desc').value = '';
+        document.getElementById('bulk-gl-replace-desc').checked = false;
+        document.getElementById('btn-save-bulk-gl').disabled = true;
+        document.getElementById('bulk-gl-error').hidden = true;
+        document.getElementById('bulk-gl-status').textContent = 'ระบุชื่อ Gene/Lab แล้วโหลดรายการล่าสุดก่อนบันทึก';
+        renderBulkGeneLabGenerics();
+    }
 
     function openBulkGeneLabModal() {
         document.getElementById('bulk-gl-test-name').value = '';
-        document.getElementById('bulk-gl-desc').value = '';
         document.getElementById('search-bulk-gl-gen').value = '';
-        bulkGeneLabSelectedGenerics.clear();
-        renderBulkGeneLabGenerics();
+        invalidateBulkGeneLabSelection();
         openModal('bulk-genelab-modal');
     }
 
-    // 🌟 ฟังก์ชันใหม่: ดักจับเมื่อผู้ใช้พิมพ์หรือเลือกชื่อ Gene/Lab
-    function onBulkGeneLabNameChange() {
+    async function onBulkGeneLabNameChange() {
+        if (bulkGeneLabSaving) return;
+        invalidateBulkGeneLabSelection();
         const selectedTestName = document.getElementById('bulk-gl-test-name').value.trim();
-        bulkGeneLabSelectedGenerics.clear();
-        document.getElementById('bulk-gl-desc').value = ''; // เคลียร์คำอธิบายเดิมก่อน
-
-        if (selectedTestName) {
-            let foundDesc = '';
-            // วนลูปหาว่ามียาสามัญตัวไหนที่ผูกกับชื่อนี้ไว้บ้าง
-            allGenerics.forEach(g => {
-                const glArray = g.generic_gene_lab || [];
-                const matched = glArray.find(gl => gl.test_name === selectedTestName);
-                if (matched) {
-                    bulkGeneLabSelectedGenerics.add(g.generic_code); // ติ๊กถูกยาตัวนั้น
-                    if (matched.description && !foundDesc) {
-                        foundDesc = matched.description; // ดึงคำอธิบายมาใส่กล่องให้อัตโนมัติ
-                    }
-                }
-            });
-            if (foundDesc) {
-                document.getElementById('bulk-gl-desc').value = foundDesc;
+        if (!selectedTestName) return;
+        const sequence = bulkGeneLabLoadSequence;
+        const status = document.getElementById('bulk-gl-status');
+        status.textContent = 'กำลังโหลดรายการล่าสุด...';
+        try {
+            const rows = [];
+            // Pagination prevents a truncated snapshot from removing hidden links.
+            for (let first = 0; ; first += 500) {
+                const { data, error } = await supabaseClient.from('generic_gene_lab')
+                    .select('id, generic_code, description').eq('test_name', selectedTestName)
+                    .order('id', { ascending: true }).range(first, first + 499);
+                if (sequence !== bulkGeneLabLoadSequence) return;
+                if (error) throw error;
+                if (!Array.isArray(data)) throw new Error('ไม่ได้รับรายการ Gene/Lab ที่ครบถ้วน');
+                rows.push(...data);
+                if (data.length < 500) break;
             }
+            if (sequence !== bulkGeneLabLoadSequence) return;
+            bulkGeneLabExpectedRows = rows.map(row => ({ id: row.id, generic_code: row.generic_code, description: row.description ?? null }));
+            bulkGeneLabSelectedGenerics = new Set(rows.map(row => row.generic_code));
+            bulkGeneLabLoadedName = selectedTestName;
+            status.textContent = `โหลดแล้ว ${bulkGeneLabSelectedGenerics.size} ยาสามัญ — เก็บคำอธิบายเดิมรายยาเป็นค่าเริ่มต้น`;
+            document.getElementById('btn-save-bulk-gl').disabled = false;
+            renderBulkGeneLabGenerics();
+        } catch (error) {
+            if (sequence !== bulkGeneLabLoadSequence) return;
+            status.textContent = 'โหลดไม่สำเร็จ ยังบันทึกไม่ได้';
+            const errorBox = document.getElementById('bulk-gl-error');
+            errorBox.textContent = '⚠️ กรุณาโหลดรายการล่าสุดอีกครั้ง\n' + (error.message || 'ไม่สามารถติดต่อระบบได้');
+            errorBox.hidden = false;
         }
-        renderBulkGeneLabGenerics();
     }
 
     function renderBulkGeneLabGenerics() {
@@ -5656,11 +5690,15 @@ async function fetchLogs() {
             const isSelected = bulkGeneLabSelectedGenerics.has(g.generic_code);
             const safeCode = g.generic_code;
             const safeName = g.generic_name;
+            const existing = bulkGeneLabExpectedRows.filter(row => row.generic_code === g.generic_code);
+            const descriptions = existing.map(row => row.description ?? '(ไม่มีคำอธิบาย)');
+            const existingHTML = existing.length ? `<small style="display:block; font-weight:normal; color:#475569;">คำอธิบายเดิม: ${textWithBreaks(descriptions.join('\n'))}</small>` : '';
+            const canSelect = bulkGeneLabLoadedName === document.getElementById('bulk-gl-test-name').value.trim() && !bulkGeneLabSaving;
             
             const html = `
             <label id="label-bgl-${encodeHTML(safeCode)}" style="display:flex; align-items:flex-start; gap:10px; padding:10px; border:1px solid ${isSelected ? '#059669' : '#e2e8f0'}; border-radius:8px; cursor:pointer; background:${isSelected ? '#ecfdf5' : '#f8fafc'}; font-size:0.9rem; text-align:left; transition:0.2s;">
-                <input type="checkbox" class="bulk-gl-gen-cb" style="margin-top: 4px; transform: scale(1.2);" value="${encodeHTML(safeCode)}" ${isSelected ? 'checked' : ''} ${bindHTMLAction("change", function(event) { handleBulkGeneLabCheck(this) })}>
-                <span style="color:var(--dark); font-weight:bold; flex:1;">${encodeHTML(safeName)}</span>
+                <input type="checkbox" class="bulk-gl-gen-cb" style="margin-top: 4px; transform: scale(1.2);" value="${encodeHTML(safeCode)}" ${canSelect ? '' : 'disabled'} ${isSelected ? 'checked' : ''} ${bindHTMLAction("change", function(event) { handleBulkGeneLabCheck(this) })}>
+                <span style="color:var(--dark); font-weight:bold; flex:1;">${encodeHTML(safeName)}${existingHTML}</span>
             </label>`;
 
             if (isSelected) inGroupHtml += html;
@@ -5691,6 +5729,7 @@ async function fetchLogs() {
     function filterBulkGeneLabGenerics() { renderBulkGeneLabGenerics(); }
 
     function toggleBulkGeneLabCheckboxes(check) {
+        if (bulkGeneLabSaving || bulkGeneLabLoadedName !== document.getElementById('bulk-gl-test-name').value.trim()) return;
         document.querySelectorAll('.bulk-gl-gen-cb').forEach(cb => {
             if (cb.checked !== check) {
                 cb.checked = check;
@@ -5700,44 +5739,56 @@ async function fetchLogs() {
     }
 
     async function executeBulkGeneLabAdd() {
-        const test_name = document.getElementById('bulk-gl-test-name').value.trim();
-        const description = document.getElementById('bulk-gl-desc').value.trim();
-
-        if (!test_name) return alert("กรุณาระบุชื่อ Gene หรือ Lab ก่อนครับ");
-        
-        // 🌟 สำคัญ: ลบข้อมูลของเก่าที่ผูกกับชื่อนี้ออกก่อน เพื่อเคลียร์รายการที่เรา "เอาติ๊กถูกออก"
-        const { error: delError } = await supabaseClient.from('generic_gene_lab').delete().eq('test_name', test_name);
-        if (delError) return alert("เกิดข้อผิดพลาดในการเคลียร์ข้อมูลเก่า: " + delError.message);
-
-        // ถ้าไม่มีอะไรถูกเลือกเลย ให้จบการทำงานแค่นี้ (เท่ากับลบทั้งหมด)
-        if (bulkGeneLabSelectedGenerics.size === 0) {
-            alert(`✅ ลบการผูก ${test_name} ออกจากยาสามัญทั้งหมดเรียบร้อยแล้ว`);
+        if (bulkGeneLabSaving) return;
+        const testName = document.getElementById('bulk-gl-test-name').value.trim();
+        const errorBox = document.getElementById('bulk-gl-error');
+        errorBox.hidden = true;
+        if (!testName || testName !== bulkGeneLabLoadedName) {
+            errorBox.textContent = '⚠️ กรุณาโหลดรายการล่าสุดของ Gene/Lab นี้ก่อนบันทึก';
+            errorBox.hidden = false;
+            return;
+        }
+        const codes = Array.from(bulkGeneLabSelectedGenerics);
+        const description = document.getElementById('bulk-gl-desc').value.trim() || null;
+        const replace = document.getElementById('bulk-gl-replace-desc').checked;
+        if (!codes.length && bulkGeneLabExpectedRows.length && !confirm(`ลบการผูก ${testName} ออกจากยาสามัญทั้งหมดที่โหลดมาใช่หรือไม่?`)) return;
+        if (replace && codes.some(code => bulkGeneLabExpectedRows.some(row => row.generic_code === code)) &&
+            !confirm('ยืนยันแทนที่คำอธิบายเดิมของยาที่เลือกทั้งหมดด้วยข้อความในช่องนี้? หากช่องว่าง คำอธิบายเดิมจะถูกล้าง')) return;
+        bulkGeneLabSaving = true;
+        const button = document.getElementById('btn-save-bulk-gl');
+        const unlock = lockModalControls('bulk-genelab-modal');
+        button.innerText = 'กำลังบันทึก...';
+        let saved = false;
+        try {
+            const { data, error } = await supabaseClient.rpc('save_gene_lab_links', {
+                p_test_name: testName,
+                p_generic_codes: codes,
+                p_new_description: description,
+                p_replace_descriptions: replace,
+                p_expected_rows: bulkGeneLabExpectedRows
+            });
+            if (error) throw error;
+            if (!data || data.selected_count !== codes.length) throw new Error('ไม่ได้รับผลยืนยันการบันทึกครบทั้งชุด');
+            saved = true;
+            alert(`✅ บันทึกการผูก ${testName} สำเร็จ ${data.selected_count} ยาสามัญ`);
             closeModal('bulk-genelab-modal');
+        } catch (error) {
+            errorBox.textContent = error.code === '40001'
+                ? '⚠️ ข้อมูลเปลี่ยนไปหลังโหลด กรุณากดโหลดรายการล่าสุดและตรวจสอบตัวเลือกก่อนบันทึกอีกครั้ง'
+                : '⚠️ บันทึกไม่สำเร็จหรือยังยืนยันผลไม่ได้ ตัวเลือกและข้อความยังอยู่ โปรดตรวจสอบข้อมูลล่าสุดก่อนลองซ้ำ\n' + (error.message || 'ไม่สามารถติดต่อระบบได้');
+            errorBox.hidden = false;
+            if (error.code === '40001') bulkGeneLabLoadedName = null;
+        } finally {
+            bulkGeneLabSaving = false;
+            unlock();
+            button.innerText = '✅ บันทึกข้อมูล';
+            button.disabled = bulkGeneLabLoadedName !== document.getElementById('bulk-gl-test-name').value.trim();
+        }
+        if (saved) {
             fetchAllGeneLabNames();
             fetchGenerics();
-            return fetchDrugs();
+            fetchDrugs();
         }
-
-        const payload = Array.from(bulkGeneLabSelectedGenerics).map(code => ({ 
-            generic_code: code, 
-            test_name: test_name,
-            description: description || null
-        }));
-
-        const { error: insError } = await supabaseClient.from('generic_gene_lab').insert(payload);
-        
-        if (insError) {
-            const msg = insError.message.toLowerCase();
-            if (msg.includes('jwt') || msg.includes('rls')) return promptRelogin();
-            return alert("เกิดข้อผิดพลาดในการบันทึก: " + insError.message);
-        }
-
-        alert(`✅ ผูก ${test_name} เข้ากับยาสำเร็จ! (รวม ${payload.length} รายการ)`);
-        closeModal('bulk-genelab-modal');
-        
-        fetchAllGeneLabNames(); 
-        fetchGenerics(); // สั่งให้ดึงข้อมูลใหม่มาลง allGenerics
-        fetchDrugs();
     }
     // ==========================================
     // 🏷️ ระบบจัดการ Alias (ชื่อพ้อง)

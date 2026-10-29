@@ -851,3 +851,176 @@ test('ingredient submit guards prevent duplicate writes and preserve blank/zero 
         assert.equal(await page.locator('#select-generic').isDisabled(),false);
     });
 });
+
+async function setupBulkGeneTest(page) {
+    await page.waitForFunction(() => allDrugsRaw.length > 0);
+    await page.evaluate(async text => {
+        allGenerics.push({generic_code:'G2',generic_name:'Generic B'},{generic_code:'G3',generic_name:'Generic C'});
+        // The authoritative table differs from cached generic details.
+        window.__fixtures.generic_gene_lab=[{id:11,generic_code:'G1',description:text},{id:12,generic_code:'G2',description:'Advice B'}];
+        openBulkGeneLabModal();
+        document.getElementById('bulk-gl-test-name').value='TEST';
+        await onBulkGeneLabNameChange();
+        window.__geneCalls=[];
+        window.__mockClient.rpc=async(name,args)=>{
+            window.__geneCalls.push({name,args:structuredClone(args)});
+            return {data:{selected_count:args.p_generic_codes.length},error:null};
+        };
+    },text);
+}
+
+test('bulk Gene/Lab loads authoritative links, previews advice safely and preserves descriptions by default',async()=>{
+    await openPage('index',async page=>{
+        await setupBulkGeneTest(page);
+        assert.equal(await page.locator('.bulk-gl-gen-cb:checked').count(),2);
+        assert.equal(await page.locator('#bulk-gl-desc').inputValue(),'');
+        assert.equal(await page.locator('#bulk-gl-replace-desc').isChecked(),false);
+        assert.ok((await page.locator('#bulk-gl-gen-list').innerText()).includes(text));
+        assert.equal(await page.locator('#bulk-gl-gen-list img,#bulk-gl-gen-list svg').count(),0);
+        await page.locator('.bulk-gl-gen-cb[value="G2"]').uncheck();
+        await page.locator('.bulk-gl-gen-cb[value="G3"]').check();
+        await page.locator('#bulk-gl-desc').fill('New links only');
+        await page.locator('#btn-save-bulk-gl').click();
+        const calls=await page.evaluate(()=>window.__geneCalls);
+        assert.equal(calls.length,1);
+        assert.equal(calls[0].name,'save_gene_lab_links');
+        assert.deepEqual(calls[0].args.p_generic_codes.sort(),['G1','G3']);
+        assert.equal(calls[0].args.p_replace_descriptions,false);
+        assert.equal(calls[0].args.p_new_description,'New links only');
+        assert.equal(calls[0].args.p_expected_rows[0].description,text);
+        assert.equal(calls[0].args.p_expected_rows[1].description,'Advice B');
+        assert.equal(await page.evaluate(()=>window.__writes.filter(w=>w.table==='generic_gene_lab').length),0);
+    });
+});
+
+test('bulk description replacement and clearing all links require explicit confirmation',async()=>{
+    await openPage('index',async page=>{
+        await setupBulkGeneTest(page);
+        await page.locator('#bulk-gl-replace-desc').check();
+        await page.evaluate(()=>executeBulkGeneLabAdd()); // default dialog dismisses
+        assert.equal(await page.evaluate(()=>window.__geneCalls.length),0);
+        page.removeAllListeners('dialog');page.on('dialog',dialog=>dialog.accept());
+        await page.evaluate(()=>executeBulkGeneLabAdd());
+        let args=await page.evaluate(()=>window.__geneCalls[0].args);
+        assert.equal(args.p_replace_descriptions,true);
+        assert.equal(args.p_new_description,null);
+        await page.evaluate(async()=>{
+            openBulkGeneLabModal();document.getElementById('bulk-gl-test-name').value='TEST';
+            await onBulkGeneLabNameChange();bulkGeneLabSelectedGenerics.clear();
+        });
+        page.removeAllListeners('dialog');page.on('dialog',dialog=>dialog.dismiss());
+        await page.evaluate(()=>executeBulkGeneLabAdd());
+        assert.equal(await page.evaluate(()=>window.__geneCalls.length),1);
+        page.removeAllListeners('dialog');page.on('dialog',dialog=>dialog.accept());
+        await page.evaluate(()=>executeBulkGeneLabAdd());
+        args=await page.evaluate(()=>window.__geneCalls[1].args);
+        assert.deepEqual(args.p_generic_codes,[]);
+    });
+});
+
+test('bulk Gene/Lab keeps draft on RPC failure, blocks duplicate submission and stale snapshots',async()=>{
+    await openPage('index',async page=>{
+        await setupBulkGeneTest(page);
+        await page.locator('#bulk-gl-desc').fill('Draft advice');
+        await page.evaluate(async()=>{
+            window.__mockClient.rpc=(name,args)=>{
+                window.__geneCalls.push({name,args});
+                return new Promise(resolve=>{window.__finishGene=resolve;});
+            };
+            window.__genePending=executeBulkGeneLabAdd();
+            await executeBulkGeneLabAdd();
+        });
+        assert.equal(await page.locator('#btn-save-bulk-gl').isDisabled(),true);
+        assert.equal(await page.evaluate(()=>window.__geneCalls.length),1);
+        await page.evaluate(async()=>{
+            window.__finishGene({data:null,error:{message:'<img src=x onerror="window.__xss=1"> failed'}});
+            await window.__genePending;
+        });
+        assert.equal(await page.locator('#bulk-gl-desc').inputValue(),'Draft advice');
+        assert.equal(await page.locator('.bulk-gl-gen-cb:checked').count(),2);
+        assert.equal(await page.locator('#bulk-gl-error').isVisible(),true);
+        assert.equal(await page.locator('#bulk-gl-error img').count(),0);
+        assert.equal(await page.locator('#btn-save-bulk-gl').isDisabled(),false);
+        await page.evaluate(async()=>{
+            window.__mockClient.rpc=async()=>({data:null,error:{code:'40001',message:'changed'}});
+            await executeBulkGeneLabAdd();
+        });
+        assert.equal(await page.locator('#btn-save-bulk-gl').isDisabled(),true);
+        assert.equal(await page.locator('#bulk-gl-desc').inputValue(),'Draft advice');
+        assert.match(await page.locator('#bulk-gl-error').innerText(),/ข้อมูลเปลี่ยน/);
+        assert.equal(await page.evaluate(()=>window.__writes.filter(w=>w.table==='generic_gene_lab').length),0);
+    });
+});
+
+test('bulk Gene/Lab load failure or changed name cannot save an empty accidental selection',async()=>{
+    await openPage('index',async page=>{
+        await setupBulkGeneTest(page);
+        await page.evaluate(async()=>{
+            const original=window.__mockClient.from;
+            window.__mockClient.from=table=>table==='generic_gene_lab'
+                ? {select:()=>({eq:()=>({order:()=>({range:async()=>({data:null,error:{message:'read failed'}})})})})}
+                :original(table);
+            await onBulkGeneLabNameChange();
+            await executeBulkGeneLabAdd();
+        });
+        assert.equal(await page.locator('#btn-save-bulk-gl').isDisabled(),true);
+        assert.equal(await page.evaluate(()=>window.__geneCalls.length),0);
+        assert.equal(await page.locator('#bulk-gl-error').isVisible(),true);
+        await page.locator('#bulk-gl-test-name').fill('OTHER');
+        assert.equal(await page.locator('#btn-save-bulk-gl').isDisabled(),true);
+        assert.equal(await page.evaluate(()=>window.__writes.filter(w=>w.table==='generic_gene_lab').length),0);
+    });
+});
+
+test('bulk Gene/Lab ignores late loads for a previous name',async()=>{
+    await openPage('index',async page=>{
+        await setupBulkGeneTest(page);
+        await page.evaluate(async()=>{
+            const original=window.__mockClient.from;
+            window.__pendingGeneLoads={};
+            window.__mockClient.from=table=>{
+                if(table!=='generic_gene_lab')return original(table);
+                let name;
+                const q={select:()=>q,eq:(_,value)=>{name=value;return q;},order:()=>q,
+                    range:()=>new Promise(resolve=>{window.__pendingGeneLoads[name]=resolve;})};
+                return q;
+            };
+            document.getElementById('bulk-gl-test-name').value='FIRST';window.__firstLoad=onBulkGeneLabNameChange();
+            document.getElementById('bulk-gl-test-name').value='SECOND';window.__secondLoad=onBulkGeneLabNameChange();
+            window.__pendingGeneLoads.SECOND({data:[{id:22,generic_code:'G2',description:'Second'}],error:null});
+            await window.__secondLoad;
+            window.__pendingGeneLoads.FIRST({data:[{id:21,generic_code:'G1',description:'First'}],error:null});
+            await window.__firstLoad;
+            await executeBulkGeneLabAdd();
+        });
+        const args=await page.evaluate(()=>window.__geneCalls[0].args);
+        assert.equal(args.p_test_name,'SECOND');
+        assert.deepEqual(args.p_generic_codes,['G2']);
+        assert.equal(args.p_expected_rows[0].id,22);
+    });
+});
+
+test('bulk Gene/Lab paginates loaded links and never falls back to table writes on missing RPC',async()=>{
+    await openPage('index',async page=>{
+        await setupBulkGeneTest(page);
+        await page.evaluate(async()=>{
+            const original=window.__mockClient.from;
+            const rows=Array.from({length:501},(_,i)=>({id:i+1,generic_code:`CODE${i}`,description:`Advice ${i}`}));
+            window.__genePages=[];
+            window.__mockClient.from=table=>table==='generic_gene_lab'
+                ? {select:()=>({eq:()=>({order:()=>({range:async(first,last)=>{
+                    window.__genePages.push(first);return {data:rows.slice(first,last+1),error:null};
+                }})})})}:original(table);
+            await onBulkGeneLabNameChange();
+            window.__mockClient.rpc=async(name,args)=>{
+                window.__geneCalls.push({name,args});return {data:null,error:{code:'PGRST202',message:'function missing'}};
+            };
+            await executeBulkGeneLabAdd();
+        });
+        assert.deepEqual(await page.evaluate(()=>window.__genePages),[0,500]);
+        assert.equal(await page.evaluate(()=>window.__geneCalls[0].args.p_expected_rows.length),501);
+        assert.equal(await page.evaluate(()=>window.__geneCalls[0].args.p_generic_codes.length),501);
+        assert.equal(await page.locator('#bulk-gl-error').isVisible(),true);
+        assert.equal(await page.evaluate(()=>window.__writes.filter(w=>w.table==='generic_gene_lab').length),0);
+    });
+});
