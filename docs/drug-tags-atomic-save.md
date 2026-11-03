@@ -36,12 +36,12 @@ RLS scenarios, anonymous RPC denial, form retention and duplicate-submit guards.
 Database tests use in-memory PostgreSQL; browser tests intercept all requests.
 Production drug records are not edited for verification.
 
-## Separate existing access-control finding
+## Access-control follow-up
 
-Inspection also found a pre-existing `Allow All Tag Map` policy allowing ALL
-operations to PUBLIC on `drug_tag_mapping`, with anon INSERT/UPDATE/DELETE table
-grants. Thus denying anonymous execution of this new RPC does **not** prevent
-anonymous direct writes to that table. This atomic-save migration does not
-resolve that separate policy issue; it should be the next access-control fix.
+The pre-existing `Allow All Tag Map` policy and anonymous write grants are
+removed by the subsequent `tag_mapping_readonly_anon` migration. Unsigned
+clients retain SELECT only; existing authenticated CRUD and the atomic save RPC
+continue to work. See [tag-mapping-access.md](tag-mapping-access.md) for scope
+and verification.
 
 Reference: https://supabase.com/docs/guides/database/functions
