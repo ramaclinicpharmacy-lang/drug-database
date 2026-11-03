@@ -649,7 +649,10 @@
             </div>
 
             <textarea id="master-gen-note" style="margin-top:15px;" placeholder="บันทึกยาสามัญ (Generic Note)..."></textarea>
-            <button class="btn btn-success" style="width:100%; margin-top:15px; height:42px;" onclick="saveMasterGeneric()">บันทึกยาสามัญ</button>
+            <div id="generic-pharm-status" role="status" style="margin-top:8px; font-size:0.85rem;"></div>
+            <div id="generic-save-error" role="alert" hidden style="margin-top:10px; padding:12px; border:2px solid #b91c1c; background:#fef2f2; color:#991b1b; white-space:pre-wrap;"></div>
+            <button class="btn btn-outline" id="generic-pharm-reload" hidden onclick="reloadGenericPharm()">โหลดกลุ่มยาล่าสุด (คืนตัวเลือกตามฐานข้อมูล)</button>
+            <button class="btn btn-success" id="btn-save-generic" style="width:100%; margin-top:15px; height:42px;" onclick="saveMasterGeneric()">บันทึกยาสามัญ</button>
         </div>
         <input type="text" id="search-master-generic" placeholder="🔍 ค้นหารายชื่อยาสามัญที่มีอยู่..." onkeyup="filterMasterGenericList()" style="margin-top:10px;">
         <div id="master-generic-list" style="max-height:200px; overflow-y:auto; margin-top:10px;"></div>
@@ -716,6 +719,9 @@
             <label style="font-size:0.9rem; font-weight:bold; display:block;">เลือกกลุ่มยา (Pharmacology)</label>
             <select id="bulk-pharm-select" style="font-weight:bold; color:var(--indigo);" onchange="onBulkPharmClassChange()"></select>
         </div>
+        <button class="btn btn-outline" onclick="onBulkPharmClassChange()">โหลดสมาชิกกลุ่มล่าสุด (คืนตัวเลือกตามฐานข้อมูล)</button>
+        <div id="bulk-pharm-status" role="status" style="margin-top:8px; font-size:0.85rem;"></div>
+        <div id="bulk-pharm-error" role="alert" hidden style="margin-top:10px; padding:12px; border:2px solid #b91c1c; background:#fef2f2; color:#991b1b; white-space:pre-wrap;"></div>
         <label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">รายชื่อยาสามัญ (ติ๊กเพื่อเพิ่ม/เอาออก):</label>
         <input type="text" id="search-bulk-pharm-gen" placeholder="🔍 ค้นหาชื่อยาสามัญ..." onkeyup="filterBulkPharmGenerics()" style="margin-bottom: 10px;">
         <div style="margin-bottom: 10px; font-size: 0.85rem;">
@@ -724,7 +730,7 @@
         </div>
         <div id="bulk-pharm-gen-list" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 8px; margin-bottom: 15px; background: white; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; align-items: start;"></div>
         <div style="display:flex; gap:10px;">
-            <button class="btn" style="background:var(--indigo); color:white; flex:1; font-size:1rem; height:45px;" onclick="executeBulkPharmAdd()">✅ บันทึกข้อมูล</button>
+            <button class="btn" style="background:var(--indigo); color:white; flex:1; font-size:1rem; height:45px;" id="btn-save-bulk-pharm" disabled onclick="executeBulkPharmAdd()">✅ บันทึกข้อมูล</button>
             <button class="btn btn-outline" style="flex:1; height:45px;" onclick="closeModal('bulk-pharm-modal')">ยกเลิก</button>
         </div>
     </div>
@@ -2899,7 +2905,59 @@ async function fetchLogs() {
     }
     async function deleteDrug(code) { if(confirm("ลบข้อมูลยานี้ออกจากระบบ?")) { await supabaseClient.from('drugs').delete().eq('drug_code', code); fetchDrugs(); } }
 
+    let genericSaveInProgress = false;
+    let genericPharmLoading = false;
+    let genericPharmLoadedCode = null;
+    let genericExpectedClasses = [];
+
+    async function readPharmLinks(filterColumn, filterValue, resultColumn) {
+        const values = [];
+        for (let first = 0; ; first += 500) {
+            const { data, error } = await supabaseClient.from('generic_pharm_mapping')
+                .select(resultColumn).eq(filterColumn, filterValue).order(resultColumn).range(first, first + 499);
+            if (error) throw error;
+            if (!Array.isArray(data) || data.some(row => typeof row[resultColumn] !== 'string' || !row[resultColumn].trim())) {
+                throw new Error('ไม่ได้รับรายการกลุ่มยาที่ครบถ้วน');
+            }
+            values.push(...data.map(row => row[resultColumn]));
+            if (data.length < 500) return values;
+        }
+    }
+
+    async function reloadGenericPharm() {
+        if (genericSaveInProgress || genericPharmLoading || !document.getElementById('master-gen-code').disabled) return;
+        const code = document.getElementById('master-gen-code').value;
+        const errorBox = document.getElementById('generic-save-error');
+        genericPharmLoading = true;
+        genericPharmLoadedCode = null;
+        errorBox.hidden = true;
+        document.getElementById('generic-pharm-status').textContent = 'กำลังโหลดกลุ่มยาล่าสุด...';
+        const unlock = lockModalControls('generic-master-modal');
+        try {
+            const classes = await readPharmLinks('generic_code', code, 'class_name');
+            genericExpectedClasses = classes;
+            activePharmTags = [...classes];
+            genericPharmLoadedCode = code;
+            renderActivePharmTags();
+            document.getElementById('generic-pharm-status').textContent = `โหลดกลุ่มยาล่าสุดแล้ว ${classes.length} กลุ่ม`;
+        } catch (error) {
+            document.getElementById('generic-pharm-status').textContent = 'ยังบันทึกไม่ได้ กรุณาโหลดกลุ่มยาล่าสุดอีกครั้ง';
+            errorBox.textContent = '⚠️ โหลดกลุ่มยาไม่สำเร็จ\n' + (error.message || 'ไม่สามารถติดต่อระบบได้');
+            errorBox.hidden = false;
+        } finally {
+            genericPharmLoading = false;
+            unlock();
+            document.getElementById('btn-save-generic').disabled = genericPharmLoadedCode !== code;
+        }
+    }
+
     function resetGenericForm() {
+        genericPharmLoadedCode = null;
+        genericExpectedClasses = [];
+        document.getElementById('generic-save-error').hidden = true;
+        document.getElementById('generic-pharm-status').textContent = '';
+        document.getElementById('generic-pharm-reload').hidden = true;
+        document.getElementById('btn-save-generic').disabled = false;
         document.getElementById('master-gen-code').disabled = false;
         document.getElementById('master-gen-code').value = '';
         document.getElementById('master-gen-name').value = '';
@@ -2937,6 +2995,7 @@ async function fetchLogs() {
     }
 
     function selectPharm(className) {
+        if (genericSaveInProgress || genericPharmLoading) return;
         if(!activePharmTags.includes(className)) { activePharmTags.push(className); }
         document.getElementById('search-pharm-input').value = '';
         document.getElementById('pharm-suggestions').style.display = 'none';
@@ -2944,6 +3003,7 @@ async function fetchLogs() {
     }
 
     function removePharmTag(className) {
+        if (genericSaveInProgress || genericPharmLoading) return;
         activePharmTags = activePharmTags.filter(c => c !== className);
         renderActivePharmTags();
     }
@@ -2972,35 +3032,65 @@ async function fetchLogs() {
         selectPharm(newName); 
     }
 
-    async function saveMasterGeneric() { 
-        const generic_code = document.getElementById('master-gen-code').value; 
-        const gen_type = document.getElementById('master-gen-type').value.trim() || null; 
-        
-        const needs_renal = document.getElementById('master-gen-renal').checked;
-        const needs_hepatic = document.getElementById('master-gen-hepatic').checked;
-    
-        const { error } = await supabaseClient.from('generics').upsert({ 
-            generic_code, 
-            generic_name: document.getElementById('master-gen-name').value, 
-            special_note: document.getElementById('master-gen-note').value,
-            generic_type: gen_type,
-            needs_renal_adj: needs_renal,
-            needs_hepatic_adj: needs_hepatic
-        }, { onConflict: 'generic_code' }); 
-        
-        if (error) return alert("❌ เกิดข้อผิดพลาด: " + error.message); 
-        
-        await supabaseClient.from('generic_pharm_mapping').delete().eq('generic_code', generic_code); 
-        const selectedPharm = activePharmTags.map(className => ({ generic_code, class_name: className })); 
-        if (selectedPharm.length > 0) await supabaseClient.from('generic_pharm_mapping').insert(selectedPharm); 
-        
-        alert('✅ บันทึกยาสามัญสำเร็จ!'); 
-        resetGenericForm();
-        await fetchGenerics(); 
-        fetchDrugs(); 
+    async function saveMasterGeneric() {
+        if (genericSaveInProgress || genericPharmLoading) return;
+        const errorBox = document.getElementById('generic-save-error');
+        errorBox.hidden = true;
+        const isEdit = document.getElementById('master-gen-code').disabled;
+        const rawCode = document.getElementById('master-gen-code').value;
+        const code = isEdit ? rawCode : rawCode.trim();
+        const name = document.getElementById('master-gen-name').value.trim();
+        const button = document.getElementById('btn-save-generic');
+        let unlock = () => {};
+        let saved = false;
+        try {
+            if (!code.trim() || !name) throw new Error('กรุณาระบุรหัสและชื่อยาสามัญ');
+            if (isEdit && genericPharmLoadedCode !== code) throw new Error('กรุณาโหลดกลุ่มยาล่าสุดก่อนบันทึก');
+            if (!isEdit && allGenerics.some(g => g.generic_code.toLowerCase() === code.toLowerCase())) {
+                throw new Error('รหัสยาสามัญนี้มีอยู่แล้ว กรุณาเลือกแก้ไขรายการเดิม');
+            }
+            const args = {
+                p_generic_code: code, p_is_edit: isEdit, p_generic_name: name,
+                p_special_note: document.getElementById('master-gen-note').value,
+                p_generic_type: document.getElementById('master-gen-type').value.trim() || null,
+                p_needs_renal_adj: document.getElementById('master-gen-renal').checked,
+                p_needs_hepatic_adj: document.getElementById('master-gen-hepatic').checked,
+                p_class_names: [...activePharmTags],
+                p_expected_classes: isEdit ? [...genericExpectedClasses] : []
+            };
+            genericSaveInProgress = true;
+            unlock = lockModalControls('generic-master-modal');
+            button.innerText = 'กำลังบันทึก...';
+            const { data, error } = await supabaseClient.rpc('save_generic_with_pharm', args);
+            if (error) throw error;
+            if (data !== code) throw new Error('ไม่ได้รับผลยืนยันการบันทึกยาสามัญพร้อมกลุ่มยา');
+            saved = true;
+        } catch (error) {
+            if (error.code === '40001') genericPharmLoadedCode = null;
+            errorBox.textContent = error.code === '40001'
+                ? '⚠️ กลุ่มยาถูกเปลี่ยนหลังโหลด กรุณาโหลดกลุ่มยาล่าสุดและตรวจสอบก่อนบันทึกอีกครั้ง'
+                : '⚠️ บันทึกไม่สำเร็จหรือยังยืนยันผลไม่ได้ ค่าที่กรอกและกลุ่มยาที่เลือกยังอยู่ โปรดตรวจสอบข้อมูลล่าสุดก่อนลองซ้ำ\n' + (error.message || 'ไม่สามารถติดต่อระบบได้');
+            errorBox.hidden = false;
+        } finally {
+            genericSaveInProgress = false;
+            unlock();
+            button.innerText = 'บันทึกยาสามัญ';
+            button.disabled = isEdit && genericPharmLoadedCode !== code;
+        }
+        if (saved) {
+            resetGenericForm();
+            alert('✅ บันทึกยาสามัญและกลุ่มยาสำเร็จ');
+            fetchGenerics();
+            fetchDrugs();
+        }
     }
 
-    function openEditGeneric(code) { 
+    function openEditGeneric(code) {
+        if (genericSaveInProgress || genericPharmLoading) return;
+        genericPharmLoadedCode = null;
+        genericExpectedClasses = [];
+        document.getElementById('generic-save-error').hidden = true;
+        document.getElementById('generic-pharm-reload').hidden = false;
         const gen = allGenerics.find(g => g.generic_code === code); if(!gen) return; 
         document.getElementById('master-gen-code').value = gen.generic_code; 
         document.getElementById('master-gen-code').disabled = true; 
@@ -3015,7 +3105,8 @@ async function fetchLogs() {
         renderActivePharmTags();
         document.getElementById('search-pharm-input').value = '';
         document.getElementById('pharm-suggestions').style.display = 'none';
-        openModal('generic-master-modal'); 
+        openModal('generic-master-modal');
+        return reloadGenericPharm(); 
     }
 
     function filterGenericOptions() { 
@@ -3226,24 +3317,47 @@ async function fetchLogs() {
     }
 
     let bulkPharmSelectedGenerics = new Set();
+    let bulkPharmExpectedCodes = [];
+    let bulkPharmLoadedClass = null;
+    let bulkPharmLoadSequence = 0;
+    let bulkPharmSaving = false;
 
-    function openBulkPharmModal() { 
-        setHTML(document.getElementById('bulk-pharm-select'), allPharmClasses.map(p => `<option value="${encodeHTML(p.class_name)}">${encodeHTML(p.class_name)}</option>`).join('')); 
-        document.getElementById('search-bulk-pharm-gen').value = ''; 
-        onBulkPharmClassChange();
-        openModal('bulk-pharm-modal'); 
+    function openBulkPharmModal() {
+        setHTML(document.getElementById('bulk-pharm-select'), allPharmClasses.map(p => `<option value="${encodeHTML(p.class_name)}">${encodeHTML(p.class_name)}</option>`).join(''));
+        document.getElementById('search-bulk-pharm-gen').value = '';
+        openModal('bulk-pharm-modal');
+        return onBulkPharmClassChange();
     }
 
-    function onBulkPharmClassChange() {
+    async function onBulkPharmClassChange() {
+        if (bulkPharmSaving) return;
         const selectedClass = document.getElementById('bulk-pharm-select').value;
+        const sequence = ++bulkPharmLoadSequence;
+        bulkPharmLoadedClass = null;
+        bulkPharmExpectedCodes = [];
         bulkPharmSelectedGenerics.clear();
-        
-        allGenerics.forEach(g => {
-            if ((g.generic_pharm_mapping || []).some(pm => pm.class_name === selectedClass)) {
-                bulkPharmSelectedGenerics.add(g.generic_code);
-            }
-        });
+        document.getElementById('bulk-pharm-error').hidden = true;
+        document.getElementById('btn-save-bulk-pharm').disabled = true;
         renderBulkPharmGenerics();
+        const status = document.getElementById('bulk-pharm-status');
+        status.textContent = selectedClass ? 'กำลังโหลดสมาชิกกลุ่มล่าสุด...' : 'กรุณาเลือกกลุ่มยา';
+        if (!selectedClass) return;
+        try {
+            const codes = await readPharmLinks('class_name', selectedClass, 'generic_code');
+            if (sequence !== bulkPharmLoadSequence) return;
+            bulkPharmExpectedCodes = codes;
+            bulkPharmSelectedGenerics = new Set(codes);
+            bulkPharmLoadedClass = selectedClass;
+            status.textContent = `โหลดแล้ว ${codes.length} ยาสามัญ`;
+            document.getElementById('btn-save-bulk-pharm').disabled = false;
+            renderBulkPharmGenerics();
+        } catch (error) {
+            if (sequence !== bulkPharmLoadSequence) return;
+            status.textContent = 'โหลดไม่สำเร็จ ยังบันทึกไม่ได้';
+            const errorBox = document.getElementById('bulk-pharm-error');
+            errorBox.textContent = '⚠️ กรุณาโหลดสมาชิกกลุ่มล่าสุดอีกครั้ง\n' + (error.message || 'ไม่สามารถติดต่อระบบได้');
+            errorBox.hidden = false;
+        }
     }
 
     function renderBulkPharmGenerics() { 
@@ -3258,12 +3372,13 @@ async function fetchLogs() {
 
         filtered.forEach(g => {
             const isSelected = bulkPharmSelectedGenerics.has(g.generic_code);
+            const canSelect = bulkPharmLoadedClass === document.getElementById('bulk-pharm-select').value && !bulkPharmSaving;
             const safeCode = g.generic_code;
             const safeName = g.generic_name;
             
             const html = `
             <label id="label-bp-${encodeHTML(safeCode)}" style="display:flex; align-items:flex-start; gap:10px; padding:10px; border:1px solid ${isSelected ? 'var(--success)' : '#e2e8f0'}; border-radius:8px; cursor:pointer; background:${isSelected ? '#ecfdf5' : '#f8fafc'}; font-size:0.9rem; text-align:left; transition:0.2s;">
-                <input type="checkbox" class="bulk-pharm-gen-cb" style="margin-top: 4px; transform: scale(1.2);" value="${encodeHTML(safeCode)}" ${isSelected ? 'checked' : ''} ${bindHTMLAction("change", function(event) { handleBulkPharmCheck(this) })}>
+                <input type="checkbox" class="bulk-pharm-gen-cb" style="margin-top: 4px; transform: scale(1.2);" value="${encodeHTML(safeCode)}" ${canSelect ? '' : 'disabled'} ${isSelected ? 'checked' : ''} ${bindHTMLAction("change", function(event) { handleBulkPharmCheck(this) })}>
                 <span style="color:var(--dark); font-weight:bold; flex:1;">${encodeHTML(safeName)}</span>
             </label>`;
 
@@ -3295,6 +3410,7 @@ async function fetchLogs() {
     function filterBulkPharmGenerics() { renderBulkPharmGenerics(); }
 
     function toggleBulkPharmCheckboxes(check) { 
+        if (bulkPharmSaving || bulkPharmLoadedClass !== document.getElementById('bulk-pharm-select').value) return;
         document.querySelectorAll('.bulk-pharm-gen-cb').forEach(cb => { 
             if (cb.checked !== check) {
                 cb.checked = check;
@@ -3303,24 +3419,47 @@ async function fetchLogs() {
         }); 
     }
 
-    async function executeBulkPharmAdd() { 
-        const className = document.getElementById('bulk-pharm-select').value; 
-        
-        const { error: delError } = await supabaseClient.from('generic_pharm_mapping').delete().eq('class_name', className);
-        if (delError) return alert("เกิดข้อผิดพลาดในการเตรียมข้อมูล: " + delError.message);
-        
-        const payload = Array.from(bulkPharmSelectedGenerics).map(code => ({ generic_code: code, class_name: className })); 
-        if (payload.length > 0) {
-            const { error: insError } = await supabaseClient.from('generic_pharm_mapping').insert(payload); 
-            if (insError) return alert("เกิดข้อผิดพลาดในการบันทึก: " + insError.message); 
+    async function executeBulkPharmAdd() {
+        if (bulkPharmSaving) return;
+        const className = document.getElementById('bulk-pharm-select').value;
+        const errorBox = document.getElementById('bulk-pharm-error');
+        errorBox.hidden = true;
+        if (!className || bulkPharmLoadedClass !== className) {
+            errorBox.textContent = '⚠️ กรุณาโหลดสมาชิกกลุ่มล่าสุดก่อนบันทึก';
+            errorBox.hidden = false;
+            return;
         }
-        
-        alert(`✅ อัปเดตกลุ่มยา ${className} สำเร็จ! (รวม ${payload.length} รายการ)`); 
-        closeModal('bulk-pharm-modal'); 
-        fetchGenerics(); 
-        fetchDrugs(); 
+        const codes = Array.from(bulkPharmSelectedGenerics);
+        if (!codes.length && bulkPharmExpectedCodes.length && !confirm(`นำยาสามัญทั้งหมดออกจากกลุ่ม ${className} ใช่หรือไม่?`)) return;
+        bulkPharmSaving = true;
+        const button = document.getElementById('btn-save-bulk-pharm');
+        const unlock = lockModalControls('bulk-pharm-modal');
+        button.innerText = 'กำลังบันทึก...';
+        let saved = false;
+        try {
+            const { data, error } = await supabaseClient.rpc('save_pharm_class_links', {
+                p_class_name: className, p_generic_codes: codes, p_expected_codes: [...bulkPharmExpectedCodes]
+            });
+            if (error) throw error;
+            if (data !== codes.length) throw new Error('ไม่ได้รับผลยืนยันการบันทึกสมาชิกกลุ่มครบทั้งชุด');
+            saved = true;
+            alert(`✅ อัปเดตกลุ่มยา ${className} สำเร็จ ${data} รายการ`);
+            closeModal('bulk-pharm-modal');
+        } catch (error) {
+            if (error.code === '40001') bulkPharmLoadedClass = null;
+            errorBox.textContent = error.code === '40001'
+                ? '⚠️ สมาชิกกลุ่มถูกเปลี่ยนหลังโหลด กรุณาโหลดสมาชิกกลุ่มล่าสุดและตรวจสอบก่อนบันทึกอีกครั้ง'
+                : '⚠️ บันทึกไม่สำเร็จหรือยังยืนยันผลไม่ได้ ตัวเลือกยังอยู่ โปรดตรวจสอบข้อมูลล่าสุดก่อนลองซ้ำ\n' + (error.message || 'ไม่สามารถติดต่อระบบได้');
+            errorBox.hidden = false;
+        } finally {
+            bulkPharmSaving = false;
+            unlock();
+            button.innerText = '✅ บันทึกข้อมูล';
+            button.disabled = bulkPharmLoadedClass !== document.getElementById('bulk-pharm-select').value;
+        }
+        if (saved) { fetchGenerics(); fetchDrugs(); }
     }
-    
+
     async function saveMasterNlem() { 
         const code = document.getElementById('master-nlem-code').value.trim();
         const desc = document.getElementById('master-nlem-desc').value.trim();

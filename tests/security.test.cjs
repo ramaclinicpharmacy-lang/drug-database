@@ -1137,3 +1137,171 @@ test('drug form validates required fields and cached duplicate codes before subm
         assert.equal(await page.locator('#form-drug-code').isDisabled(),false);
     });
 });
+
+async function setupPharmSaveTest(page){
+ await page.waitForFunction(()=>allDrugsRaw.length>0);
+ await page.evaluate(()=>{
+  allGenerics.push({generic_code:'G2',generic_name:'Generic B'},{generic_code:'G3',generic_name:'Generic C'});
+  allPharmClasses=[{class_name:'A'},{class_name:'B'},{class_name:'C'}];
+  window.__fixtures.generic_pharm_mapping=[{generic_code:'G1',class_name:'A'},{generic_code:'G1',class_name:'B'},{generic_code:'G2',class_name:'A'}];
+  window.__pharmCalls=[];window.__pharmPages=[];
+  const originalFrom=window.__mockClient.from;
+  window.__mockClient.from=table=>{
+   const q=originalFrom(table);if(table!=='generic_pharm_mapping')return q;
+   let filterColumn,filterValue;
+   q.eq=(column,value)=>{filterColumn=column;filterValue=value;return q;};
+   q.range=(first,last)=>{
+    window.__pharmPages.push({filterColumn,filterValue,first});
+    if(window.__pharmDeferredReads)return new Promise(resolve=>{window.__pharmReadResolvers[filterValue]=resolve;});
+    if(window.__pharmReadError)return Promise.resolve({data:null,error:{message:'mapping read failed'}});
+    return Promise.resolve({data:window.__fixtures.generic_pharm_mapping.filter(r=>r[filterColumn]===filterValue).slice(first,last+1),error:null});
+   };
+   return q;
+  };
+  const originalRPC=window.__mockClient.rpc;
+  window.__mockClient.rpc=(name,args)=>{
+   if(!['save_generic_with_pharm','save_pharm_class_links'].includes(name))return originalRPC(name,args);
+   window.__pharmCalls.push({name,args:structuredClone(args)});
+   if(window.__pharmRpcDeferred)return new Promise(resolve=>{window.__finishPharm=resolve;});
+   if(window.__pharmRpcNetwork)return Promise.reject(new Error('Network lost'));
+   if(window.__pharmRpcError)return Promise.resolve({data:null,error:window.__pharmRpcError});
+   return Promise.resolve({data:name==='save_generic_with_pharm'?args.p_generic_code:args.p_generic_codes.length,error:null});
+  };
+ });
+}
+
+test('generic save uses freshly loaded classes and one RPC, retaining failed fields and alert flags',async()=>{
+ await openPage('index',async page=>{
+  await setupPharmSaveTest(page);
+  await page.evaluate(async()=>{
+   await openEditGeneric('G1');
+   document.getElementById('master-gen-name').value='Edited generic';
+   document.getElementById('master-gen-note').value='Draft note';
+   document.getElementById('master-gen-hepatic').checked=false;
+   window.__pharmRpcError={message:'<img src=x onerror="window.__xss=1"> class insert failed'};
+   await saveMasterGeneric();
+  });
+  const call=await page.evaluate(()=>window.__pharmCalls[0]);
+  assert.equal(call.name,'save_generic_with_pharm');
+  assert.equal(call.args.p_is_edit,true);
+  assert.deepEqual(call.args.p_class_names,['A','B']);
+  assert.deepEqual(call.args.p_expected_classes,['A','B']);
+  assert.equal(call.args.p_needs_renal_adj,true);assert.equal(call.args.p_needs_hepatic_adj,false);
+  assert.equal(await page.locator('#master-gen-name').inputValue(),'Edited generic');
+  assert.equal(await page.locator('#master-gen-note').inputValue(),'Draft note');
+  assert.equal(await page.locator('#master-gen-code').isDisabled(),true);
+  assert.equal(await page.locator('#btn-save-generic').isDisabled(),false);
+  assert.equal(await page.locator('#generic-save-error').isVisible(),true);
+  assert.equal(await page.locator('#generic-save-error img').count(),0);
+  assert.equal(await page.evaluate(()=>window.__writes.filter(w=>['generics','generic_pharm_mapping'].includes(w.table)).length),0);
+  await page.evaluate(async()=>{window.__pharmRpcError=null;await saveMasterGeneric();});
+  assert.equal(await page.locator('#master-gen-name').inputValue(),'');
+  assert.equal(await page.locator('#master-gen-code').isDisabled(),false);
+  assert.deepEqual(await page.evaluate(()=>activePharmTags),[]);
+ });
+});
+
+test('generic class reads must succeed before saving; network and stale errors preserve the draft',async()=>{
+ await openPage('index',async page=>{
+  await setupPharmSaveTest(page);
+  await page.evaluate(async()=>{window.__pharmReadError=true;await openEditGeneric('G1');await saveMasterGeneric();});
+  assert.equal(await page.locator('#btn-save-generic').isDisabled(),true);
+  assert.equal(await page.evaluate(()=>window.__pharmCalls.length),0);
+  await page.evaluate(async()=>{
+   window.__pharmReadError=false;await reloadGenericPharm();
+   document.getElementById('master-gen-note').value='Keep this';
+   window.__pharmRpcNetwork=true;await saveMasterGeneric();
+  });
+  assert.equal(await page.locator('#master-gen-note').inputValue(),'Keep this');
+  assert.deepEqual(await page.evaluate(()=>activePharmTags),['A','B']);
+  await page.evaluate(async()=>{window.__pharmRpcNetwork=false;window.__pharmRpcError={code:'40001',message:'changed'};await saveMasterGeneric();});
+  assert.equal(await page.locator('#btn-save-generic').isDisabled(),true);
+  assert.equal(await page.locator('#master-gen-note').inputValue(),'Keep this');
+  assert.match(await page.locator('#generic-save-error').innerText(),/ถูกเปลี่ยนหลังโหลด/);
+ });
+});
+
+test('generic create captures mode before locking, blocks duplicate submits and restores failed forms',async()=>{
+ await openPage('index',async page=>{
+  await setupPharmSaveTest(page);
+  await page.evaluate(async()=>{
+   resetGenericForm();openModal('generic-master-modal');
+   document.getElementById('master-gen-code').value='NEW';document.getElementById('master-gen-name').value='New generic';
+   window.__pharmRpcDeferred=true;window.__genericPending=saveMasterGeneric();await saveMasterGeneric();
+  });
+  assert.equal(await page.evaluate(()=>window.__pharmCalls.length),1);
+  const args=await page.evaluate(()=>window.__pharmCalls[0].args);
+  assert.equal(args.p_is_edit,false);assert.deepEqual(args.p_expected_classes,[]);
+  assert.equal(await page.locator('#master-gen-name').isDisabled(),true);
+  await page.evaluate(async()=>{window.__finishPharm({data:null,error:{code:'23505',message:'duplicate'}});await window.__genericPending;});
+  assert.equal(await page.locator('#master-gen-code').inputValue(),'NEW');
+  assert.equal(await page.locator('#master-gen-code').isDisabled(),false);
+  assert.equal(await page.locator('#generic-save-error').isVisible(),true);
+ });
+});
+
+test('bulk pharmacology uses authoritative membership and one RPC without separate delete/insert writes',async()=>{
+ await openPage('index',async page=>{
+  await setupPharmSaveTest(page);
+  await page.evaluate(()=>openBulkPharmModal());
+  assert.equal(await page.locator('.bulk-pharm-gen-cb:checked').count(),2);
+  await page.locator('.bulk-pharm-gen-cb[value="G2"]').uncheck();
+  await page.locator('.bulk-pharm-gen-cb[value="G3"]').check();
+  await page.evaluate(async()=>{window.__pharmRpcError={message:'insert failed'};await executeBulkPharmAdd();});
+  const call=await page.evaluate(()=>window.__pharmCalls[0]);
+  assert.equal(call.name,'save_pharm_class_links');
+  assert.deepEqual(call.args.p_expected_codes,['G1','G2']);
+  assert.deepEqual(call.args.p_generic_codes.sort(),['G1','G3']);
+  assert.equal(await page.locator('.bulk-pharm-gen-cb:checked').count(),2);
+  assert.equal(await page.locator('#bulk-pharm-modal').isVisible(),true);
+  assert.equal(await page.locator('#bulk-pharm-error').isVisible(),true);
+  assert.equal(await page.evaluate(()=>window.__writes.filter(w=>w.table==='generic_pharm_mapping').length),0);
+  await page.evaluate(async()=>{window.__pharmRpcError=null;await executeBulkPharmAdd();});
+  assert.equal(await page.locator('#bulk-pharm-modal').isVisible(),false);
+ });
+});
+
+test('bulk pharmacology blocks failed/stale loads, confirms clearing and prevents duplicate submission',async()=>{
+ await openPage('index',async page=>{
+  await setupPharmSaveTest(page);
+  await page.evaluate(async()=>{window.__pharmReadError=true;await openBulkPharmModal();await executeBulkPharmAdd();});
+  assert.equal(await page.evaluate(()=>window.__pharmCalls.length),0);
+  assert.equal(await page.locator('#btn-save-bulk-pharm').isDisabled(),true);
+  await page.evaluate(async()=>{window.__pharmReadError=false;await onBulkPharmClassChange();bulkPharmSelectedGenerics.clear();await executeBulkPharmAdd();});
+  assert.equal(await page.evaluate(()=>window.__pharmCalls.length),0); // confirmation dismissed
+  page.removeAllListeners('dialog');page.on('dialog',dialog=>dialog.accept());
+  await page.evaluate(async()=>{window.__pharmRpcDeferred=true;window.__bulkPharmPending=executeBulkPharmAdd();await executeBulkPharmAdd();});
+  assert.equal(await page.evaluate(()=>window.__pharmCalls.length),1);
+  assert.equal(await page.locator('#btn-save-bulk-pharm').isDisabled(),true);
+  await page.evaluate(async()=>{window.__finishPharm({data:null,error:{code:'40001',message:'changed'}});await window.__bulkPharmPending;});
+  assert.equal(await page.locator('#btn-save-bulk-pharm').isDisabled(),true);
+  assert.match(await page.locator('#bulk-pharm-error').innerText(),/ถูกเปลี่ยนหลังโหลด/);
+ });
+});
+
+test('bulk pharmacology ignores late class loads and paginates snapshots before saving',async()=>{
+ await openPage('index',async page=>{
+  await setupPharmSaveTest(page);
+  await page.evaluate(async()=>{
+   await openBulkPharmModal();window.__pharmDeferredReads=true;window.__pharmReadResolvers={};
+   document.getElementById('bulk-pharm-select').value='A';window.__classA=onBulkPharmClassChange();
+   document.getElementById('bulk-pharm-select').value='B';window.__classB=onBulkPharmClassChange();
+   window.__pharmReadResolvers.B({data:[{generic_code:'G3'}],error:null});await window.__classB;
+   window.__pharmReadResolvers.A({data:[{generic_code:'G1'}],error:null});await window.__classA;
+   await executeBulkPharmAdd();
+  });
+  let args=await page.evaluate(()=>window.__pharmCalls[0].args);
+  assert.equal(args.p_class_name,'B');assert.deepEqual(args.p_expected_codes,['G3']);
+  await page.evaluate(async()=>{
+   window.__pharmDeferredReads=false;window.__pharmPages=[];
+   window.__fixtures.generic_pharm_mapping=Array.from({length:501},(_,i)=>({generic_code:`X${i}`,class_name:'A'}));
+   await openBulkPharmModal();
+   window.__pharmRpcError={code:'PGRST202',message:'missing RPC'};await executeBulkPharmAdd();
+  });
+  args=await page.evaluate(()=>window.__pharmCalls[1].args);
+  assert.equal(args.p_expected_codes.length,501);assert.equal(args.p_generic_codes.length,501);
+  assert.deepEqual(await page.evaluate(()=>window.__pharmPages.map(x=>x.first)),[0,500]);
+  assert.equal(await page.locator('#bulk-pharm-error').isVisible(),true);
+  assert.equal(await page.evaluate(()=>window.__writes.filter(w=>w.table==='generic_pharm_mapping').length),0);
+ });
+});
