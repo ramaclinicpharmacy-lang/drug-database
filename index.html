@@ -2521,6 +2521,12 @@ async function fetchLogs() {
         currentPage = 1; updatePaginationUI();
     }
 
+    function drugCodesForGeneric(genericCode) {
+        return allDrugsRaw.filter(drug => (drug.drug_contents || []).some(content =>
+            (content.generics?.generic_code || content.generic_code) === genericCode
+        )).map(drug => drug.drug_code);
+    }
+
     function drugCardRefreshHTML(code) {
         const state = drugCardRefreshStates.get(code);
         if (!state) return '';
@@ -2544,7 +2550,8 @@ async function fetchLogs() {
     }
 
     async function fetchDrugs(refreshDrugCode = null) {
-        if (refreshDrugCode !== null) setDrugCardRefreshState(refreshDrugCode, 'loading');
+        const refreshDrugCodes = [...new Set((Array.isArray(refreshDrugCode) ? refreshDrugCode : [refreshDrugCode]).filter(code => typeof code === 'string' && code !== ''))];
+        refreshDrugCodes.forEach(code => setDrugCardRefreshState(code, 'loading'));
         try { 
             let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; 
             while (hasMore) { 
@@ -2559,13 +2566,13 @@ async function fetchLogs() {
                 fetchedData = fetchedData.concat(data); 
                 if (data.length < step) hasMore = false; else from += step; 
             } 
-            if (refreshDrugCode !== null) drugCardRefreshStates.delete(refreshDrugCode);
+            refreshDrugCodes.forEach(code => drugCardRefreshStates.delete(code));
             allDrugsRaw = fetchedData; 
             updateBaseVisibilityAndFilter();
         } catch (error) {
-            if (refreshDrugCode !== null) {
-                // Saving succeeded; retain the visible card and distinguish refresh failure.
-                setDrugCardRefreshState(refreshDrugCode, 'error');
+            if (refreshDrugCodes.length) {
+                // Saving succeeded; retain the visible cards and distinguish refresh failure.
+                refreshDrugCodes.forEach(code => setDrugCardRefreshState(code, 'error'));
             } else {
                 setHTML(document.getElementById('drug-list-container'), `<div style="text-align:center; padding:50px; color:var(--danger);"><h3 style="margin-top:0;">❌ ข้อมูลไม่สามารถโหลดได้</h3><p>${encodeHTML(error.message || 'ไม่สามารถติดต่อระบบได้')}</p></div>`);
             }
@@ -2939,7 +2946,7 @@ async function fetchLogs() {
         }
         if (saved) await fetchDrugs(isEdit ? drugCode : null);
     }
-    async function deleteDrug(code) { if(confirm("ลบข้อมูลยานี้ออกจากระบบ?")) { await supabaseClient.from('drugs').delete().eq('drug_code', code); fetchDrugs(); } }
+    async function deleteDrug(code) { if(confirm("ลบข้อมูลยานี้ออกจากระบบ?")) { const { error } = await supabaseClient.from('drugs').delete().eq('drug_code', code); if (error) return alert('เกิดข้อผิดพลาด: ' + error.message); fetchDrugs(code); } }
 
     let genericSaveInProgress = false;
     let genericPharmLoading = false;
@@ -3515,8 +3522,8 @@ async function fetchLogs() {
     
     async function openNlemManager(c, n) { document.getElementById('target-nlem-drug-code').value = c; document.getElementById('target-nlem-drug-name').innerText = n; document.getElementById('input-nlem-note').value = ''; await fetchCurrentNlem(c); openModal('nlem-mapping-modal'); }
     async function fetchCurrentNlem(c) { const { data } = await supabaseClient.from('drug_nlem_mapping').select('*').eq('drug_code', c); setHTML(document.getElementById('current-nlem-list'), (data || []).map(n => `<div class="list-item" style="flex-wrap:wrap; border-left:3px solid var(--pink);"><div style="flex:1;"><b>${encodeHTML(n.nlem_code)}</b><br><small style="color:gray">${encodeHTML(n.condition_note) || 'ไม่มีเงื่อนไข'}</small></div><button class="btn btn-outline" style="color:red; padding:2px 6px;" ${bindHTMLAction("click", function(event) { removeNlemMapping((n.drug_code), (n.nlem_code)) })}>ลบ</button></div>`).join('')); }
-    async function addNlemMapping() { const drug_code = document.getElementById('target-nlem-drug-code').value; await supabaseClient.from('drug_nlem_mapping').upsert({ drug_code, nlem_code: document.getElementById('select-nlem').value, condition_note: document.getElementById('input-nlem-note').value }); document.getElementById('input-nlem-note').value = ''; fetchCurrentNlem(drug_code); fetchDrugs(); }
-    async function removeNlemMapping(d, n) { await supabaseClient.from('drug_nlem_mapping').delete().match({ drug_code: d, nlem_code: n }); fetchCurrentNlem(d); fetchDrugs(); }
+    async function addNlemMapping() { const drug_code = document.getElementById('target-nlem-drug-code').value; const { error } = await supabaseClient.from('drug_nlem_mapping').upsert({ drug_code, nlem_code: document.getElementById('select-nlem').value, condition_note: document.getElementById('input-nlem-note').value }); if (error) return alert('เกิดข้อผิดพลาด: ' + error.message); document.getElementById('input-nlem-note').value = ''; fetchCurrentNlem(drug_code); fetchDrugs(drug_code); }
+    async function removeNlemMapping(d, n) { const { error } = await supabaseClient.from('drug_nlem_mapping').delete().match({ drug_code: d, nlem_code: n }); if (error) return alert('เกิดข้อผิดพลาด: ' + error.message); fetchCurrentNlem(d); fetchDrugs(d); }
     
     async function openLabelManager(c, n) { 
         document.getElementById('target-label-drug-code').value = c; 
@@ -3574,7 +3581,7 @@ async function fetchLogs() {
         if (error) return alert("เกิดข้อผิดพลาด: " + error.message);
         
         fetchCurrentLabelMapping(drug_code); 
-        fetchDrugs();
+        fetchDrugs(drug_code);
     }
 
     async function removeLabelMapping(d, l) { 
@@ -3582,7 +3589,7 @@ async function fetchLogs() {
         if (error) return alert("เกิดข้อผิดพลาด: " + error.message);
         
         fetchCurrentLabelMapping(d); 
-        fetchDrugs();
+        fetchDrugs(d);
     }
 
     function openBulkNlemModal() { document.getElementById('bulk-nlem-note').value = ''; document.getElementById('search-bulk-nlem-drug').value = ''; renderBulkNlemDrugs(allDrugsRaw); openModal('bulk-nlem-modal'); }
@@ -3606,7 +3613,7 @@ async function fetchLogs() {
     }
     function filterBulkNlemDrugs() { const q = document.getElementById('search-bulk-nlem-drug').value.toLowerCase(); const filtered = allDrugsRaw.filter(d => (d.drug_name||'').toLowerCase().includes(q) || (d.drug_code||'').toLowerCase().includes(q)); renderBulkNlemDrugs(filtered); }
     function toggleBulkNlemCheckboxes(check) { document.querySelectorAll('.bulk-nlem-drug-cb').forEach(cb => cb.checked = check); }
-    async function executeBulkNlemAdd() { const nlem_code = document.getElementById('bulk-nlem-select').value; const condition_note = document.getElementById('bulk-nlem-note').value; const selectedCheckboxes = document.querySelectorAll('.bulk-nlem-drug-cb:checked'); const targetDrugCodes = Array.from(selectedCheckboxes).map(cb => cb.value); if (targetDrugCodes.length === 0) return alert("กรุณาเลือกยาอย่างน้อย 1 รายการ"); const payload = targetDrugCodes.map(code => ({ drug_code: code, nlem_code: nlem_code, condition_note: condition_note })); const { error } = await supabaseClient.from('drug_nlem_mapping').upsert(payload); if (error) return alert("เกิดข้อผิดพลาด: " + error.message); alert(`✅ เพิ่มยา ${targetDrugCodes.length} รายการเข้าบัญชี ${nlem_code} สำเร็จ!`); closeModal('bulk-nlem-modal'); fetchDrugs(); }
+    async function executeBulkNlemAdd() { const nlem_code = document.getElementById('bulk-nlem-select').value; const condition_note = document.getElementById('bulk-nlem-note').value; const selectedCheckboxes = document.querySelectorAll('.bulk-nlem-drug-cb:checked'); const targetDrugCodes = Array.from(selectedCheckboxes).map(cb => cb.value); if (targetDrugCodes.length === 0) return alert("กรุณาเลือกยาอย่างน้อย 1 รายการ"); const payload = targetDrugCodes.map(code => ({ drug_code: code, nlem_code: nlem_code, condition_note: condition_note })); const { error } = await supabaseClient.from('drug_nlem_mapping').upsert(payload); if (error) return alert("เกิดข้อผิดพลาด: " + error.message); alert(`✅ เพิ่มยา ${targetDrugCodes.length} รายการเข้าบัญชี ${nlem_code} สำเร็จ!`); closeModal('bulk-nlem-modal'); fetchDrugs(targetDrugCodes); }
 
     async function saveMasterRoute() { 
         const code = document.getElementById('master-route-code').value.trim();
@@ -3770,7 +3777,7 @@ async function fetchLogs() {
         listEl.style.opacity = '1'; 
         listEl.style.pointerEvents = 'auto';
         
-        fetchDrugs(); // อัปเดตหน้าบ้านด้วย
+        fetchDrugs(drugCode); // อัปเดตหน้าบ้านด้วย
     }
 
     async function prepareAdminForm(adminId, isCopy) {
@@ -3876,11 +3883,11 @@ async function fetchLogs() {
         }
         if (saved) {
             fetchCurrentAdmins(drug_code);
-            fetchDrugs();
+            fetchDrugs(drug_code);
         }
     }
 
-    async function removeAdmin(id, code) { if(confirm("ยืนยันลบ?")) { await supabaseClient.from('drug_administrations').delete().eq('id', id); fetchCurrentAdmins(code); fetchDrugs(); } }
+    async function removeAdmin(id, code) { if(confirm("ยืนยันลบ?")) { const { error } = await supabaseClient.from('drug_administrations').delete().eq('id', id); if (error) return alert('เกิดข้อผิดพลาด: ' + error.message); fetchCurrentAdmins(code); fetchDrugs(code); } }
 
     async function openBulkCopyAdmin(adminId, drugCode) { 
         const admin = currentAdminsList.find(a => a.id === adminId); if (!admin) return alert("ไม่พบข้อมูลวิธีใช้นี้"); 
@@ -3922,6 +3929,7 @@ async function fetchLogs() {
         const originalLabel = button.innerText;
         let unlock = () => {};
         let successCount = 0;
+        const refreshedDrugCodes = [];
         try {
             const adminId = document.getElementById('bulk-copy-admin-id').value;
             const sourceAdmin = currentAdminsList.find(a => String(a.id) === adminId);
@@ -3948,6 +3956,7 @@ async function fetchLogs() {
                         conc_unit: sourceAdmin.conc_unit || null
                     }, fluidNames);
                     successCount++;
+                    refreshedDrugCodes.push(target.value);
                     target.checked = false;
                 } catch (error) {
                     failures.push(`${target.value}: ${error.message || 'ไม่สามารถยืนยันผลได้'}`);
@@ -3965,7 +3974,7 @@ async function fetchLogs() {
             adminCopyInProgress = false;
             unlock();
             button.innerText = originalLabel;
-            if (successCount > 0) fetchDrugs();
+            if (successCount > 0) fetchDrugs(refreshedDrugCodes);
         }
     }
 
@@ -4077,7 +4086,7 @@ async function fetchLogs() {
             }
             
             fetchCurrentIngredients(drug_code); 
-            fetchDrugs(); 
+            fetchDrugs(drug_code); 
             alert('🗑️ ล้างส่วนประกอบทั้งหมดเรียบร้อยแล้ว');
         }
     }
@@ -4128,15 +4137,15 @@ async function fetchLogs() {
         if (saved) {
             resetIngredientForm();
             fetchCurrentIngredients(drug_code);
-            fetchDrugs();
+            fetchDrugs(drug_code);
         }
     }
 
     async function removeIngredient(d, g) { 
         if(confirm('ยืนยันการลบส่วนประกอบนี้?')) {
-            await supabaseClient.from('drug_contents').delete().match({ drug_code: d, generic_code: g }); 
+            const { error } = await supabaseClient.from('drug_contents').delete().match({ drug_code: d, generic_code: g }); if (error) return alert('เกิดข้อผิดพลาด: ' + error.message); 
             fetchCurrentIngredients(d); 
-            fetchDrugs(); 
+            fetchDrugs(d); 
         }
     }
 
@@ -4727,7 +4736,7 @@ async function fetchLogs() {
 
         alert('✅ บันทึกค่าการเตรียมอาหารทางการแพทย์ (สูตรมาตรฐาน) สำเร็จ!');
         closeModal('nutri-admin-modal');
-        fetchDrugs();
+        fetchDrugs(drug_code);
     }
     
     async function deleteNutriConfig() {
@@ -4737,7 +4746,7 @@ async function fetchLogs() {
         if (error) return alert("เกิดข้อผิดพลาด: " + error.message);
         
         closeModal('nutri-admin-modal');
-        fetchDrugs();
+        fetchDrugs(code);
     }
 
     // -------------------------------------------------------------
@@ -5057,14 +5066,14 @@ async function fetchLogs() {
 
         resetMeAdminForm();
         fetchCurrentMeRules(drug_code);
-        fetchDrugs(); // อัปเดต Array เผื่อให้ปุ่มไฟกะพริบทำงานที่หน้าการ์ดยา
+        fetchDrugs(drug_code); // อัปเดต Array เผื่อให้ปุ่มไฟกะพริบทำงานที่หน้าการ์ดยา
     }
     
     async function deleteMeRule(id, code) {
         if (confirm("ยืนยันลบข้อมูลความเสี่ยงนี้?")) {
-            await supabaseClient.from('med_error_knowledge').delete().eq('id', id);
+            const { error } = await supabaseClient.from('med_error_knowledge').delete().eq('id', id); if (error) return alert('เกิดข้อผิดพลาด: ' + error.message);
             fetchCurrentMeRules(code);
-            fetchDrugs();
+            fetchDrugs(code);
         }
     }
     // -------------------------------------------------------------
@@ -5181,26 +5190,18 @@ async function fetchLogs() {
         fetchCurrentLinksAdmin(mode, code);
         
         // อัปเดตข้อมูลบนหน้าเว็บใหม่เพื่อให้ปุ่มแสดง
-        if (mode === 'drug') {
-            fetchDrugs();
-        } else {
-            fetchGenerics();
-            fetchDrugs();
-        }
+        if (mode !== 'drug') fetchGenerics();
+        fetchDrugs(mode === 'drug' ? code : drugCodesForGeneric(code));
     }
     
     async function deleteLink(id, mode, code) {
         if (!confirm('ยืนยันลบลิงก์นี้?')) return;
         const tableName = mode === 'drug' ? 'drug_links' : 'generic_links';
-        await supabaseClient.from(tableName).delete().eq('id', id);
+        const { error } = await supabaseClient.from(tableName).delete().eq('id', id); if (error) return alert('เกิดข้อผิดพลาด: ' + error.message);
         
         fetchCurrentLinksAdmin(mode, code);
-        if (mode === 'drug') {
-            fetchDrugs();
-        } else {
-            fetchGenerics();
-            fetchDrugs();
-        }
+        if (mode !== 'drug') fetchGenerics();
+        fetchDrugs(mode === 'drug' ? code : drugCodesForGeneric(code));
     }
     // -------------------------------------------------------------
     // 📥 ระบบ Export CSV Audit Logs (อัปเกรด Recursive ถอดรหัสลึก)
@@ -5616,7 +5617,7 @@ async function fetchLogs() {
 
         alert('✅ บันทึกรูปภาพสำเร็จ!');
         closeModal('drug-image-modal');
-        fetchDrugs(); // รีเฟรชข้อมูลยาให้โชว์รูปใหม่
+        fetchDrugs(code); // รีเฟรชข้อมูลยาให้โชว์รูปใหม่
     }
     function openImageViewer(url) {
         document.getElementById('full-size-image').src = safeURL(url); // โหลดรูปเข้ากล่อง
@@ -6029,13 +6030,15 @@ async function fetchLogs() {
         }
 
         document.getElementById('alias-admin-input').value = ''; 
-        fetchCurrentAliases(code); 
+        fetchCurrentAliases(code);
+        fetchDrugs(code); 
     }
 
     async function removeAlias(id, code) {
         if (confirm('ยืนยันการลบชื่อพ้องนี้ออกจากระบบ?')) {
-            await supabaseClient.from('drug_nickname').delete().eq('id', id);
-            fetchCurrentAliases(code); 
+            const { error } = await supabaseClient.from('drug_nickname').delete().eq('id', id); if (error) return alert('เกิดข้อผิดพลาด: ' + error.message);
+            fetchCurrentAliases(code);
+            fetchDrugs(code); 
         }
     }
     async function openAliasBulkCopy() {
@@ -6105,6 +6108,7 @@ async function fetchLogs() {
         btn.innerText = "⏳ กำลังคัดลอก...";
         btn.disabled = true;
 
+        const refreshedDrugCodes = [];
         try {
             // 🌟 1. ดึงและกรองชื่อพ้องที่ต้องการจะคัดลอก
             let aliasesToCopy = [];
@@ -6134,9 +6138,9 @@ async function fetchLogs() {
                 if (payload.length > 0) {
                     const { error: insErr } = await supabaseClient.from('drug_nickname').insert(payload);
                     if (insErr) console.error("Error copy alias to", tCode, insErr);
-                    else successCount++;
+                    else { successCount++; refreshedDrugCodes.push(tCode); }
                 } else {
-                    successCount++; 
+                    successCount++; refreshedDrugCodes.push(tCode);
                 }
             }
 
@@ -6147,6 +6151,7 @@ async function fetchLogs() {
         } finally {
             btn.innerText = "✅ ยืนยันการคัดลอก";
             btn.disabled = false;
+            if (refreshedDrugCodes.length) fetchDrugs(refreshedDrugCodes);
         }
     }
     // ==========================================
