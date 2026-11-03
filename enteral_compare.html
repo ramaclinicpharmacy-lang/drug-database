@@ -417,19 +417,30 @@
         }
 
         async function fetchEnteralDrugs() {
-            const { data, error } = await supabaseClient.from('drugs')
-                .select('drug_code, drug_name, drug_type, special_note, nutrition_configs(product_type, grams_per_scoop, scoops_per_serving, serving_volume_ml, serving_kcal, protein_per_serving, carb_per_serving, fat_per_serving, preparation_note)')
-                .eq('is_active', true);
-            
-            if (error) throw error;
-            
-            if (data) {
-                allEnteralDrugs = data.filter(d => {
-                    const typeMatch = d.drug_type && typeof d.drug_type === 'string' && d.drug_type.toLowerCase().includes('enteral');
-                    const configMatch = d.nutrition_configs && (Array.isArray(d.nutrition_configs) ? d.nutrition_configs.length > 0 : Object.keys(d.nutrition_configs).length > 0);
-                    return typeMatch || configMatch;
-                }).sort((a,b) => (a.drug_name || '').localeCompare(b.drug_name || ''));
+            const pageSize = 500;
+            let from = 0;
+            const fetched = [];
+            // The API caps each response. Filter only after every page is read.
+            // A unique order also keeps equal product names from shifting across pages.
+            while (true) {
+                const { data, error } = await supabaseClient.from('drugs')
+                    .select('drug_code, drug_name, drug_type, special_note, nutrition_configs(product_type, grams_per_scoop, scoops_per_serving, serving_volume_ml, serving_kcal, protein_per_serving, carb_per_serving, fat_per_serving, preparation_note)')
+                    .eq('is_active', true)
+                    .order('drug_code', { ascending: true })
+                    .range(from, from + pageSize - 1);
+                if (error) throw error;
+                if (!Array.isArray(data)) throw new Error('ไม่ได้รับข้อมูลรายการอาหาร กรุณาลองโหลดใหม่');
+                if (data.length === 0) break;
+                fetched.push(...data);
+                // Continue even if the server returns fewer rows than requested.
+                from += data.length;
             }
+            // Publish only a complete result; a failed later page must not look complete.
+            allEnteralDrugs = fetched.filter(d => {
+                const typeMatch = typeof d.drug_type === 'string' && d.drug_type.toLowerCase().includes('enteral');
+                const configMatch = d.nutrition_configs && (Array.isArray(d.nutrition_configs) ? d.nutrition_configs.length > 0 : Object.keys(d.nutrition_configs).length > 0);
+                return typeMatch || configMatch;
+            }).sort((a,b) => (a.drug_name || '').localeCompare(b.drug_name || ''));
         }
 
         async function fetchNutrients() {
