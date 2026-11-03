@@ -441,6 +441,7 @@
         <div id="adjustment-reference-warning"></div>
 
         <!-- Smart Calculator Section -->
+        <div style="margin:8px 0; color:#991b1b; font-weight:bold;">⚠️ สูตร Cockcroft–Gault และ CKD-EPI 2021 ในหน้านี้ใช้สำหรับผู้ใหญ่อายุ ≥18 ปี ไม่ใช้ประเมินเด็ก</div>
         <div class="section-box" style="background:#f8fafc; border-color:#cbd5e1; margin-bottom: 20px;">
             <div style="font-weight:bold; color:var(--primary); margin-bottom:10px; display:flex; gap:8px; align-items:center;">
                 🧮 เครื่องคิดเลขประเมินการทำงานของไต (Cockcroft-Gault)
@@ -4236,10 +4237,21 @@ async function fetchLogs() {
         calculateCrCl();
     }
     
+    // Shared age gate for the adult equations and their dose-table highlights.
+    function adultRenalAgeWarning(ageInput) {
+        if (ageInput.trim() === '') return '';
+        const age = Number(ageInput);
+        if (!Number.isFinite(age) || age < 0) return '⚠️ อายุไม่ถูกต้อง กรุณาตรวจสอบข้อมูล ระบบระงับผลประเมินไตและการไฮไลต์';
+        if (age < 18) return '⚠️ อายุต่ำกว่า 18 ปี: ห้ามใช้สูตรผู้ใหญ่ในหน้านี้ ระบบระงับ CrCl, eGFR, Absolute GFR และการไฮไลต์ปรับขนาดยา แม้กรอก eGFR จาก Lab กรุณาใช้การประเมินและเอกสารอ้างอิงสำหรับเด็ก';
+        return '';
+    }
+
     // 🧮 Smart Calculator Logic
     function calculateCrCl() {
         const gender = document.getElementById('calc-gender').value;
-        const age = parseFloat(document.getElementById('calc-age').value);
+        const ageInput = document.getElementById('calc-age').value;
+        const age = Number(ageInput);
+        const ageWarning = adultRenalAgeWarning(ageInput);
         const weight = parseFloat(document.getElementById('calc-weight').value);
         const scr = parseFloat(document.getElementById('calc-scr').value);
         const resultEl = document.getElementById('result-crcl');
@@ -4247,7 +4259,7 @@ async function fetchLogs() {
         let crcl = null;
         
         // สูตร Cockcroft-Gault
-        if (age > 0 && weight > 0 && scr > 0) {
+        if (!ageWarning && age >= 18 && Number.isFinite(weight) && weight > 0 && Number.isFinite(scr) && scr > 0) {
             crcl = ((140 - age) * weight) / (72 * scr);
             if (gender === 'F') crcl *= 0.85;
             resultEl.innerText = crcl.toFixed(1);
@@ -4256,7 +4268,7 @@ async function fetchLogs() {
         }
     
         const result = highlightAdjustmentRows(document.getElementById('adjustment-modal'), '.crcl-row', crcl, '#fef08a');
-        showAdjustmentWarnings(document.getElementById('modal-adjustment-warning'), adjustmentHighlightWarnings(result, 'CrCl'));
+        showAdjustmentWarnings(document.getElementById('modal-adjustment-warning'), ageWarning ? [ageWarning] : adjustmentHighlightWarnings(result, 'CrCl'));
     }
 
     // Each table represents one generic and one metric. Never choose between overlapping rules.
@@ -4384,6 +4396,7 @@ async function fetchLogs() {
                     <button class="btn btn-outline btn-sm" ${bindHTMLAction("click", function(event) { clearInlineCrCl((drugCode)) })} style="font-size:0.75rem; padding:2px 8px; height:auto; min-height:24px;">ล้างค่า</button>
                 </div>
                 
+                <div style="margin:8px 0; color:#991b1b; font-weight:bold;">⚠️ สูตร Cockcroft–Gault และ CKD-EPI 2021 ในหน้านี้ใช้สำหรับผู้ใหญ่อายุ ≥18 ปี ไม่ใช้ประเมินเด็ก</div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px;">
                     <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">เพศ</label><select id="calc-gender-${encodeHTML(drugCode)}" ${bindHTMLAction("change", function(event) { calculateInlineCrCl((drugCode)) })} style="margin:0; padding:6px; font-size:0.85rem; height:32px;"><option value="M">ชาย</option><option value="F">หญิง</option></select></div>
                     <div><label style="font-size:0.75rem; color:gray; font-weight:bold;">อายุ (ปี)</label><input type="number" id="calc-age-${encodeHTML(drugCode)}" placeholder="ปี" ${bindHTMLAction("input", function(event) { calculateInlineCrCl((drugCode)) })} style="margin:0; padding:6px; font-size:0.85rem; height:32px;"></div>
@@ -4499,7 +4512,9 @@ async function fetchLogs() {
     
     function calculateInlineCrCl(drugCode) {
         const gender = document.getElementById(`calc-gender-${drugCode}`).value;
-        const age = parseFloat(document.getElementById(`calc-age-${drugCode}`).value);
+        const ageInput = document.getElementById(`calc-age-${drugCode}`).value;
+        const age = Number(ageInput);
+        const ageWarning = adultRenalAgeWarning(ageInput);
         const wt = parseFloat(document.getElementById(`calc-wt-${drugCode}`).value);
         const ht = parseFloat(document.getElementById(`calc-ht-${drugCode}`).value);
         const scr = parseFloat(document.getElementById(`calc-scr-${drugCode}`).value);
@@ -4525,7 +4540,7 @@ async function fetchLogs() {
         }
 
         // 2. คำนวณ CrCl (Cockcroft-Gault)
-        if (age > 0 && wt > 0 && scr > 0) {
+        if (!ageWarning && age >= 18 && Number.isFinite(wt) && wt > 0 && Number.isFinite(scr) && scr > 0) {
             crcl = ((140 - age) * wt) / (72 * scr);
             if (gender === 'F') crcl *= 0.85;
             resCrCl.innerText = crcl.toFixed(1);
@@ -4534,9 +4549,11 @@ async function fetchLogs() {
         }
 
         // 3. ตรวจสอบ eGFR (CKD-EPI หรือ Manual)
-        if (manualInput !== '') {
+        if (ageWarning) {
+            // Keep the draft Lab value, but never use it to bypass the pediatric gate.
+        } else if (manualInput !== '') {
             if (Number.isFinite(manualeGFR) && manualeGFR > 0) egfrNorm = manualeGFR;
-        } else if (age > 0 && scr > 0) {
+        } else if (age >= 18 && Number.isFinite(scr) && scr > 0) {
             const kappa = (gender === 'F') ? 0.7 : 0.9;
             const alpha = (gender === 'F') ? -0.241 : -0.302;
             const femaleConstant = (gender === 'F') ? 1.012 : 1.0;
@@ -4560,7 +4577,7 @@ async function fetchLogs() {
         const container = document.getElementById(`inline-adj-container-${drugCode}`);
         const crclResult = highlightAdjustmentRows(container, `.${CSS.escape(`crcl-row-${drugCode}`)}`, crcl, '#fef08a');
         const egfrResult = highlightAdjustmentRows(container, `.${CSS.escape(`egfr-row-${drugCode}`)}`, egfrNorm, '#dcfce7');
-        const warnings = [
+        const warnings = ageWarning ? [ageWarning] : [
             ...adjustmentHighlightWarnings(crclResult, 'CrCl'),
             ...adjustmentHighlightWarnings(egfrResult, 'eGFR')
         ];
@@ -4568,7 +4585,7 @@ async function fetchLogs() {
             warnings.push('⚠️ ค่า eGFR จาก Lab ไม่ถูกต้อง กรุณาระบุค่าตัวเลขที่มากกว่า 0 ระบบจะไม่ใช้ค่าคำนวณอื่นแทนค่าที่กรอก');
         }
         const warningBox = document.getElementById(`dynamic-warning-${drugCode}`);
-        const urgent = crclResult.overlap || egfrResult.overlap || crclResult.invalidRange || egfrResult.invalidRange;
+        const urgent = Boolean(ageWarning) || crclResult.overlap || egfrResult.overlap || crclResult.invalidRange || egfrResult.invalidRange;
         warningBox.style.background = urgent ? '#fef2f2' : '#fff7ed';
         warningBox.style.border = urgent ? '2px solid #dc2626' : '1px solid #fdba74';
         warningBox.style.color = urgent ? '#991b1b' : '#9a3412';

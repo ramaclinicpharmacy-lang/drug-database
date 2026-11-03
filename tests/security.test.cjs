@@ -1305,3 +1305,86 @@ test('bulk pharmacology ignores late class loads and paginates snapshots before 
   assert.equal(await page.evaluate(()=>window.__writes.filter(w=>w.table==='generic_pharm_mapping').length),0);
  });
 });
+
+test('inline adult renal gate clears results and highlights for children, including manual Lab values', async () => {
+    await openPage('index', async page => {
+        await page.waitForSelector('.drug-card');
+        const result = await page.evaluate(async code => {
+            window.__fixtures.generic_adjustments = ['CrCl', 'eGFR'].map(criterion_type => ({
+                generic_code: 'G1', adj_type: 'renal', criterion_type, min_value: 0, max_value: 1000, recommendation: 'Reference'
+            }));
+            await toggleInlineAdj(code);
+            const get = prefix => document.getElementById(`${prefix}-${code}`);
+            const snapshot = () => ({
+                values: ['result-crcl', 'result-egfr', 'result-abs-gfr'].map(id => get(id).innerText),
+                highlights: [...document.getElementById(`inline-adj-container-${code}`).querySelectorAll('tr')].filter(row => row.style.backgroundColor).length,
+                warning: get('dynamic-warning').innerText,
+                border: get('dynamic-warning').style.border,
+                manual: get('manual-egfr').value
+            });
+            get('calc-age').value = '60'; get('calc-wt').value = '70'; get('calc-ht').value = '170'; get('calc-scr').value = '1';
+            calculateInlineCrCl(code);
+            const adult = snapshot();
+            get('calc-age').value = '8';
+            get('calc-age').dispatchEvent(new Event('input', { bubbles: true }));
+            const child = snapshot();
+            get('manual-egfr').value = '45';
+            get('manual-egfr').dispatchEvent(new Event('input', { bubbles: true }));
+            const childManual = snapshot();
+            const blockedAges = ['0', '17.99', '-1'].map(age => {
+                get('calc-age').value = age; calculateInlineCrCl(code); return snapshot();
+            });
+            get('calc-age').value = '18'; get('manual-egfr').value = ''; calculateInlineCrCl(code);
+            const eighteen = snapshot();
+            clearInlineCrCl(code);
+            const cleared = snapshot();
+            return { adult, child, childManual, blockedAges, eighteen, cleared };
+        }, code);
+        assert.equal(result.adult.highlights, 2);
+        assert.ok(result.adult.values.every(value => value !== '-'));
+        for (const state of [result.child, result.childManual, ...result.blockedAges]) {
+            assert.deepEqual(state.values, ['-', '-', '-']);
+            assert.equal(state.highlights, 0);
+            assert.ok(state.warning.includes('⚠️'));
+            assert.ok(state.border.includes('2px'));
+        }
+        assert.ok(result.child.warning.includes('18'));
+        assert.ok(result.childManual.warning.includes('Lab'));
+        assert.equal(result.childManual.manual, '45', 'retain the entered Lab value as a draft');
+        assert.equal(result.eighteen.highlights, 2);
+        assert.ok(result.eighteen.values.every(value => value !== '-'));
+        assert.ok(!result.eighteen.warning.includes('อายุต่ำกว่า'));
+        assert.deepEqual(result.cleared.values, ['-', '-', '-']);
+        assert.equal(result.cleared.highlights, 0);
+        assert.ok(!result.cleared.warning.includes('อายุต่ำกว่า'));
+    });
+});
+
+test('modal adult renal gate blocks pediatric results and removes stale highlights on input', async () => {
+    await openPage('index', async page => {
+        await page.waitForSelector('.drug-card');
+        const result = await page.evaluate(async code => {
+            await openAdjustmentModal(code);
+            renderAdjustments([{ generic_code: 'G1', criterion_type: 'CrCl', adj_type: 'renal', min_value: 0, max_value: 1000, recommendation: 'Reference' }], allDrugsRaw[0].drug_contents);
+            document.getElementById('calc-weight').value = '70';
+            document.getElementById('calc-scr').value = '1';
+            const snapshot = () => ({ value: document.getElementById('result-crcl').innerText,
+                highlights: [...document.querySelectorAll('#adjustment-modal .crcl-row')].filter(row => row.style.backgroundColor).length,
+                warning: document.getElementById('modal-adjustment-warning').innerText });
+            const states = ['60', '8', '17.99', '0', '-1', '18'].map(age => {
+                const input = document.getElementById('calc-age'); input.value = age;
+                input.dispatchEvent(new Event('input', { bubbles: true })); return snapshot();
+            });
+            clearCrClCalc(); return { states, cleared: snapshot() };
+        }, code);
+        for (const index of [0, 5]) {
+            assert.equal(result.states[index].highlights, 1);
+            assert.notEqual(result.states[index].value, '-');
+        }
+        for (const state of result.states.slice(1, 5)) {
+            assert.equal(state.value, '-'); assert.equal(state.highlights, 0); assert.ok(state.warning.includes('⚠️'));
+        }
+        assert.equal(result.cleared.value, '-'); assert.equal(result.cleared.highlights, 0);
+        assert.ok(!result.cleared.warning.includes('อายุต่ำกว่า'));
+    });
+});
