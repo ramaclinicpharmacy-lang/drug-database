@@ -521,13 +521,15 @@ test('label parser retains operators and units without inventing an exact rankin
     });
 });
 
-test('ready-to-feed calculator blocks impossible concentrations, clears stale results, and recovers', async () => {
-    await openPage('index', async page => {
-        await page.waitForFunction(() => allDrugsRaw.length > 0);
+for (const file of ['index', 'enteral_compare']) {
+test(file + ': ready-to-feed calculator blocks impossible concentrations, clears stale results, and recovers', async () => {
+    await openPage(file, async page => {
+        await page.waitForFunction(() => typeof allEnteralDrugs !== 'undefined' ? allEnteralDrugs.length > 0 : allDrugsRaw.length > 0);
+        await page.evaluate(() => { window.__nutritionTestDrugs = typeof allEnteralDrugs !== 'undefined' ? allEnteralDrugs : allDrugsRaw; });
         await page.evaluate(() => {
-            allDrugsRaw[0].nutrition_configs = { product_type: 'liquid', serving_volume_ml: 250, serving_kcal: 250,
+            window.__nutritionTestDrugs[0].nutrition_configs = { product_type: 'liquid', serving_volume_ml: 250, serving_kcal: 250,
                 protein_per_serving: 10, carb_per_serving: 30, fat_per_serving: 10 };
-            openNutriCalc(allDrugsRaw[0].drug_code);
+            openNutriCalc(window.__nutritionTestDrugs[0].drug_code);
         });
         assert.equal(await page.locator('#nutri-calc-ratio option[value="1.5"]').isDisabled(), true);
         await page.locator('#nutri-calc-volume').fill('300');
@@ -561,18 +563,19 @@ test('ready-to-feed calculator blocks impossible concentrations, clears stale re
             assert.equal(await page.locator('#nutri-calc-results').isVisible(), false);
         }
         await page.evaluate(() => {
-            allDrugsRaw[0].nutrition_configs.serving_kcal = 250;
-            openNutriCalc(allDrugsRaw[0].drug_code);
+            window.__nutritionTestDrugs[0].nutrition_configs.serving_kcal = 250;
+            openNutriCalc(window.__nutritionTestDrugs[0].drug_code);
         });
         assert.equal(await page.locator('#nutri-calc-results').isVisible(), false);
         assert.equal(await page.locator('#nutri-calc-warning').isVisible(), false);
     });
 });
 
-test('powder concentration selection and calculation remain available', async () => {
-    await openPage('index', async page => {
-        await page.waitForFunction(() => allDrugsRaw.length > 0);
-        await page.evaluate(() => openNutriCalc(allDrugsRaw[0].drug_code));
+test(file + ': powder concentration selection and calculation remain available', async () => {
+    await openPage(file, async page => {
+        await page.waitForFunction(() => typeof allEnteralDrugs !== 'undefined' ? allEnteralDrugs.length > 0 : allDrugsRaw.length > 0);
+        await page.evaluate(() => { window.__nutritionTestDrugs = typeof allEnteralDrugs !== 'undefined' ? allEnteralDrugs : allDrugsRaw; });
+        await page.evaluate(() => openNutriCalc(window.__nutritionTestDrugs[0].drug_code));
         assert.equal(await page.locator('#nutri-calc-ratio option[value="2"]').isDisabled(), false);
         await page.locator('#nutri-calc-ratio').selectOption('2');
         await page.locator('#nutri-calc-volume').fill('300');
@@ -583,6 +586,8 @@ test('powder concentration selection and calculation remain available', async ()
         assert.equal(await page.locator('#nutri-calc-results').isVisible(), false);
     });
 });
+
+}
 
 test('administration editor uses one RPC, preserves failed inputs, and prevents duplicate submission', async () => {
     await openPage('index', async page => {
