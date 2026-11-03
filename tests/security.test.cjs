@@ -1388,3 +1388,61 @@ test('modal adult renal gate blocks pediatric results and removes stale highligh
         assert.ok(!result.cleared.warning.includes('อายุต่ำกว่า'));
     });
 });
+
+async function setupDeferredDrugCardRefresh(page) {
+    await setupDrugSaveTest(page);
+    await page.evaluate(() => {
+        const other = structuredClone(allDrugsRaw[0]); other.drug_code = 'OTHER';
+        allDrugsRaw.push(other); renderDrugs(allDrugsRaw);
+        const originalFrom = window.__mockClient.from;
+        window.__mockClient.from = table => {
+            const q = originalFrom(table);
+            if (table === 'drugs') q.then = (yes, no) => new Promise(resolve => { window.__finishCardRefresh = resolve; }).then(yes, no);
+            return q;
+        };
+        window.__cardSavePromise = saveDrug();
+    });
+    await page.waitForFunction(() => Boolean(window.__finishCardRefresh));
+}
+
+test('edited drug card shows refresh status until the latest data arrives, even across rerenders', async () => {
+    await openPage('index', async page => {
+        await setupDeferredDrugCardRefresh(page);
+        assert.equal(await page.locator('#drug-modal').isVisible(), false);
+        assert.equal(await page.locator('.drug-card[aria-busy="true"]').count(), 1);
+        assert.equal(await page.locator('.drug-card-refresh-status').count(), 1);
+        assert.ok((await page.locator('.drug-card-refresh-status').innerText()).includes('บันทึกสำเร็จแล้ว กำลังโหลดข้อมูลล่าสุด'));
+        await page.evaluate(() => renderDrugs(allDrugsRaw));
+        assert.equal(await page.locator('.drug-card[aria-busy="true"]').count(), 1);
+        await page.evaluate(async () => {
+            const updated = structuredClone(window.__fixtures.drugs);
+            updated[0].trade_name = 'Latest saved trade name';
+            window.__finishCardRefresh({ data: updated, error: null });
+            await window.__cardSavePromise;
+        });
+        assert.equal(await page.locator('.drug-card-refresh-status').count(), 0);
+        assert.equal(await page.locator('.drug-card[aria-busy="true"]').count(), 0);
+        assert.ok((await page.locator('.drug-card').innerText()).includes('Latest saved trade name'));
+    });
+});
+
+test('failed card refresh distinguishes successful save from stale card and allows read-only retry', async () => {
+    await openPage('index', async page => {
+        await setupDeferredDrugCardRefresh(page);
+        await page.evaluate(async () => {
+            window.__finishCardRefresh({ data: null, error: { message: 'Network error' } });
+            await window.__cardSavePromise;
+        });
+        assert.equal(await page.locator('.drug-card').count(), 2, 'keep visible cards when refresh fails');
+        assert.equal(await page.locator('.drug-card[aria-busy="true"]').count(), 0);
+        assert.ok((await page.locator('.drug-card-refresh-status').innerText()).includes('ข้อมูลในการ์ดนี้อาจยังเป็นข้อมูลเดิม'));
+        assert.equal(await page.evaluate(() => window.__drugCalls.length), 1);
+        await page.evaluate(() => { window.__finishCardRefresh = null; });
+        await page.locator('.drug-card-refresh-status button').click();
+        await page.waitForFunction(() => Boolean(window.__finishCardRefresh));
+        assert.equal(await page.locator('.drug-card[aria-busy="true"]').count(), 1);
+        await page.evaluate(() => window.__finishCardRefresh({ data: structuredClone(window.__fixtures.drugs), error: null }));
+        await page.waitForFunction(() => !document.querySelector('.drug-card-refresh-status'));
+        assert.equal(await page.evaluate(() => window.__drugCalls.length), 1, 'retry refresh must not repeat saving');
+    });
+});
