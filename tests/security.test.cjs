@@ -1609,3 +1609,69 @@ test('compare preparation controls are unavailable to unsigned users', async () 
         assert.equal(await page.evaluate(() => window.__writes.filter(w => w.table === 'nutrition_configs').length), 0);
     });
 });
+
+async function setupPaginatedEnteralTest(page, failFrom = null) {
+    await page.waitForFunction(() => allEnteralDrugs.length > 0);
+    await page.evaluate(failFrom => {
+        window.__enteralPages = [];
+        window.__enteralOriginal = structuredClone(allEnteralDrugs);
+        const rows = Array.from({ length: 1100 }, (_, i) => ({
+            drug_code: `D${String(i).padStart(5, '0')}`, drug_name: 'Same product name',
+            drug_type: i < 7 || i >= 1066 ? 'enteral nutrition' : 'drug', is_active: true,
+            nutrition_configs: i === 995 ? { product_type: 'powder' } : i === 996 ? [{ product_type: 'liquid' }] : []
+        }));
+        rows.push({ drug_code: 'INACTIVE', drug_name: 'Inactive food', drug_type: 'enteral nutrition', is_active: false });
+        const originalFrom = window.__mockClient.from;
+        window.__mockClient.from = table => {
+            if (table !== 'drugs') return originalFrom(table);
+            const query = { first: 0, last: 999, filters: [], ordering: [] };
+            query.select = () => query;
+            query.eq = (key, value) => { query.filters.push([key, value]); return query; };
+            query.order = (key, options) => { query.ordering.push({ key, options }); return query; };
+            query.range = (first, last) => { query.first = first; query.last = last; return query; };
+            query.then = (yes, no) => {
+                window.__enteralPages.push({ first: query.first, last: query.last, ordering: query.ordering });
+                if (query.first === failFrom) return Promise.resolve({ data: null, error: { message: 'Later page unavailable' } }).then(yes, no);
+                let data = [...rows].reverse().filter(row => query.filters.every(([key, value]) => row[key] === value));
+                for (const { key } of query.ordering) data.sort((a, b) => String(a[key]).localeCompare(String(b[key])));
+                // Simulate a server cap smaller than the requested page size.
+                data = data.slice(query.first, Math.min(query.last + 1, query.first + 200));
+                return Promise.resolve({ data, error: null }).then(yes, no);
+            };
+            return query;
+        };
+    }, failFrom);
+}
+
+test('enteral comparison loads every page before filtering, including unconfigured food beyond row 1000', async () => {
+    await openPage('enteral_compare', async page => {
+        await setupPaginatedEnteralTest(page);
+        const result = await page.evaluate(async () => {
+            await fetchEnteralDrugs(); renderSelectors();
+            return { codes: allEnteralDrugs.map(d => d.drug_code), pages: window.__enteralPages };
+        });
+        assert.equal(result.codes.length, 43);
+        assert.ok(result.codes.includes('D01099'));
+        assert.ok(result.codes.includes('D00995') && result.codes.includes('D00996'), 'preserve config-only products');
+        assert.ok(!result.codes.includes('INACTIVE'));
+        assert.equal(new Set(result.codes).size, 43);
+        assert.equal(await page.locator('.product-cb').count(), 43);
+        assert.deepEqual(result.pages.map(p => p.first), [0, 200, 400, 600, 800, 1000, 1100]);
+        assert.ok(result.pages.every(p => p.last === p.first + 499));
+        assert.ok(result.pages.every(p => p.ordering.length === 1 && p.ordering[0].key === 'drug_code' && p.ordering[0].options.ascending));
+    });
+});
+
+test('a failed later enteral page cannot replace the catalog with a partial list', async () => {
+    await openPage('enteral_compare', async page => {
+        await setupPaginatedEnteralTest(page, 200);
+        const result = await page.evaluate(async () => {
+            let error;
+            try { await fetchEnteralDrugs(); } catch (e) { error = e.message; }
+            return { error, current: allEnteralDrugs, original: window.__enteralOriginal, pages: window.__enteralPages.length };
+        });
+        assert.equal(result.error, 'Later page unavailable');
+        assert.deepEqual(result.current, result.original);
+        assert.equal(result.pages, 2);
+    });
+});
