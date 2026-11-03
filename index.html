@@ -1467,6 +1467,7 @@
     let editingIngredientCode = null;
     let ingredientSaveInProgress = false;
     let drugSaveInProgress = false;
+    const drugCardRefreshStates = new Map();
     let currentPage = 1; let itemsPerPage = 10; let filteredDrugsList = []; 
     let inactivityTimer; const TIMEOUT_MS = 120 * 60 * 1000; 
     let activePharmTags = [];
@@ -2520,22 +2521,55 @@ async function fetchLogs() {
         currentPage = 1; updatePaginationUI();
     }
 
-    async function fetchDrugs() { 
-        let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; 
-        while (hasMore) { 
-            const { data, error } = await supabaseClient.from('drugs')
-                // 🌟 เพิ่ม generic_gene_lab เข้าไปในบรรทัด select ด้านล่างนี้ครับ
-                .select(`*, drug_tag_mapping(tag_name), drug_label_mapping(label_code, labels(label_name)), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, generic_type, special_note, needs_renal_adj, needs_hepatic_adj, generic_pharm_mapping(class_name), generic_gene_lab(test_name, description), generic_links(id, link_title, url))), drug_administrations(id, rank, instructions, min_conc, max_conc, conc_unit, updated_at, updated_by, routes(route_name, route_code), administration_fluids(fluid_short_name)), nutrition_configs(product_type, grams_per_scoop, scoops_per_serving, serving_volume_ml, serving_kcal, protein_per_serving, carb_per_serving, fat_per_serving, preparation_note), med_error_knowledge(*), drug_links(id, link_title, url), drug_nickname(nickname)`)
-                .eq('is_active', true) 
-                .order('drug_name')
-                .range(from, from + step - 1);
+    function drugCardRefreshHTML(code) {
+        const state = drugCardRefreshStates.get(code);
+        if (!state) return '';
+        return `<div class="drug-card-refresh-status" role="status" aria-live="polite" style="margin-bottom:12px; padding:12px; border-radius:8px; border:2px solid ${state === 'loading' ? '#0284c7' : '#d97706'}; background:${state === 'loading' ? '#e0f2fe' : '#fffbeb'}; color:${state === 'loading' ? '#075985' : '#92400e'}; font-weight:bold;">
+            ${state === 'loading'
+                ? '⏳ บันทึกสำเร็จแล้ว กำลังโหลดข้อมูลล่าสุด…'
+                : `⚠️ บันทึกสำเร็จแล้ว แต่โหลดข้อมูลล่าสุดไม่สำเร็จ ข้อมูลในการ์ดนี้อาจยังเป็นข้อมูลเดิม <button type="button" class="btn btn-outline btn-sm" ${bindHTMLAction('click', function(event) { event.stopPropagation(); fetchDrugs(code); })}>ลองโหลดใหม่</button>`}
+        </div>`;
+    }
+
+    function setDrugCardRefreshState(code, state) {
+        drugCardRefreshStates.set(code, state);
+        document.querySelectorAll('.drug-card').forEach(card => {
+            if (card.dataset.code !== code) return;
+            card.setAttribute('aria-busy', String(state === 'loading'));
+            card.querySelector('.drug-card-refresh-status')?.remove();
+            const host = document.createElement('div');
+            setHTML(host, drugCardRefreshHTML(code));
+            card.prepend(...host.childNodes);
+        });
+    }
+
+    async function fetchDrugs(refreshDrugCode = null) {
+        if (refreshDrugCode !== null) setDrugCardRefreshState(refreshDrugCode, 'loading');
+        try { 
+            let fetchedData = []; let from = 0; const step = 1000; let hasMore = true; 
+            while (hasMore) { 
+                const { data, error } = await supabaseClient.from('drugs')
+                    // 🌟 เพิ่ม generic_gene_lab เข้าไปในบรรทัด select ด้านล่างนี้ครับ
+                    .select(`*, drug_tag_mapping(tag_name), drug_label_mapping(label_code, labels(label_name)), drug_nlem_mapping(nlem_code, condition_note, nlem_categories(description)), drug_contents(amount, unit, generics(generic_name, generic_code, generic_type, special_note, needs_renal_adj, needs_hepatic_adj, generic_pharm_mapping(class_name), generic_gene_lab(test_name, description), generic_links(id, link_title, url))), drug_administrations(id, rank, instructions, min_conc, max_conc, conc_unit, updated_at, updated_by, routes(route_name, route_code), administration_fluids(fluid_short_name)), nutrition_configs(product_type, grams_per_scoop, scoops_per_serving, serving_volume_ml, serving_kcal, protein_per_serving, carb_per_serving, fat_per_serving, preparation_note), med_error_knowledge(*), drug_links(id, link_title, url), drug_nickname(nickname)`)
+                    .eq('is_active', true) 
+                    .order('drug_name')
+                    .range(from, from + step - 1);
                 
-            if (error) { setHTML(document.getElementById('drug-list-container'), `<div style="text-align:center; padding:50px; color:var(--danger);"><h3 style="margin-top:0;">❌ ข้อมูลไม่สามารถโหลดได้</h3><p>${encodeHTML(error.message)}</p></div>`); return; } 
-            fetchedData = fetchedData.concat(data); 
-            if (data.length < step) hasMore = false; else from += step; 
-        } 
-        allDrugsRaw = fetchedData; 
-        updateBaseVisibilityAndFilter();
+                if (error) throw error; 
+                fetchedData = fetchedData.concat(data); 
+                if (data.length < step) hasMore = false; else from += step; 
+            } 
+            if (refreshDrugCode !== null) drugCardRefreshStates.delete(refreshDrugCode);
+            allDrugsRaw = fetchedData; 
+            updateBaseVisibilityAndFilter();
+        } catch (error) {
+            if (refreshDrugCode !== null) {
+                // Saving succeeded; retain the visible card and distinguish refresh failure.
+                setDrugCardRefreshState(refreshDrugCode, 'error');
+            } else {
+                setHTML(document.getElementById('drug-list-container'), `<div style="text-align:center; padding:50px; color:var(--danger);"><h3 style="margin-top:0;">❌ ข้อมูลไม่สามารถโหลดได้</h3><p>${encodeHTML(error.message || 'ไม่สามารถติดต่อระบบได้')}</p></div>`);
+            }
+        }
     }
 
     function formatConc(min, max, unit) {
@@ -2777,7 +2811,8 @@ async function fetchLogs() {
 
             // 🌟 5. คืนค่า HTML โครงสร้าง Card
             return `
-            <div class="drug-card ${encodeHTML(cardThemeClass)}" data-code="${encodeHTML(safeCode)}">
+            <div class="drug-card ${encodeHTML(cardThemeClass)}" data-code="${encodeHTML(safeCode)}" aria-busy="${drugCardRefreshStates.get(safeCode) === 'loading'}">
+                ${drugCardRefreshHTML(safeCode)}
                 <div class="card-header-flex" style="flex-wrap: wrap; align-items: flex-start; gap: 15px;">
                     <div style="flex: 1; min-width: 250px; display: flex; flex-direction: column;">
                         <div class="clickable-header" ${bindHTMLAction("click", function(event) { toggleCard((safeCode)) })}>
@@ -2902,7 +2937,7 @@ async function fetchLogs() {
             unlock();
             button.innerText = originalLabel;
         }
-        if (saved) fetchDrugs();
+        if (saved) await fetchDrugs(isEdit ? drugCode : null);
     }
     async function deleteDrug(code) { if(confirm("ลบข้อมูลยานี้ออกจากระบบ?")) { await supabaseClient.from('drugs').delete().eq('drug_code', code); fetchDrugs(); } }
 
