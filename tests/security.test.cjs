@@ -1446,3 +1446,75 @@ test('failed card refresh distinguishes successful save from stale card and allo
         assert.equal(await page.evaluate(() => window.__drugCalls.length), 1, 'retry refresh must not repeat saving');
     });
 });
+
+const cardManagerCases = [
+    'saveMeKnowledge', 'deleteMeRule', 'saveLink', 'deleteLink', 'saveGenericLink', 'deleteGenericLink',
+    'saveDrugImages', 'addAlias', 'removeAlias', 'addLabelMapping', 'removeLabelMapping',
+    'addNlemMapping', 'removeNlemMapping', 'addAdministration', 'removeAdmin', 'moveAdminRank',
+    'addIngredient', 'removeIngredient', 'removeAllIngredients', 'saveNutriConfig', 'deleteNutriConfig', 'deleteDrug',
+    'executeBulkNlemAdd', 'executeBulkCopyAdmin', 'executeAliasBulkCopy'
+];
+for (const action of cardManagerCases) {
+    test(`card manager refresh status: ${action}`, async () => {
+        await openPage('index', async page => {
+            await page.waitForSelector('.drug-card');
+            page.removeAllListeners('dialog'); page.on('dialog', dialog => dialog.accept());
+            await page.evaluate(({ code, action }) => {
+                const other = structuredClone(allDrugsRaw[0]); other.drug_code = 'OTHER';
+                const unrelated = structuredClone(other); unrelated.drug_code = 'UNRELATED'; unrelated.drug_contents = [];
+                allDrugsRaw.push(other, unrelated); renderDrugs(allDrugsRaw);
+                const set = (id, value) => { document.getElementById(id).value = value; };
+                for (const id of ['me-admin-drug-code', 'image-admin-drug-code', 'alias-admin-drug-code',
+                    'target-label-drug-code', 'target-nlem-drug-code', 'target-admin-drug-code', 'target-drug-code', 'nutri-admin-code']) set(id, code);
+                set('me-admin-type', 'Test risk'); set('me-admin-desc', 'Test description');
+                set('link-admin-mode', action.includes('GenericLink') ? 'generic' : 'drug');
+                set('link-admin-code', action.includes('GenericLink') ? 'G1' : code);
+                set('link-admin-title-input', 'Reference'); set('link-admin-url-input', 'https://example.test/');
+                set('alias-admin-input', 'New alias');
+                setHTML(document.getElementById('select-generic'), '<option value="G1">Generic</option>');
+                setHTML(document.getElementById('select-mapping-label'), '<option value="L1">Label</option>');
+                set('nutri-admin-type', 'liquid'); set('nutri-admin-liquid-vol', '250'); set('nutri-admin-liquid-kcal', '250');
+                currentIngredientsList = [{ generic_code: 'G1' }];
+                currentAdminsList = [{ id: 1, route_code: 'R1', instructions: 'Use', rank: 1 }, { id: 2, route_code: 'R1', rank: 2 }];
+                set('bulk-copy-admin-id', '1');
+                set('alias-bulk-source-code', code);
+                setHTML(document.getElementById('alias-bulk-copy-selection'), '<option value="New alias">New alias</option>');
+                for (const name of ['bulk-target-drugs', 'alias-bulk-target-drugs', 'bulk-nlem-drug-cb']) {
+                    const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.name = name; checkbox.className = name; checkbox.value = 'OTHER'; checkbox.checked = true; document.body.append(checkbox);
+                }
+                window.__mockClient.rpc = async () => ({ data: 123, error: null });
+                const originalFrom = window.__mockClient.from;
+                window.__mockClient.from = table => {
+                    const q = originalFrom(table), originalThen = q.then;
+                    q.then = (yes, no) => {
+                        if (table === 'drugs' && q.operation === 'select') return new Promise(resolve => { window.__finishManagerRefresh = resolve; }).then(yes, no);
+                        if (table === 'drug_contents' && q.operation !== 'select') return Promise.resolve({ data: { drug_code: code, generic_code: 'G1' }, error: null }).then(yes, no);
+                        return originalThen(yes, no);
+                    };
+                    return q;
+                };
+                const calls = {
+                    deleteMeRule: () => deleteMeRule(1, code), deleteLink: () => deleteLink(1, 'drug', code),
+                    saveGenericLink: () => saveLink(), deleteGenericLink: () => deleteLink(1, 'generic', 'G1'),
+                    removeAlias: () => removeAlias(1, code), removeLabelMapping: () => removeLabelMapping(code, 'L1'),
+                    removeNlemMapping: () => removeNlemMapping(code, 'N1'), removeAdmin: () => removeAdmin(1, code),
+                    moveAdminRank: () => moveAdminRank(1, 1, code), removeIngredient: () => removeIngredient(code, 'G1'),
+                    deleteDrug: () => deleteDrug(code)
+                };
+                window.__managerAction = calls[action] ? calls[action]() : window[action]();
+            }, { code, action });
+            await page.waitForFunction(() => Boolean(window.__finishManagerRefresh));
+            const expected = action.includes('GenericLink') ? [code, 'OTHER'] : action.startsWith('execute') ? ['OTHER'] : [code];
+            assert.deepEqual(await page.locator('.drug-card[aria-busy="true"]').evaluateAll(cards => cards.map(card => card.dataset.code)), expected);
+            assert.equal(await page.locator('.drug-card-refresh-status').count(), expected.length);
+            await page.evaluate(() => renderDrugs(allDrugsRaw));
+            assert.equal(await page.locator('.drug-card[aria-busy="true"]').count(), expected.length);
+            await page.evaluate(async action => {
+                const data = structuredClone(window.__fixtures.drugs);
+                window.__finishManagerRefresh({ data: action === 'deleteDrug' ? [] : data, error: null });
+                await window.__managerAction;
+            }, action);
+            await page.waitForFunction(() => !document.querySelector('.drug-card-refresh-status'));
+        });
+    });
+}
