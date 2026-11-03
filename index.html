@@ -823,6 +823,7 @@
                 🚨 กำหนดให้ยานี้เป็นกลุ่มที่พบ ME บ่อยครั้ง (High Error Risk)
     </label>
 </div>
+<div id="drug-save-error" role="alert" hidden style="margin-top:12px; padding:12px; border:2px solid #b91c1c; background:#fef2f2; color:#991b1b; font-weight:bold; white-space:pre-wrap;"></div>
 <label style="font-size:0.9rem; font-weight:bold; margin-top:15px; display:block;">Note</label><textarea id="form-drug-note" placeholder="บันทึกข้อความพิเศษ..."></textarea><button class="btn btn-success" style="width:100%; margin-top:20px; height:45px;" onclick="saveDrug()">บันทึกข้อมูลยา</button><button class="btn btn-outline" style="width:100%; margin-top:10px; height:42px;" onclick="closeModal('drug-modal')">ยกเลิก</button></div></div>
 
 <div id="admin-manager-modal" class="modal">
@@ -1458,6 +1459,7 @@
     let currentIngredientsList = [];
     let editingIngredientCode = null;
     let ingredientSaveInProgress = false;
+    let drugSaveInProgress = false;
     let currentPage = 1; let itemsPerPage = 10; let filteredDrugsList = []; 
     let inactivityTimer; const TIMEOUT_MS = 120 * 60 * 1000; 
     let activePharmTags = [];
@@ -2841,72 +2843,59 @@ async function fetchLogs() {
         updateToggleAllButton();
     }
 
-    function openAddDrug() { document.getElementById('form-drug-code').disabled=false; document.getElementById('form-drug-code').value=''; document.getElementById('form-drug-name').value=''; document.getElementById('form-drug-note').value=''; document.getElementById('form-drug-statuscode').value=''; document.getElementById('form-drug-remarks').value=''; if(document.getElementById('form-drug-type').options.length > 0) document.getElementById('form-drug-type').selectedIndex = 0; document.querySelectorAll('input[name="drug-tags"]').forEach(cb => cb.checked = false); openModal('drug-modal'); document.getElementById('form-drug-tradename').value=''; document.getElementById('form-drug-classification').value = 'drug'; document.getElementById('form-drug-strength').value = ''; document.getElementById('form-drug-high-risk').checked = false; openModal('drug-modal'); }
-    function openEditDrug(code) { const drug = allDrugsRaw.find(d => d.drug_code === code); if (!drug) return; document.getElementById('form-drug-code').value = drug.drug_code; document.getElementById('form-drug-code').disabled = true; document.getElementById('form-drug-name').value = drug.drug_name; document.getElementById('form-drug-type').value = drug.dosage_form || ''; document.getElementById('form-drug-note').value = drug.special_note || ''; document.getElementById('form-drug-statuscode').value = drug.statuscode || ''; document.getElementById('form-drug-remarks').value = drug.remarks || ''; const currentTags = (drug.drug_tag_mapping || []).map(t => t.tag_name); document.querySelectorAll('input[name="drug-tags"]').forEach(cb => { cb.checked = currentTags.includes(cb.value); }); openModal('drug-modal'); document.getElementById('form-drug-tradename').value = drug.trade_name || ''; document.getElementById('form-drug-classification').value = drug.drug_type || 'drug'; document.getElementById('form-drug-strength').value = drug.strength || ''; document.getElementById('form-drug-high-risk').checked = drug.is_high_error_risk || false; openModal('drug-modal'); }
-    async function saveDrug() { 
-        const drug_code = document.getElementById('form-drug-code').value.trim(); 
-        const statuscode = document.getElementById('form-drug-statuscode').value.trim() || null; 
-        const remarks = document.getElementById('form-drug-remarks').value.trim() || null; 
-        const trade_name = document.getElementById('form-drug-tradename').value.trim() || null; 
-        const drug_type = document.getElementById('form-drug-classification').value; 
-        const dosage_form_val = document.getElementById('form-drug-type').value.trim() || null;
-        const special_note_val = document.getElementById('form-drug-note').value.trim() || null;
-        const strength_val = document.getElementById('form-drug-strength').value.trim() || null; 
-        const is_high_risk = document.getElementById('form-drug-high-risk').checked;
-
-        if (!drug_code) return alert('❌ กรุณาระบุรหัสยา (Drug Code)');
-        if (!document.getElementById('form-drug-name').value.trim()) return alert('❌ กรุณาระบุชื่อยาอ้างอิงหลัก (Drug Name)');
-
-        const isEditMode = document.getElementById('form-drug-code').disabled; // true = โหมดแก้ไข, false = โหมดเพิ่มใหม่
-
-        // 🚨 ส่วนตรวจสอบรหัสยาซ้ำ (รันเฉพาะตอนเพิ่มยาใหม่เท่านั้น)
-        if (!isEditMode) {
-            const isDuplicate = allDrugsRaw.some(d => d.drug_code.toLowerCase() === drug_code.toLowerCase());
-            if (isDuplicate) {
-                alert(`⛔ ห้ามบันทึกซ้ำ! รหัสยา "${drug_code}" มีอยู่ในคลังระบบแล้ว\nกรุณาใช้รหัสยาอื่น หรือเปลี่ยนไปเลือกแก้ไขรายการเดิมแทน`);
-                return;
+    function openAddDrug() { document.getElementById('drug-save-error').hidden = true; document.getElementById('form-drug-code').disabled=false; document.getElementById('form-drug-code').value=''; document.getElementById('form-drug-name').value=''; document.getElementById('form-drug-note').value=''; document.getElementById('form-drug-statuscode').value=''; document.getElementById('form-drug-remarks').value=''; if(document.getElementById('form-drug-type').options.length > 0) document.getElementById('form-drug-type').selectedIndex = 0; document.querySelectorAll('input[name="drug-tags"]').forEach(cb => cb.checked = false); openModal('drug-modal'); document.getElementById('form-drug-tradename').value=''; document.getElementById('form-drug-classification').value = 'drug'; document.getElementById('form-drug-strength').value = ''; document.getElementById('form-drug-high-risk').checked = false; openModal('drug-modal'); }
+    function openEditDrug(code) { document.getElementById('drug-save-error').hidden = true; const drug = allDrugsRaw.find(d => d.drug_code === code); if (!drug) return; document.getElementById('form-drug-code').value = drug.drug_code; document.getElementById('form-drug-code').disabled = true; document.getElementById('form-drug-name').value = drug.drug_name; document.getElementById('form-drug-type').value = drug.dosage_form || ''; document.getElementById('form-drug-note').value = drug.special_note || ''; document.getElementById('form-drug-statuscode').value = drug.statuscode || ''; document.getElementById('form-drug-remarks').value = drug.remarks || ''; const currentTags = (drug.drug_tag_mapping || []).map(t => t.tag_name); document.querySelectorAll('input[name="drug-tags"]').forEach(cb => { cb.checked = currentTags.includes(cb.value); }); openModal('drug-modal'); document.getElementById('form-drug-tradename').value = drug.trade_name || ''; document.getElementById('form-drug-classification').value = drug.drug_type || 'drug'; document.getElementById('form-drug-strength').value = drug.strength || ''; document.getElementById('form-drug-high-risk').checked = drug.is_high_error_risk || false; openModal('drug-modal'); }
+    async function saveDrug() {
+        if (drugSaveInProgress) return;
+        const errorBox = document.getElementById('drug-save-error');
+        errorBox.hidden = true;
+        const drugCode = document.getElementById('form-drug-code').value.trim();
+        const drugName = document.getElementById('form-drug-name').value.trim();
+        const isEdit = document.getElementById('form-drug-code').disabled;
+        const button = document.querySelector('#drug-modal .btn-success');
+        const originalLabel = button.innerText;
+        let unlock = () => {};
+        let saved = false;
+        try {
+            if (!drugCode) throw new Error('กรุณาระบุรหัสยา (Drug Code)');
+            if (!drugName) throw new Error('กรุณาระบุชื่อยาอ้างอิงหลัก (Drug Name)');
+            if (!isEdit && allDrugsRaw.some(d => d.drug_code.toLowerCase() === drugCode.toLowerCase())) {
+                throw new Error(`รหัสยา "${drugCode}" มีอยู่แล้ว กรุณาเลือกแก้ไขรายการเดิมหรือใช้รหัสอื่น`);
             }
+            const readText = id => document.getElementById(id).value.trim() || null;
+            const args = {
+                p_drug_code: drugCode,
+                p_is_edit: isEdit,
+                p_drug_name: drugName,
+                p_drug_type: document.getElementById('form-drug-classification').value,
+                p_trade_name: readText('form-drug-tradename'),
+                p_strength: readText('form-drug-strength'),
+                p_dosage_form: readText('form-drug-type'),
+                p_special_note: readText('form-drug-note'),
+                p_statuscode: readText('form-drug-statuscode'),
+                p_remarks: readText('form-drug-remarks'),
+                p_is_high_error_risk: document.getElementById('form-drug-high-risk').checked,
+                p_tag_names: Array.from(document.querySelectorAll('input[name="drug-tags"]:checked')).map(cb => cb.value)
+            };
+            drugSaveInProgress = true;
+            unlock = lockModalControls('drug-modal');
+            button.innerText = '⏳ กำลังบันทึกข้อมูล...';
+            // No separate table writes or unsafe fallback when the RPC fails.
+            const { data, error } = await supabaseClient.rpc('save_drug_with_tags', args);
+            if (error) throw error;
+            if (data !== drugCode) throw new Error('ไม่ได้รับผลยืนยันการบันทึกข้อมูลยาและ Tags');
+            saved = true;
+            closeModal('drug-modal');
+            alert('✅ บันทึกข้อมูลยาและ Tags สำเร็จ');
+        } catch (error) {
+            errorBox.textContent = '⚠️ บันทึกไม่สำเร็จหรือยังยืนยันผลไม่ได้ ข้อมูลในฟอร์มและ Tags ที่เลือกยังอยู่ โปรดตรวจสอบรายการล่าสุดก่อนลองซ้ำ\n' + (error.message || 'ไม่สามารถติดต่อระบบได้');
+            errorBox.hidden = false;
+        } finally {
+            drugSaveInProgress = false;
+            unlock();
+            button.innerText = originalLabel;
         }
-
-        const btn = document.querySelector('#drug-modal .btn-success');
-        const oldText = btn.innerText;
-        btn.innerText = "⏳ กำลังบันทึกข้อมูล...";
-        btn.disabled = true;
-
-        const { error } = await supabaseClient.from('drugs').upsert({ 
-            drug_code, 
-            drug_type: drug_type, 
-            drug_name: document.getElementById('form-drug-name').value.trim(), 
-            trade_name: trade_name, 
-            strength: strength_val, 
-            dosage_form: dosage_form_val, 
-            special_note: special_note_val, 
-            statuscode: statuscode, 
-            remarks: remarks,
-            is_high_error_risk: is_high_risk
-        }, { onConflict: 'drug_code' });
-
-        btn.innerText = oldText;
-        btn.disabled = false;
-
-        if (error) {
-            const msg = error.message.toLowerCase();
-            if (msg.includes('jwt') || msg.includes('rls') || msg.includes('policy') || error.code === '401' || error.code === '403') {
-                promptRelogin(); 
-                return; 
-            }
-            alert("❌ เกิดข้อผิดพลาดในการบันทึกยา: " + error.message);
-            return;
-        }
-
-        // บันทึกข้อมูลผูกสถานะเตือน (Tags) ต่อ
-        await supabaseClient.from('drug_tag_mapping').delete().eq('drug_code', drug_code); 
-        const selectedTags = Array.from(document.querySelectorAll('input[name="drug-tags"]:checked')).map(cb => ({ drug_code, tag_name: cb.value })); 
-        if (selectedTags.length > 0) await supabaseClient.from('drug_tag_mapping').insert(selectedTags); 
-        
-        closeModal('drug-modal'); 
-        fetchDrugs(); 
-        alert('=== บันทึกข้อมูลยาหลักเข้าคลังสำเร็จ! ===');
+        if (saved) fetchDrugs();
     }
     async function deleteDrug(code) { if(confirm("ลบข้อมูลยานี้ออกจากระบบ?")) { await supabaseClient.from('drugs').delete().eq('drug_code', code); fetchDrugs(); } }
 

@@ -1024,3 +1024,116 @@ test('bulk Gene/Lab paginates loaded links and never falls back to table writes 
         assert.equal(await page.evaluate(()=>window.__writes.filter(w=>w.table==='generic_gene_lab').length),0);
     });
 });
+
+async function setupDrugSaveTest(page) {
+    await page.waitForFunction(()=>allDrugsRaw.length>0);
+    await page.evaluate(()=>{
+        openEditDrug(allDrugsRaw[0].drug_code);
+        document.getElementById('form-drug-name').value='Edited name';
+        document.getElementById('form-drug-tradename').value='Draft trade name';
+        window.__drugCalls=[];
+        window.__drugOutcome={data:allDrugsRaw[0].drug_code,error:null};
+        const originalRPC=window.__mockClient.rpc;
+        window.__mockClient.rpc=(name,args)=>{
+            if(name!=='save_drug_with_tags')return originalRPC(name,args);
+            window.__drugCalls.push({name,args:structuredClone(args)});
+            if(window.__drugDeferred)return new Promise(resolve=>{window.__finishDrug=resolve;});
+            if(window.__drugNetworkFailure)return Promise.reject(new Error('Network lost'));
+            return Promise.resolve(window.__drugOutcome);
+        };
+    });
+}
+
+test('drug editor saves parent and tags through one RPC and retains failed form state',async()=>{
+    await openPage('index',async page=>{
+        await setupDrugSaveTest(page);
+        await page.evaluate(async()=>{
+            window.__drugOutcome={data:null,error:{message:'<img src=x onerror="window.__xss=1"> tag failure'}};
+            await saveDrug();
+        });
+        const calls=await page.evaluate(()=>window.__drugCalls);
+        assert.equal(calls.length,1);
+        assert.equal(calls[0].name,'save_drug_with_tags');
+        assert.equal(calls[0].args.p_drug_code,code);
+        assert.equal(calls[0].args.p_is_edit,true);
+        assert.equal(calls[0].args.p_drug_name,'Edited name');
+        assert.equal(calls[0].args.p_trade_name,'Draft trade name');
+        assert.deepEqual(calls[0].args.p_tag_names,[text]);
+        assert.equal(await page.locator('#form-drug-name').inputValue(),'Edited name');
+        assert.equal(await page.locator('#form-drug-tradename').inputValue(),'Draft trade name');
+        assert.equal(await page.locator('input[name="drug-tags"]:checked').count(),1);
+        assert.equal(await page.locator('#drug-save-error').isVisible(),true);
+        assert.equal(await page.locator('#drug-save-error img').count(),0);
+        assert.equal(await page.locator('#form-drug-code').isDisabled(),true);
+        assert.equal(await page.locator('#drug-modal .btn-success').isDisabled(),false);
+        assert.equal(await page.evaluate(()=>window.__writes.filter(w=>['drugs','drug_tag_mapping'].includes(w.table)).length),0);
+        await page.evaluate(async()=>{
+            window.__drugOutcome={data:allDrugsRaw[0].drug_code,error:null};await saveDrug();
+        });
+        assert.equal(await page.locator('#drug-modal').isVisible(),false);
+    });
+});
+
+test('drug create preserves mode, prevents duplicate submissions and supports empty tags',async()=>{
+    await openPage('index',async page=>{
+        await setupDrugSaveTest(page);
+        await page.evaluate(async()=>{
+            openAddDrug();
+            document.getElementById('form-drug-code').value='NEW_DRUG';
+            document.getElementById('form-drug-name').value='New drug';
+            window.__drugDeferred=true;
+            window.__drugPromise=saveDrug();
+            await saveDrug();
+        });
+        assert.equal(await page.evaluate(()=>window.__drugCalls.length),1);
+        let call=await page.evaluate(()=>window.__drugCalls[0]);
+        assert.equal(call.args.p_is_edit,false);
+        assert.deepEqual(call.args.p_tag_names,[]);
+        assert.equal(await page.locator('#form-drug-name').isDisabled(),true);
+        assert.equal(await page.locator('#drug-modal .btn-success').isDisabled(),true);
+        await page.evaluate(async()=>{
+            window.__finishDrug({data:null,error:{code:'23505',message:'duplicate key'}});
+            await window.__drugPromise;
+        });
+        assert.equal(await page.locator('#form-drug-code').inputValue(),'NEW_DRUG');
+        assert.equal(await page.locator('#form-drug-code').isDisabled(),false);
+        assert.equal(await page.locator('#drug-save-error').isVisible(),true);
+        assert.equal(await page.locator('#drug-modal').isVisible(),true);
+    });
+});
+
+test('drug editor handles missing RPC, lost response and missing-row errors without fallback or false success',async()=>{
+    await openPage('index',async page=>{
+        await setupDrugSaveTest(page);
+        for(const mode of ['missing','network','removed','empty']){
+            await page.evaluate(async mode=>{
+                window.__drugNetworkFailure=mode==='network';
+                window.__drugOutcome=mode==='missing'?{data:null,error:{code:'PGRST202',message:'function missing'}}
+                    :mode==='removed'?{data:null,error:{code:'P0002',message:'drug no longer exists'}}:{data:null,error:null};
+                await saveDrug();
+            },mode);
+            assert.equal(await page.locator('#drug-modal').isVisible(),true);
+            assert.equal(await page.locator('#form-drug-name').inputValue(),'Edited name');
+            assert.equal(await page.locator('input[name="drug-tags"]:checked').count(),1);
+            assert.equal(await page.locator('#drug-modal .btn-success').isDisabled(),false);
+            assert.equal(await page.locator('#drug-save-error').isVisible(),true);
+        }
+        assert.equal(await page.evaluate(()=>window.__writes.filter(w=>['drugs','drug_tag_mapping'].includes(w.table)).length),0);
+    });
+});
+
+test('drug form validates required fields and cached duplicate codes before submitting',async()=>{
+    await openPage('index',async page=>{
+        await setupDrugSaveTest(page);
+        await page.evaluate(async()=>{
+            openAddDrug();await saveDrug();
+            document.getElementById('form-drug-code').value='NEW_DRUG';await saveDrug();
+            document.getElementById('form-drug-name').value='New drug';
+            document.getElementById('form-drug-code').value=allDrugsRaw[0].drug_code;await saveDrug();
+        });
+        assert.equal(await page.evaluate(()=>window.__drugCalls.length),0);
+        assert.equal(await page.locator('#drug-save-error').isVisible(),true);
+        assert.equal(await page.locator('#drug-modal .btn-success').isDisabled(),false);
+        assert.equal(await page.locator('#form-drug-code').isDisabled(),false);
+    });
+});
