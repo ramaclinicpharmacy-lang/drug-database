@@ -87,6 +87,10 @@
             .compare-table th:last-child .tooltip .tooltiptext { left: auto; right: -5px; transform: none; }
             .compare-table th:last-child .tooltip .tooltiptext::after { left: auto; right: 25px; transform: none; }
         }
+        #nutri-admin-modal input, #nutri-admin-modal select, #nutri-admin-modal textarea { width:100%; box-sizing:border-box; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-family:inherit; }
+        #nutri-admin-modal .modal-content { box-sizing:border-box; }
+        #nutri-admin-modal .section-box { padding:15px; border:1px solid #bbf7d0; border-radius:8px; }
+        #nutri-admin-modal button:disabled { opacity:0.6; cursor:wait; }
     </style>
 </head>
 <body>
@@ -135,6 +139,92 @@
     </div>
 
     <!-- 🛠️ Modal ฝั่ง Admin สำหรับเพิ่ม/แก้สารอาหาร -->
+<div id="nutri-admin-modal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <h3 style="color:#166534; margin-top:0;">🍼 ตั้งค่าการชงอาหารทางการแพทย์</h3>
+        <h4 id="nutri-admin-name" style="margin-bottom: 15px; color:var(--dark);"></h4>
+        <input type="hidden" id="nutri-admin-code">
+        <div id="nutri-config-error" role="alert" hidden style="white-space:pre-wrap; color:#991b1b; background:#fef2f2; padding:10px; margin-bottom:10px; border:1px solid #dc2626; border-radius:6px;"></div>
+
+        <div class="section-box" style="background:#f0fdf4; border-color:#bbf7d0;">
+            <label style="font-size:0.85rem; font-weight:bold; display:block; margin-bottom:5px;">รูปแบบผลิตภัณฑ์</label>
+            <select id="nutri-admin-type" onchange="toggleNutriAdminType()" style="margin-bottom:15px; background:white;">
+                <option value="powder">ผงชง (Powder)</option>
+                <option value="liquid">สูตรน้ำพร้อมดื่ม (Liquid Solution)</option>
+            </select>
+
+            <!-- 🌟 ฟอร์มสำหรับแบบผง (Powder) -->
+            <div id="nutri-admin-powder-group">
+                <div style="background:#dcfce7; padding:10px; border-radius:8px; margin-bottom:10px; border:1px dashed #86efac;">
+                    <b style="color:#166534; font-size:0.85rem;">📌 สัดส่วนมาตรฐานตามฉลาก 1 มื้อ (Standard Serving)</b>
+                    <div style="display:flex; gap:10px; margin-top:10px;">
+                        <div style="flex:1;">
+                            <label style="font-size:0.75rem; font-weight:bold;">จำนวนช้อน (Scoops)</label>
+                            <input type="number" id="nutri-admin-scoops" placeholder="เช่น 7" style="margin:0;">
+                        </div>
+                        
+                        <!-- 🌟 เปลี่ยนกล่องนี้ -->
+                        <div style="flex:1;">
+                            <label style="font-size:0.75rem; font-weight:bold;">น้ำหนักรวมต่อมื้อ (g)</label>
+                            <input type="number" id="nutri-admin-g-serve" placeholder="เช่น 55" step="0.01" style="margin:0;">
+                        </div>
+                        
+                    </div>
+                    <div style="display:flex; gap:10px; margin-top:10px;">
+                        <div style="flex:1;">
+                            <label style="font-size:0.75rem; font-weight:bold;">ชงปรับปริมาตรรวม (ml)</label>
+                            <input type="number" id="nutri-admin-powder-vol" placeholder="เช่น 250" style="margin:0;">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="font-size:0.75rem; font-weight:bold;">พลังงานที่ได้ (kcal)</label>
+                            <input type="number" id="nutri-admin-powder-kcal" placeholder="เช่น 250" style="margin:0;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 🌟 ฟอร์มสำหรับแบบน้ำ (Liquid) -->
+            <div id="nutri-admin-liquid-group" style="display:none; gap:10px; margin-bottom:10px; background:#dcfce7; padding:10px; border-radius:8px; border:1px dashed #86efac;">
+                <div style="flex:1;">
+                    <label style="font-size:0.75rem; font-weight:bold;">ปริมาตรต่อขวด/กล่อง (ml)</label>
+                    <input type="number" id="nutri-admin-liquid-vol" placeholder="เช่น 237, 250" style="margin:0;">
+                </div>
+                <div style="flex:1;">
+                    <label style="font-size:0.75rem; font-weight:bold;">พลังงานต่อขวด (kcal)</label>
+                    <input type="number" id="nutri-admin-liquid-kcal" placeholder="เช่น 250, 300" style="margin:0;">
+                </div>
+            </div>
+
+            <!-- กล่อง Macros -->
+            <label style="font-size:0.85rem; font-weight:bold; display:block; margin-top:15px; border-top:1px dashed #86efac; padding-top:10px;">📊 สารอาหารหลัก <span style="color:red;">(ต่อ 1 มื้อมาตรฐานที่ตั้งไว้ด้านบน)</span></label>
+            <div style="display:flex; gap:10px; margin-bottom:10px; background:white; padding:10px; border-radius:8px; border:1px solid #86efac;">
+                <div style="flex:1;">
+                    <label style="font-size:0.75rem; color:gray;">🥩 โปรตีน (g)</label>
+                    <input type="number" id="nutri-admin-protein" placeholder="เช่น 10.5" step="0.1" style="margin:0; padding:6px;">
+                </div>
+                <div style="flex:1;">
+                    <label style="font-size:0.75rem; color:gray;">🍚 คาร์บฯ (g)</label>
+                    <input type="number" id="nutri-admin-carb" placeholder="เช่น 30.2" step="0.1" style="margin:0; padding:6px;">
+                </div>
+                <div style="flex:1;">
+                    <label style="font-size:0.75rem; color:gray;">🧈 ไขมัน (g)</label>
+                    <input type="number" id="nutri-admin-fat" placeholder="เช่น 8.4" step="0.1" style="margin:0; padding:6px;">
+                </div>
+            </div>
+            
+            <label style="font-size:0.85rem; font-weight:bold;">คำแนะนำการเตรียม (Preparation Note)</label>
+            <textarea id="nutri-admin-note" placeholder="ข้อควรระวัง หรือวิธีเตรียม..." style="margin:0; height:60px;"></textarea>
+
+            <div style="display:flex; gap:10px; margin-top:15px;">
+                <button class="btn btn-success" style="flex:2; height:42px;" onclick="saveNutriConfig()">💾 บันทึกตั้งค่า</button>
+                <button class="btn btn-outline" style="flex:1; height:42px; color:red; border-color:red;" onclick="deleteNutriConfig()">🗑️ ลบค่า</button>
+            </div>
+        </div>
+        <button class="btn btn-outline" style="width:100%; margin-top:10px; height: 42px;" onclick="closeNutriAdmin()">ปิดหน้าต่าง</button>
+    </div>
+</div>
+
+
     <div id="admin-modal" class="modal">
         <div class="modal-content">
             <h3 style="margin-top:0; color:var(--primary);">🛠️ จัดการสารอาหาร: <span id="admin-drug-name"></span></h3>
@@ -365,6 +455,141 @@
             }
         }
 
+    function toggleNutriAdminType() {
+        const type = document.getElementById('nutri-admin-type').value;
+        if(type === 'liquid') {
+            document.getElementById('nutri-admin-powder-group').style.display = 'none';
+            document.getElementById('nutri-admin-liquid-group').style.display = 'flex';
+        } else {
+            document.getElementById('nutri-admin-powder-group').style.display = 'block';
+            document.getElementById('nutri-admin-liquid-group').style.display = 'none';
+        }
+    }
+
+    function openNutriAdmin(code) {
+        if (!isAdmin || nutriConfigSaving) return;
+        document.getElementById('nutri-config-error').hidden = true;
+        const drug = allEnteralDrugs.find(d => d.drug_code === code);
+        if (!drug) return;
+        
+        document.getElementById('nutri-admin-code').value = code;
+        document.getElementById('nutri-admin-name').innerText = drug.drug_name || '';
+        
+        const configData = drug.nutrition_configs;
+        const config = Array.isArray(configData) ? (configData[0] || {}) : (configData || {});
+
+        document.getElementById('nutri-admin-type').value = config.product_type || 'powder';
+        toggleNutriAdminType();
+
+        // ฝั่งผง
+        document.getElementById('nutri-admin-scoops').value = config.scoops_per_serving || '';
+        
+        // 🌟 ดึงน้ำหนักต่อช้อนมาคูณกับจำนวนช้อน เพื่อแสดงเป็นน้ำหนักรวม
+        const total_g = (config.scoops_per_serving && config.grams_per_scoop) 
+            ? parseFloat((config.scoops_per_serving * config.grams_per_scoop).toFixed(2)) 
+            : '';
+        document.getElementById('nutri-admin-g-serve').value = total_g;
+        
+        document.getElementById('nutri-admin-powder-vol').value = config.serving_volume_ml || '';
+        document.getElementById('nutri-admin-powder-kcal').value = config.serving_kcal || '';
+        
+        // ฝั่งน้ำ
+        document.getElementById('nutri-admin-liquid-vol').value = config.serving_volume_ml || '';
+        document.getElementById('nutri-admin-liquid-kcal').value = config.serving_kcal || '';
+
+        // Macros (ต่อ 1 Serving)
+        document.getElementById('nutri-admin-protein').value = config.protein_per_serving ?? '';
+        document.getElementById('nutri-admin-carb').value = config.carb_per_serving ?? '';
+        document.getElementById('nutri-admin-fat').value = config.fat_per_serving ?? '';
+        document.getElementById('nutri-admin-note').value = config.preparation_note || '';
+        
+        document.getElementById('nutri-admin-modal').style.display = 'block';
+    }
+
+    let nutriConfigSaving = false;
+
+    function openModal(id) { document.getElementById(id).style.display = 'block'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    function closeNutriAdmin() {
+        if (!nutriConfigSaving) document.getElementById('nutri-admin-modal').style.display = 'none';
+    }
+
+    async function persistNutriConfig(remove = false) {
+        if (nutriConfigSaving) return;
+        if (!isAdmin) return promptRelogin();
+        const errorBox = document.getElementById('nutri-config-error');
+        errorBox.hidden = true;
+        const code = document.getElementById('nutri-admin-code').value;
+        const drug = allEnteralDrugs.find(d => d.drug_code === code);
+        if (!drug) return;
+        if (remove && !confirm('ยืนยันลบการตั้งค่าชงอาหารของยานี้?')) return;
+        const controls = [...document.querySelectorAll('#nutri-admin-modal input, #nutri-admin-modal select, #nutri-admin-modal textarea, #nutri-admin-modal button')];
+        const disabled = controls.map(control => control.disabled);
+        const button = document.querySelector('#nutri-admin-modal .btn-success');
+        const originalLabel = button.innerText;
+        try {
+            let payload;
+            if (!remove) {
+                const readNumber = (id, label, optional = false) => {
+                    const input = document.getElementById(id);
+                    const raw = input.value.trim();
+                    if (optional && raw === '' && !input.validity.badInput) return null;
+                    const value = Number(raw);
+                    if (input.validity.badInput || raw === '' || !Number.isFinite(value) || (optional ? value < 0 : value <= 0)) {
+                        throw new Error(label + (optional ? ' ต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป หรือเว้นว่าง' : ' ต้องเป็นตัวเลขมากกว่า 0'));
+                    }
+                    return value;
+                };
+                const type = document.getElementById('nutri-admin-type').value;
+                if (!['powder', 'liquid'].includes(type)) throw new Error('กรุณาเลือกรูปแบบผลิตภัณฑ์');
+                const scoops = type === 'powder' ? readNumber('nutri-admin-scoops', 'จำนวนช้อน') : null;
+                const grams = type === 'powder' ? readNumber('nutri-admin-g-serve', 'น้ำหนักรวมต่อมื้อ') : null;
+                const gramsPerScoop = type === 'powder' ? Number((grams / scoops).toFixed(4)) : null;
+                if (type === 'powder' && (!Number.isFinite(gramsPerScoop) || gramsPerScoop <= 0)) throw new Error('น้ำหนักต่อช้อนไม่ถูกต้อง กรุณาตรวจสอบสัดส่วน');
+                payload = {
+                    drug_code: code, product_type: type,
+                    grams_per_scoop: gramsPerScoop, scoops_per_serving: scoops,
+                    serving_volume_ml: readNumber(type === 'powder' ? 'nutri-admin-powder-vol' : 'nutri-admin-liquid-vol', 'ปริมาตร'),
+                    serving_kcal: readNumber(type === 'powder' ? 'nutri-admin-powder-kcal' : 'nutri-admin-liquid-kcal', 'พลังงาน'),
+                    protein_per_serving: readNumber('nutri-admin-protein', 'โปรตีน', true),
+                    carb_per_serving: readNumber('nutri-admin-carb', 'คาร์โบไฮเดรต', true),
+                    fat_per_serving: readNumber('nutri-admin-fat', 'ไขมัน', true),
+                    preparation_note: document.getElementById('nutri-admin-note').value.trim() || null,
+                    updated_at: new Date().toISOString()
+                };
+            }
+            nutriConfigSaving = true;
+            controls.forEach(control => control.disabled = true);
+            button.innerText = remove ? '⏳ กำลังลบตั้งค่า…' : '⏳ กำลังบันทึกตั้งค่า…';
+            if (remove) {
+                const { data, error } = await supabaseClient.from('nutrition_configs').delete().eq('drug_code', code).select('drug_code');
+                if (error) throw error;
+                if (!Array.isArray(data) || data.length !== 1 || data[0].drug_code !== code) throw new Error('ไม่พบรายการที่ลบ กรุณาตรวจสอบข้อมูลล่าสุดและสิทธิ์แก้ไข');
+                drug.nutrition_configs = null;
+            } else {
+                const { data, error } = await supabaseClient.from('nutrition_configs').upsert(payload).select('*').single();
+                if (error) throw error;
+                if (!data || data.drug_code !== code) throw new Error('ไม่ได้รับผลยืนยันการบันทึก กรุณาตรวจสอบข้อมูลล่าสุด');
+                drug.nutrition_configs = data;
+            }
+            document.getElementById('nutri-admin-modal').style.display = 'none';
+            renderTable();
+            document.getElementById('nutri-calc-modal').style.display = 'none';
+            activeNutriConfig = null;
+        } catch (error) {
+            errorBox.textContent = '⚠️ ยังยืนยันผลไม่ได้ ค่าที่กรอกยังอยู่ กรุณาตรวจสอบข้อมูลล่าสุดก่อนลองซ้ำ\n' + (error.message || 'ไม่สามารถติดต่อระบบได้');
+            errorBox.hidden = false;
+        } finally {
+            nutriConfigSaving = false;
+            controls.forEach((control, i) => control.disabled = disabled[i]);
+            button.innerText = originalLabel;
+        }
+    }
+
+    async function saveNutriConfig() { await persistNutriConfig(); }
+    async function deleteNutriConfig() { await persistNutriConfig(true); }
+
         function renderSelectors() {
             const container = document.getElementById('product-selector');
             if (allEnteralDrugs.length === 0) {
@@ -444,6 +669,7 @@
             
             drugsToCompare.forEach(d => {
                 const safeName = d.drug_name || '';
+                const prepBtn = isAdmin ? `<br><button class="btn btn-sm btn-outline" style="margin-top:5px; font-size:0.75rem; color:#166534; border-color:#86efac;" ${bindHTMLAction("click", function(event) { openNutriAdmin(d.drug_code) })}>🍼 ตั้งค่าชง</button>` : '';
                 const adminBtn = isAdmin ? `<br><button class="btn btn-sm btn-outline" style="margin-top:5px; font-size:0.75rem;" ${bindHTMLAction("click", function(event) { openAdminModal((d.drug_code), (safeName)) })}>🛠️ แก้ไขสารอาหาร</button>` : '';
                 
                 // 🌟 แทรกปุ่มเปิดเครื่องคิดเลข (ถ้ามียาตัวนี้มีข้อมูลชง)
@@ -465,7 +691,7 @@
 
                 const storedBase = nutrientBaseKcal(nutrientsData[d.drug_code]);
                 const basisText = Number.isFinite(storedBase) ? `ข้อมูลต้นฉบับต่อ ${storedBase} kcal` : 'ฐาน kcal ไม่ถูกต้อง';
-                html += `<th style="vertical-align: top;">${tooltipHtml}<br><small style="color:#64748b; font-weight:normal;">${encodeHTML(basisText)}</small>${calcBtn}${adminBtn}</th>`;
+                html += `<th style="vertical-align: top;">${tooltipHtml}<br><small style="color:#64748b; font-weight:normal;">${encodeHTML(basisText)}</small>${calcBtn}${prepBtn}${adminBtn}</th>`;
             });
             html += `</tr></thead><tbody>`;
 

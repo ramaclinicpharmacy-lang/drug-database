@@ -1518,3 +1518,94 @@ for (const action of cardManagerCases) {
         });
     });
 }
+
+async function setupComparePrepTest(page) {
+    await page.waitForFunction(() => allEnteralDrugs.length > 0);
+    await page.evaluate(() => {
+        document.querySelector('.product-cb').checked = true; renderTable();
+        const originalFrom = window.__mockClient.from;
+        window.__mockClient.from = table => {
+            const q = originalFrom(table);
+            if (table === 'nutrition_configs') q.then = (yes, no) => {
+                if (window.__prepDeferred) return new Promise(resolve => { window.__finishPrep = resolve; }).then(yes, no);
+                if (window.__prepError) return Promise.resolve({ data: null, error: { message: '<b>Denied</b>' } }).then(yes, no);
+                const last = window.__writes.filter(w => w.table === table).at(-1);
+                return Promise.resolve({ data: q.operation === 'delete' ? [{ drug_code: allEnteralDrugs[0].drug_code }] : structuredClone(last.payload), error: null }).then(yes, no);
+            };
+            return q;
+        };
+    });
+}
+
+test('compare preparation button opens existing setup, saves powder, and immediately updates calculator', async () => {
+    await openPage('enteral_compare', async page => {
+        await setupComparePrepTest(page);
+        await page.getByRole('button', { name: '🍼 ตั้งค่าชง', exact: true }).click();
+        assert.equal(await page.locator('#nutri-admin-modal').isVisible(), true);
+        assert.equal(await page.locator('#nutri-admin-g-serve').inputValue(), '25');
+        await page.evaluate(async () => {
+            document.getElementById('nutri-admin-scoops').value = '4';
+            document.getElementById('nutri-admin-g-serve').value = '40';
+            document.getElementById('nutri-admin-protein').value = '0';
+            await saveNutriConfig();
+            openNutriCalc(allEnteralDrugs[0].drug_code);
+        });
+        const write = await page.evaluate(() => window.__writes.filter(w => w.table === 'nutrition_configs').at(-1));
+        assert.equal(write.payload.grams_per_scoop, 10);
+        assert.equal(write.payload.scoops_per_serving, 4);
+        assert.equal(write.payload.protein_per_serving, 0);
+        assert.equal(await page.locator('#nutri-admin-modal').isVisible(), false);
+        assert.equal(await page.evaluate(() => activeNutriConfig.grams_per_scoop), 10);
+        await page.evaluate(() => { document.getElementById('nutri-calc-modal').style.display = 'none'; openNutriAdmin(allEnteralDrugs[0].drug_code); });
+        assert.equal(await page.locator('#nutri-admin-protein').inputValue(), '0');
+    });
+});
+
+test('compare preparation supports unconfigured products, preserves failed drafts, blocks invalid and duplicate saves, and deletes', async () => {
+    await openPage('enteral_compare', async page => {
+        await setupComparePrepTest(page);
+        await page.evaluate(() => {
+            allEnteralDrugs[0].nutrition_configs = null; renderTable(); openNutriAdmin(allEnteralDrugs[0].drug_code);
+            document.getElementById('nutri-admin-scoops').value = '0';
+        });
+        assert.equal(await page.getByRole('button', { name: '🍼 คำนวณชงอาหาร', exact: true }).count(), 0);
+        await page.evaluate(() => saveNutriConfig());
+        assert.equal(await page.evaluate(() => window.__writes.filter(w => w.table === 'nutrition_configs').length), 0);
+        await page.evaluate(async () => {
+            document.getElementById('nutri-admin-type').value = 'liquid'; toggleNutriAdminType();
+            document.getElementById('nutri-admin-liquid-vol').value = '250';
+            document.getElementById('nutri-admin-liquid-kcal').value = '300';
+            window.__prepError = true; await saveNutriConfig();
+        });
+        assert.equal(await page.locator('#nutri-admin-modal').isVisible(), true);
+        assert.equal(await page.locator('#nutri-admin-liquid-kcal').inputValue(), '300');
+        assert.equal(await page.locator('#nutri-config-error b').count(), 0);
+        assert.equal(await page.locator('#nutri-config-error').isVisible(), true);
+        await page.evaluate(async () => {
+            window.__prepError = false; window.__prepDeferred = true;
+            window.__prepPromise = saveNutriConfig(); await saveNutriConfig();
+        });
+        assert.equal(await page.evaluate(() => window.__writes.filter(w => w.table === 'nutrition_configs').length), 2);
+        assert.equal(await page.locator('#nutri-admin-modal .btn-success').isDisabled(), true);
+        await page.evaluate(async () => {
+            const payload = window.__writes.filter(w => w.table === 'nutrition_configs').at(-1).payload;
+            window.__finishPrep({ data: structuredClone(payload), error: null }); await window.__prepPromise; window.__prepDeferred = false;
+        });
+        assert.equal(await page.getByRole('button', { name: '🍼 คำนวณชงอาหาร', exact: true }).count(), 1);
+        assert.equal(await page.evaluate(() => allEnteralDrugs[0].nutrition_configs.grams_per_scoop), null);
+        page.removeAllListeners('dialog'); page.on('dialog', dialog => dialog.accept());
+        await page.evaluate(async () => { openNutriAdmin(allEnteralDrugs[0].drug_code); await deleteNutriConfig(); });
+        assert.equal(await page.getByRole('button', { name: '🍼 คำนวณชงอาหาร', exact: true }).count(), 0);
+        assert.equal(await page.getByRole('button', { name: '🍼 ตั้งค่าชง', exact: true }).count(), 1);
+    });
+});
+
+test('compare preparation controls are unavailable to unsigned users', async () => {
+    await openPage('enteral_compare', async page => {
+        await setupComparePrepTest(page);
+        await page.evaluate(async () => { isAdmin = false; renderTable(); openNutriAdmin(allEnteralDrugs[0].drug_code); await saveNutriConfig(); });
+        assert.equal(await page.getByRole('button', { name: '🍼 ตั้งค่าชง', exact: true }).count(), 0);
+        assert.equal(await page.locator('#nutri-admin-modal').isVisible(), false);
+        assert.equal(await page.evaluate(() => window.__writes.filter(w => w.table === 'nutrition_configs').length), 0);
+    });
+});
