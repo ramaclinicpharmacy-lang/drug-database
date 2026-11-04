@@ -1680,3 +1680,111 @@ test('a failed later enteral page cannot replace the catalog with a partial list
         assert.equal(result.pages, 2);
     });
 });
+
+for (const file of ['index', 'enteral_compare']) {
+    test(`${file}: preparation editor blocks invalid fields and retains explicit zero and blank macros`, async () => {
+        await openPage(file, async page => {
+            await page.waitForFunction(() => typeof allEnteralDrugs !== 'undefined' ? allEnteralDrugs.length > 0 : allDrugsRaw.length > 0);
+            const result = await page.evaluate(async () => {
+                const catalog = typeof allEnteralDrugs !== 'undefined' ? allEnteralDrugs : allDrugsRaw;
+                const code = catalog[0].drug_code; openNutriAdmin(code, 'Test');
+                const counts = [];
+                for (const id of ['nutri-admin-scoops', 'nutri-admin-g-serve', 'nutri-admin-powder-vol', 'nutri-admin-powder-kcal']) {
+                    const previous = document.getElementById(id).value;
+                    for (const value of ['0', '-1', '', '1e309']) {
+                        document.getElementById(id).value = value; await saveNutriConfig();
+                        counts.push(window.__writes.filter(w => w.table === 'nutrition_configs').length);
+                    }
+                    document.getElementById(id).value = previous;
+                }
+                for (const id of ['nutri-admin-protein', 'nutri-admin-carb', 'nutri-admin-fat']) {
+                    document.getElementById(id).value = '-1'; await saveNutriConfig();
+                    counts.push(window.__writes.filter(w => w.table === 'nutrition_configs').length);
+                    document.getElementById(id).value = '';
+                }
+                const retained = document.getElementById('nutri-admin-modal').style.display === 'block';
+                const errorVisible = !document.getElementById('nutri-config-error').hidden;
+                const originalFrom = window.__mockClient.from;
+                window.__mockClient.from = table => {
+                    const q = originalFrom(table);
+                    if (table === 'nutrition_configs') q.then = (yes, no) => Promise.resolve({ data: structuredClone(window.__writes.filter(w => w.table === table).at(-1).payload), error: null }).then(yes, no);
+                    return q;
+                };
+                document.getElementById('nutri-admin-scoops').value = '5';
+                document.getElementById('nutri-admin-g-serve').value = '25';
+                document.getElementById('nutri-admin-protein').value = '0';
+                document.getElementById('nutri-admin-carb').value = '';
+                document.getElementById('nutri-admin-fat').value = '2.5';
+                await saveNutriConfig();
+                const writes = window.__writes.filter(w => w.table === 'nutrition_configs');
+                return { counts, retained, errorVisible, writes };
+            });
+            assert.ok(result.counts.every(count => count === 0));
+            assert.equal(result.retained, true); assert.equal(result.errorVisible, true);
+            assert.equal(result.writes.length, 1);
+            assert.equal(result.writes[0].payload.grams_per_scoop, 5);
+            assert.equal(result.writes[0].payload.protein_per_serving, 0);
+            assert.equal(result.writes[0].payload.carb_per_serving, null);
+            assert.equal(result.writes[0].payload.fat_per_serving, 2.5);
+        });
+    });
+
+    test(`${file}: calculator rejects invalid legacy powder settings and clears stale results`, async () => {
+        await openPage(file, async page => {
+            await page.waitForFunction(() => typeof allEnteralDrugs !== 'undefined' ? allEnteralDrugs.length > 0 : allDrugsRaw.length > 0);
+            const result = await page.evaluate(() => {
+                const catalog = typeof allEnteralDrugs !== 'undefined' ? allEnteralDrugs : allDrugsRaw;
+                const valid = { product_type: 'powder', serving_volume_ml: 250, serving_kcal: 250, scoops_per_serving: 5, grams_per_scoop: 5, protein_per_serving: 0, carb_per_serving: null, fat_per_serving: 1 };
+                catalog[0].nutrition_configs = { ...valid }; openNutriCalc(catalog[0].drug_code);
+                document.getElementById('nutri-calc-volume').value = '250'; runNutriCalc();
+                const initial = { grams: document.getElementById('nutri-res-gram').innerText, protein: document.getElementById('nutri-res-protein').innerText, carb: document.getElementById('nutri-res-carb').innerText };
+                const states = [];
+                for (const field of ['scoops_per_serving', 'grams_per_scoop', 'serving_volume_ml', 'serving_kcal']) {
+                    for (const value of [0, -5, null, NaN, Infinity, 'invalid', false]) {
+                        activeNutriConfig = { ...valid, [field]: value }; runNutriCalc();
+                        states.push({ hidden: document.getElementById('nutri-calc-results').hidden, grams: document.getElementById('nutri-res-gram').innerText, warning: document.getElementById('nutri-calc-warning').innerText });
+                    }
+                }
+                catalog[0].nutrition_configs = { ...valid, grams_per_scoop: -5 }; openNutriCalc(catalog[0].drug_code);
+                const legacyBlocked = activeNutriConfig === null && document.getElementById('nutri-calc-results').hidden;
+                catalog[0].nutrition_configs = { ...valid, product_type: 'liquid', scoops_per_serving: null, grams_per_scoop: null };
+                openNutriCalc(catalog[0].drug_code); document.getElementById('nutri-calc-volume').value = '250'; runNutriCalc();
+                return { initial, states, legacyBlocked, recovered: !document.getElementById('nutri-calc-results').hidden };
+            });
+            assert.deepEqual(result.initial, { grams: '25.0', protein: '0.0', carb: '-' });
+            assert.ok(result.states.every(state => state.hidden && state.grams === '-' && state.warning.includes('⚠️')));
+            assert.equal(result.legacyBlocked, true); assert.equal(result.recovered, true);
+        });
+    });
+
+    test(`${file}: preparation saves retain failed drafts and prevent duplicate submissions`, async () => {
+        await openPage(file, async page => {
+            await page.waitForFunction(() => typeof allEnteralDrugs !== 'undefined' ? allEnteralDrugs.length > 0 : allDrugsRaw.length > 0);
+            await page.evaluate(async () => {
+                const catalog = typeof allEnteralDrugs !== 'undefined' ? allEnteralDrugs : allDrugsRaw;
+                openNutriAdmin(catalog[0].drug_code, 'Test');
+                document.getElementById('nutri-admin-g-serve').value = '42';
+                const originalFrom = window.__mockClient.from;
+                window.__mockClient.from = table => {
+                    const q = originalFrom(table);
+                    if (table === 'nutrition_configs') q.then = (yes, no) => {
+                        if (window.__deferUnifiedPrep) return new Promise(resolve => { window.__finishUnifiedPrep = resolve; }).then(yes, no);
+                        return Promise.resolve({ data: null, error: { message: '<img src=x> denied' } }).then(yes, no);
+                    };
+                    return q;
+                };
+                await saveNutriConfig();
+            });
+            assert.equal(await page.locator('#nutri-admin-g-serve').inputValue(), '42');
+            assert.equal(await page.locator('#nutri-config-error').isVisible(), true);
+            assert.equal(await page.locator('#nutri-config-error img').count(), 0);
+            assert.equal(await page.locator('#nutri-admin-modal .btn-success').isDisabled(), false);
+            await page.evaluate(async () => { window.__deferUnifiedPrep = true; window.__unifiedPrepPromise = saveNutriConfig(); await saveNutriConfig(); });
+            assert.equal(await page.evaluate(() => window.__writes.filter(w => w.table === 'nutrition_configs').length), 2);
+            assert.equal(await page.locator('#nutri-admin-modal .btn-success').isDisabled(), true);
+            await page.evaluate(async () => { window.__finishUnifiedPrep({ data: null, error: { message: 'Failed' } }); await window.__unifiedPrepPromise; });
+            assert.equal(await page.locator('#nutri-admin-modal').isVisible(), true);
+            assert.equal(await page.locator('#nutri-admin-g-serve').inputValue(), '42');
+        });
+    });
+}
