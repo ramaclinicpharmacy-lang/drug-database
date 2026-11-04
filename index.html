@@ -8,6 +8,7 @@
     <!-- Google tag (gtag.js) -->
     <script src="vendor/purify.min.js"></script>
     <script src="ui-safety.js"></script>
+    <script src="nutrition-preparation.js"></script>
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-DN7JTHM116"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
@@ -936,6 +937,7 @@
         <h3 style="color:#166534; margin-top:0;">🍼 ตั้งค่าการชงอาหารทางการแพทย์</h3>
         <h4 id="nutri-admin-name" style="margin-bottom: 15px; color:var(--dark);"></h4>
         <input type="hidden" id="nutri-admin-code">
+        <div id="nutri-config-error" role="alert" hidden style="white-space:pre-wrap; color:#991b1b; background:#fef2f2; padding:10px; margin-bottom:10px; border:1px solid #dc2626; border-radius:6px;"></div>
 
         <div class="section-box" style="background:#f0fdf4; border-color:#bbf7d0;">
             <label style="font-size:0.85rem; font-weight:bold; display:block; margin-bottom:5px;">รูปแบบผลิตภัณฑ์</label>
@@ -4652,6 +4654,8 @@ async function fetchLogs() {
     }
 
     function openNutriAdmin(code, name) {
+        if (nutriConfigSaving) return;
+        document.getElementById('nutri-config-error').hidden = true;
         const drug = allDrugsRaw.find(d => d.drug_code === code);
         if (!drug) return;
         
@@ -4681,65 +4685,46 @@ async function fetchLogs() {
         document.getElementById('nutri-admin-liquid-kcal').value = config.serving_kcal || '';
 
         // Macros (ต่อ 1 Serving)
-        document.getElementById('nutri-admin-protein').value = config.protein_per_serving || '';
-        document.getElementById('nutri-admin-carb').value = config.carb_per_serving || '';
-        document.getElementById('nutri-admin-fat').value = config.fat_per_serving || '';
+        document.getElementById('nutri-admin-protein').value = config.protein_per_serving ?? '';
+        document.getElementById('nutri-admin-carb').value = config.carb_per_serving ?? '';
+        document.getElementById('nutri-admin-fat').value = config.fat_per_serving ?? '';
         document.getElementById('nutri-admin-note').value = config.preparation_note || '';
         
         openModal('nutri-admin-modal');
     }
 
+    let nutriConfigSaving = false;
     async function saveNutriConfig() {
-        const drug_code = document.getElementById('nutri-admin-code').value;
-        const pType = document.getElementById('nutri-admin-type').value;
-        
-        let scoops = null, g_scoop = null, serving_vol = null, serving_kcal = null;
-
-        if (pType === 'liquid') {
-            serving_vol = parseFloat(document.getElementById('nutri-admin-liquid-vol').value);
-            serving_kcal = parseFloat(document.getElementById('nutri-admin-liquid-kcal').value);
-            if (isNaN(serving_vol) || isNaN(serving_kcal)) return alert('กรุณาระบุปริมาตรและพลังงานขวดให้ครบถ้วน');
-        } else {
-            scoops = parseFloat(document.getElementById('nutri-admin-scoops').value);
-            const g_serve = parseFloat(document.getElementById('nutri-admin-g-serve').value); // 🌟 รับน้ำหนักรวมมา
-            serving_vol = parseFloat(document.getElementById('nutri-admin-powder-vol').value);
-            serving_kcal = parseFloat(document.getElementById('nutri-admin-powder-kcal').value);
-            
-            if (isNaN(scoops) || isNaN(g_serve) || isNaN(serving_vol) || isNaN(serving_kcal)) {
-                return alert('กรุณาระบุข้อมูลสูตรผงมาตรฐานให้ครบถ้วน');
-            }
-            
-            // 🌟 จับหารเพื่อเก็บเป็น "น้ำหนักต่อ 1 ช้อน" ลงฐานข้อมูลเดิม
-            g_scoop = parseFloat((g_serve / scoops).toFixed(4)); 
+        if (nutriConfigSaving) return;
+        const code = document.getElementById('nutri-admin-code').value;
+        const errorBox = document.getElementById('nutri-config-error');
+        const button = document.querySelector('#nutri-admin-modal .btn-success');
+        const originalLabel = button.innerText;
+        let unlock = () => {};
+        let saved = false;
+        errorBox.hidden = true;
+        try {
+            const payload = NutritionPreparation.readForm(code);
+            nutriConfigSaving = true;
+            unlock = lockModalControls('nutri-admin-modal');
+            button.innerText = '⏳ กำลังบันทึกตั้งค่า…';
+            const { error } = await supabaseClient.from('nutrition_configs').upsert(payload);
+            if (error) throw error;
+            saved = true;
+            closeModal('nutri-admin-modal');
+            document.getElementById('nutri-calc-modal').style.display = 'none';
+            activeNutriConfig = null;
+        } catch (error) {
+            errorBox.textContent = '⚠️ ยังบันทึกไม่สำเร็จหรือยืนยันผลไม่ได้ ค่าที่กรอกยังอยู่ กรุณาตรวจสอบข้อมูลก่อนลองซ้ำ\n' + (error.message || 'ไม่สามารถติดต่อระบบได้');
+            errorBox.hidden = false;
+        } finally {
+            nutriConfigSaving = false;
+            unlock();
+            button.innerText = originalLabel;
         }
-
-        const protein = document.getElementById('nutri-admin-protein').value;
-        const carb = document.getElementById('nutri-admin-carb').value;
-        const fat = document.getElementById('nutri-admin-fat').value;
-        const note = document.getElementById('nutri-admin-note').value.trim();
-
-        const payload = {
-            drug_code,
-            product_type: pType,
-            grams_per_scoop: g_scoop,
-            scoops_per_serving: scoops,
-            serving_volume_ml: serving_vol,
-            serving_kcal: serving_kcal,
-            protein_per_serving: protein === '' ? null : parseFloat(protein),
-            carb_per_serving: carb === '' ? null : parseFloat(carb),
-            fat_per_serving: fat === '' ? null : parseFloat(fat),
-            preparation_note: note === '' ? null : note,
-            updated_at: new Date().toISOString()
-        };
-
-        const { error } = await supabaseClient.from('nutrition_configs').upsert(payload);
-        if (error) return alert("เกิดข้อผิดพลาด: " + error.message);
-
-        alert('✅ บันทึกค่าการเตรียมอาหารทางการแพทย์ (สูตรมาตรฐาน) สำเร็จ!');
-        closeModal('nutri-admin-modal');
-        fetchDrugs(drug_code);
+        if (saved) fetchDrugs(code);
     }
-    
+
     async function deleteNutriConfig() {
         if (!confirm('ยืนยันลบการตั้งค่าชงอาหารของยานี้?')) return;
         const code = document.getElementById('nutri-admin-code').value;
@@ -4762,11 +4747,16 @@ async function fetchLogs() {
         const configData = drug ? drug.nutrition_configs : null;
         const actualConfig = Array.isArray(configData) ? configData[0] : configData;
 
-        if (!drug || !actualConfig || !Number.isFinite(Number(actualConfig.serving_volume_ml)) || Number(actualConfig.serving_volume_ml) <= 0 || !Number.isFinite(Number(actualConfig.serving_kcal)) || Number(actualConfig.serving_kcal) <= 0) {
-            alert('ข้อมูลสูตรมาตรฐานยังไม่สมบูรณ์ โปรดให้ Admin อัปเดตข้อมูล'); return;
+        try {
+            if (!drug) throw new Error('ไม่พบรายการอาหาร');
+            activeNutriConfig = NutritionPreparation.validateConfig(actualConfig);
+        } catch (error) {
+            document.getElementById('nutri-calc-name').innerText = drug?.drug_name || '';
+            document.getElementById('nutri-calc-info').innerText = '';
+            resetNutriCalcResults('⚠️ สูตรมาตรฐานไม่ถูกต้อง กรุณาให้ Admin แก้ไข: ' + error.message);
+            openModal('nutri-calc-modal');
+            return;
         }
-        
-        activeNutriConfig = actualConfig;
         document.getElementById('nutri-calc-name').innerText = generateStandardDrugName(drug);
         
         const isLiquid = activeNutriConfig.product_type === 'liquid';
@@ -4843,6 +4833,8 @@ async function fetchLogs() {
     function runNutriCalc() {
         resetNutriCalcResults();
         if (!activeNutriConfig) return;
+        try { activeNutriConfig = NutritionPreparation.validateConfig(activeNutriConfig); }
+        catch (error) { resetNutriCalcResults('⚠️ สูตรมาตรฐานไม่ถูกต้อง กรุณาให้ Admin แก้ไข: ' + error.message); return; }
 
         const ratioSelect = document.getElementById('nutri-calc-ratio').value;
         const customBox = document.getElementById('nutri-calc-ratio-custom-box');
@@ -4878,6 +4870,8 @@ async function fetchLogs() {
             resetNutriCalcResults('⚠️ ค่าที่กรอกอยู่นอกช่วงที่คำนวณได้ โปรดตรวจสอบข้อมูล');
             return;
         }
+        try { NutritionPreparation.validatePortion(activeNutriConfig, multiplier); }
+        catch (error) { resetNutriCalcResults('⚠️ ไม่สามารถคำนวณได้: ' + error.message); return; }
         document.getElementById('nutri-calc-results').hidden = false;
 
         document.getElementById('nutri-res-kcal').innerText = Math.round(totalKcal);
@@ -4909,9 +4903,9 @@ async function fetchLogs() {
         }
 
         // คำนวณ Macros ตามสัดส่วน Kcal
-        document.getElementById('nutri-res-protein').innerText = activeNutriConfig.protein_per_serving ? (activeNutriConfig.protein_per_serving * multiplier).toFixed(1) : '-';
-        document.getElementById('nutri-res-carb').innerText = activeNutriConfig.carb_per_serving ? (activeNutriConfig.carb_per_serving * multiplier).toFixed(1) : '-';
-        document.getElementById('nutri-res-fat').innerText = activeNutriConfig.fat_per_serving ? (activeNutriConfig.fat_per_serving * multiplier).toFixed(1) : '-';
+        document.getElementById('nutri-res-protein').innerText = activeNutriConfig.protein_per_serving !== null ? (activeNutriConfig.protein_per_serving * multiplier).toFixed(1) : '-';
+        document.getElementById('nutri-res-carb').innerText = activeNutriConfig.carb_per_serving !== null ? (activeNutriConfig.carb_per_serving * multiplier).toFixed(1) : '-';
+        document.getElementById('nutri-res-fat').innerText = activeNutriConfig.fat_per_serving !== null ? (activeNutriConfig.fat_per_serving * multiplier).toFixed(1) : '-';
     }
     
     // -------------------------------------------------------------
