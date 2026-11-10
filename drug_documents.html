@@ -35,7 +35,7 @@ tbody tr.status-other td:first-child{box-shadow:inset 3px 0 #FDA4AF}
 <main class="wrap">
 <header><div><h1>📄 เอกสารกำกับยา</h1><p class="muted">Rama Clinic Pharmacy DB · การตอบแบบฟอร์ม 1</p></div><div class="actions"><a class="button" href="index.html">กลับหน้าหลัก</a><a class="button" href="https://docs.google.com/forms/d/e/1FAIpQLSdk3k4ZACFF8FHHIoQusDbgecqpDR33R58Y-RX2qVEdZbnfYw/viewform" target="_blank" rel="noopener noreferrer">กรอกข้อมูลเอกสาร</a><a id="sheet-link" class="button" href="https://docs.google.com/spreadsheets/d/1W_FHyujQcyclDyOT9xYcTRjMkmzOmw_TDepUQi3RWkQ/edit#gid=1045383635" target="_blank" rel="noopener noreferrer" hidden>เปิดฐานข้อมูล Google Sheets</a><button id="refresh" class="primary" type="button">รีเฟรชข้อมูล</button></div></header>
 <section class="panel" aria-label="ค้นหาเอกสาร">
-<div class="filters"><label class="search">ค้นหาทุกคอลัมน์<input id="search" type="search" placeholder="เลขแถว, Generic, Trade, ประเภท, ชื่อเอกสาร, Version หรือลิงก์" autocomplete="off"></label><label>ประเภทเอกสาร<select id="type"><option value="">ทั้งหมด</option></select></label><label>สถานะเอกสาร<select id="approval"><option value="">ทั้งหมด</option><option value="approve">Approve</option><option value="uncategorized">Uncategorized</option></select></label><button id="clear" type="button">ล้างตัวกรอง</button></div>
+<div class="filters"><label class="search">ค้นหาทุกคอลัมน์<input id="search" type="search" placeholder="เลขแถว, Generic, Trade, ประเภท, ชื่อเอกสาร, Version หรือลิงก์" autocomplete="off"></label><label>ประเภทเอกสาร<select id="type"><option value="">ทั้งหมด</option></select></label><label>สถานะเอกสาร<select id="approval"><option value="">ทั้งหมด</option><option value="approve" selected>Approve</option><option value="unapprove">Unapprove</option><option value="uncategorized">Uncategorized</option></select></label><button id="clear" type="button">ล้างตัวกรอง</button></div>
 <p id="summary" aria-live="polite" class="muted">ยังไม่ได้โหลดข้อมูล</p><p id="updated" class="muted"></p>
 <div id="status" role="status">กำลังโหลดข้อมูล…</div>
 <div class="table-wrap"><table aria-label="รายการเอกสารกำกับยา"><colgroup><col class="row-col"><col class="generic-col"><col class="trade-col"><col class="type-col"><col class="title-col"><col class="version-col"><col class="files-col"></colgroup><thead><tr><th scope="col">แถวอ้างอิง</th><th scope="col" id="generic-heading" aria-sort="none"><button type="button" class="sort-button" id="sort-generic">Generic ↕</button></th><th scope="col" id="trade-heading" aria-sort="none"><button type="button" class="sort-button" id="sort-trade">Trade ↕</button></th><th scope="col">ประเภทเอกสาร</th><th scope="col">ชื่อเอกสาร</th><th scope="col">Version</th><th scope="col">ไฟล์เอกสาร</th></tr></thead><tbody id="rows"></tbody></table></div>
@@ -98,13 +98,14 @@ function extractFiles(value) {
 function documentStatus(value) {
     const label=String(value ?? '').trim(), key=normalize(label);
     if (key==='yes' || key==='approve') return {key:'approve',label:'Approve',group:'approve'};
+    if (key==='no' || key==='unapprove') return {key:'unapprove',label:'Unapprove',group:'other'};
     if (!key || key==='uncategorized') return {key:'uncategorized',label:'Uncategorized',group:'uncategorized'};
     return {key:'other:'+key,label,group:'other'};
 }
 function rebuildStatusOptions() {
     const select=$('approval'), previous=select.value, extras=new Map();
-    records.forEach(record=>{const status=documentStatus(record.approval);if(status.group==='other' && !extras.has(status.key))extras.set(status.key,status.label);});
-    select.replaceChildren(new Option('ทั้งหมด',''),new Option('Approve','approve'),new Option('Uncategorized','uncategorized'));
+    records.forEach(record=>{const status=documentStatus(record.approval);if(status.group==='other' && status.key!=='unapprove' && !extras.has(status.key))extras.set(status.key,status.label);});
+    select.replaceChildren(new Option('ทั้งหมด',''),new Option('Approve','approve'),new Option('Unapprove','unapprove'),new Option('Uncategorized','uncategorized'));
     [...extras].sort((a,b)=>a[1].localeCompare(b[1],'th')).forEach(([key,label])=>select.add(new Option(label,key)));
     if([...select.options].some(option=>option.value===previous))select.value=previous;
 }
@@ -278,7 +279,7 @@ $('sort-trade').addEventListener('click',()=>toggleSort('trade'));
 $('refresh').addEventListener('click',loadData);
 $('search').addEventListener('input',applyFilters);
 ['type','approval','page-size'].forEach(id=>$(id).addEventListener('change',applyFilters));
-$('clear').addEventListener('click',()=>{$('search').value='';$('type').value='';$('approval').value='';applyFilters();});
+$('clear').addEventListener('click',()=>{$('search').value='';$('type').value='';$('approval').value='approve';applyFilters();});
 $('previous').addEventListener('click',()=>{page--;render();});$('next').addEventListener('click',()=>{page++;render();});
 $('close-preview').addEventListener('click',()=>$('preview').close());
 $('preview').addEventListener('close',()=>{$('frame').removeAttribute('src');});
@@ -286,3 +287,4 @@ render();loadData();initAuth();
 </script>
 </body>
 </html>
+
