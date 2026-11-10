@@ -107,10 +107,13 @@
         </div>
 
         <div class="selector-box">
-            <div style="display:flex; align-items:center; gap:10px; margin-bottom: 15px; background:#eff6ff; padding:12px; border-radius:8px; border:1px solid #bfdbfe;">
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom: 15px; background:#eff6ff; padding:12px; border-radius:8px; border:1px solid #bfdbfe;">
                 <b style="color:#1e40af;">📐 แสดงผลเทียบต่อปริมาณพลังงาน:</b>
                 <input type="number" id="compare-base-kcal" value="100" min="0.01" step="any" style="width:100px; margin:0; padding:6px; border:1px solid #93c5fd; border-radius:6px;" onchange="renderTable()" onkeyup="renderTable()">
                 <span style="font-weight:bold; color:var(--dark);">kcal</span>
+                <label for="product-name-filter" style="display:flex; align-items:center; gap:8px; flex:1; min-width:200px; color:#1e40af; font-weight:bold;">🔍 กรองชื่อ
+                    <input type="search" id="product-name-filter" placeholder="ค้นหาชื่ออาหาร…" oninput="filterProductNames()" style="flex:1; min-width:0; width:100%; padding:6px 8px; border:1px solid #93c5fd; border-radius:6px; font:inherit; font-weight:normal;">
+                </label>
             </div>
 
             <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom: 8px;">
@@ -123,6 +126,7 @@
                 <div id="product-selector" class="chip-container" style="margin-top:0;">
                     <div style="color:gray; font-size:0.9rem;">กำลังโหลดข้อมูลผลิตภัณฑ์...</div>
                 </div>
+                <p id="product-filter-empty" role="status" hidden style="color:#64748b; margin:8px 0;">ไม่พบสูตรอาหารที่ตรงกับชื่อที่ค้นหา</p>
             </div>
         </div>
 
@@ -588,6 +592,22 @@
                 <input type="checkbox" id="sel-${encodeHTML(d.drug_code)}" class="product-cb" value="${encodeHTML(d.drug_code)}" ${bindHTMLAction("change", function(event) { renderTable() })}>
                 <label for="sel-${encodeHTML(d.drug_code)}">${encodeHTML(d.drug_name) || 'ไม่ระบุชื่อ'}</label>
             `).join(''));
+            filterProductNames();
+        }
+
+        function filterProductNames() {
+            const normalize = value => value.normalize('NFKC').toLocaleLowerCase('th').trim();
+            const terms = normalize(document.getElementById('product-name-filter').value).split(/\s+/).filter(Boolean);
+            const checkboxes = [...document.querySelectorAll('#product-selector .product-cb')];
+            let visible = 0;
+            checkboxes.forEach(checkbox => {
+                const label = checkbox.nextElementSibling;
+                const name = normalize(label.textContent);
+                label.hidden = !terms.every(term => name.includes(term));
+                if (!label.hidden) visible++;
+            });
+            // Filtering changes only label visibility, preserving selected formulas and comparison columns.
+            document.getElementById('product-filter-empty').hidden = !checkboxes.length || visible > 0;
         }
 
         function autoSelectFromUrl() {
