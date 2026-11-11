@@ -1304,86 +1304,143 @@ const statusA = item.admixture_result === 'C' ? '🟢 C' : (item.admixture_resul
     }
 
     // ==========================================
-    // 📍 GEOFENCING LOGIC (จำกัดพื้นที่ 3 กม.)
+    // 📍 ACCESS: บัญชีที่ยืนยันแล้ว หรือพิกัดผู้ใช้ทั่วไปภายใน 2 กม.
     // ==========================================
-    const TARGET_LAT = 13.7665; // พิกัดละติจูด QG8G+PQ Bangkok
-    const TARGET_LNG = 100.5272; // พิกัดลองจิจูด QG8G+PQ Bangkok
-    const MAX_DISTANCE_KM = 2.0; // ระยะทางสูงสุด 2 กิโลเมตร
-    
-    function checkLocationAndInit() {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const userLat = position.coords.latitude;
-                    const userLng = position.coords.longitude;
-                    const distance = calculateDistance(TARGET_LAT, TARGET_LNG, userLat, userLng);
-                    
-                    if (distance <= MAX_DISTANCE_KM) {
-                        // อยู่ในระยะ 3 กม. -> ซ่อนหน้าต่างแจ้งเตือน เปิดให้ใช้งาน และโหลดฐานข้อมูล
-                        document.getElementById('geo-overlay').style.display = 'none';
-                        document.getElementById('main-layout').style.display = 'block';
-                        init(); 
-                    } else {
-                        // อยู่นอกระยะ -> แสดงข้อความปฏิเสธ
-                        showGeoError(`
-                            <div style="font-size: 3rem; margin-bottom: 15px;">🛑</div>
-                            <h2 style="color: var(--danger); margin: 0 0 10px 0;">ไม่อนุญาตให้เข้าถึงระบบ</h2>
-                            <p style="color: #475569; font-size: 1rem; line-height: 1.6;">
-                                คุณอยู่นอกพื้นที่ให้บริการ<br>
-                                <small style="color: gray;">(ห่างจากจุดศูนย์กลาง ${encodeHTML(distance.toFixed(2))} กิโลเมตร)</small><br><br>
-                                ระบบจำกัดการเข้าถึงเฉพาะรัศมี 2 กม.<br>จากจุดที่กำหนดเท่านั้น
-                            </p>
-                        `);
-                    }
-                },
-                (error) => {
-                    // ผู้ใช้ไม่อนุญาตให้เข้าถึง GPS หรือระบบหาพิกัดไม่ได้
-                    showGeoError(`
-                        <div style="font-size: 3rem; margin-bottom: 15px;">⚠️</div>
-                        <h2 style="color: var(--warning); margin: 0 0 10px 0;">ไม่สามารถระบุตำแหน่งได้</h2>
-                        <p style="color: #475569; font-size: 1rem; line-height: 1.6;">
-                            กรุณาอนุญาตการเข้าถึง Location (GPS)<br>
-                            เพื่อเข้าใช้งานฐานข้อมูล
-                        </p>
-                        <button class="btn btn-primary" style="margin-top: 15px;" ${bindHTMLAction("click", function(event) { location.reload() })}>🔄 ลองใหม่อีกครั้ง</button>
-                    `);
-                },
-                {
-                    enableHighAccuracy: true, // บังคับใช้ความแม่นยำสูง (สำคัญมากสำหรับการทำ Geofence)
-                    timeout: 10000,
-                    maximumAge: 0
-                }
-            );
-        } else {
-            showGeoError("<h2>เบราว์เซอร์ของคุณไม่รองรับการระบุตำแหน่ง (GPS)</h2>");
+    // Registered accounts may enter from any location; guests retain the 2 km rule.
+    const TARGET_LAT = 13.7665;
+    const TARGET_LNG = 100.5272;
+    const MAX_DISTANCE_KM = 2.0;
+    let ivAccessEpoch = 0;
+    let ivInitialLoad = null;
+    let ivLoginBusy = false;
+
+    function ivLoginHTML() {
+        return `<div style="margin-top:20px; padding-top:15px; border-top:1px solid #e2e8f0; text-align:left;">
+            <b>มีบัญชีใช้งานอยู่แล้ว?</b>
+            <p style="font-size:0.85rem; color:#64748b;">เข้าสู่ระบบเพื่อใช้งานโดยไม่ต้องตรวจพิกัด รวมถึงเมื่ออยู่นอกโรงพยาบาล</p>
+            <form ${bindHTMLAction('submit', function(event) { event.preventDefault(); signInForIvAccess(event.currentTarget); })}>
+                <label style="display:block; margin-bottom:8px;">อีเมล<input name="email" type="email" autocomplete="username" required style="display:block; width:100%; box-sizing:border-box; margin-top:4px;"></label>
+                <label style="display:block; margin-bottom:8px;">รหัสผ่าน<input name="password" type="password" autocomplete="current-password" required style="display:block; width:100%; box-sizing:border-box; margin-top:4px;"></label>
+                <p class="iv-login-error" role="alert" hidden style="color:#b91c1c; font-size:0.85rem;"></p>
+                <button type="submit" class="btn btn-primary" style="width:100%;">เข้าสู่ระบบ</button>
+            </form>
+        </div>`;
+    }
+
+    async function signInForIvAccess(form) {
+        if (ivLoginBusy) return;
+        const email = form.elements.email.value.trim();
+        const password = form.elements.password.value;
+        const button = form.querySelector('button');
+        const errorBox = form.querySelector('.iv-login-error');
+        const controls = [...form.querySelectorAll('input,button')];
+        ivLoginBusy = true;
+        errorBox.hidden = true;
+        controls.forEach(control => control.disabled = true);
+        button.innerText = 'กำลังเข้าสู่ระบบ…';
+        try {
+            const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+            await checkLocationAndInit();
+        } catch (_) {
+            errorBox.textContent = 'เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบอีเมล รหัสผ่าน และการเชื่อมต่อ';
+            errorBox.hidden = false;
+        } finally {
+            form.elements.password.value = '';
+            controls.forEach(control => control.disabled = false);
+            button.innerText = 'เข้าสู่ระบบ';
+            ivLoginBusy = false;
         }
     }
-    
-    // สูตรคำนวณระยะทาง Haversine Formula
+
+    async function allowIvAccess(epoch) {
+        if (epoch !== ivAccessEpoch) return;
+        document.getElementById('geo-overlay').style.display = 'none';
+        document.getElementById('main-layout').style.display = 'block';
+        // Repeated auth events and late GPS callbacks must not start duplicate loads.
+        if (!ivInitialLoad) {
+            ivInitialLoad = init().catch(() => {
+                ivInitialLoad = null;
+                if (epoch === ivAccessEpoch) {
+                    document.getElementById('main-layout').style.display = 'none';
+                    showGeoError('<h2>โหลดข้อมูลไม่สำเร็จ</h2><p>กรุณาลองตรวจสอบสิทธิ์และโหลดใหม่</p>');
+                }
+            });
+        }
+        await ivInitialLoad;
+    }
+
+    async function checkLocationAndInit() {
+        const epoch = ++ivAccessEpoch;
+        document.getElementById('main-layout').style.display = 'none';
+        document.getElementById('admin-modal').style.display = 'none';
+        showGeoError('<h2>กำลังตรวจสอบสิทธิ์เข้าใช้งาน…</h2><p>บัญชีที่เข้าสู่ระบบใช้ได้จากทุกพื้นที่ ผู้ใช้ทั่วไปต้องตรวจพิกัดภายในรัศมี 2 กม.</p>', false);
+        let timer;
+        try {
+            // getUser verifies with Auth; a cached session alone does not grant the exception.
+            const { data, error } = await Promise.race([
+                supabaseClient.auth.getUser(),
+                new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Auth timeout')), 8000); })
+            ]);
+            if (epoch !== ivAccessEpoch) return;
+            if (!error && data?.user?.id && !data.user.is_anonymous) {
+                await allowIvAccess(epoch);
+                return;
+            }
+        } catch (_) {
+            // Failed verification falls back to the existing guest location rule.
+        } finally { clearTimeout(timer); }
+        if (epoch !== ivAccessEpoch) return;
+        showGeoError('<h2>กำลังตรวจสอบพื้นที่ให้บริการ…</h2><p>กรุณาอนุญาตให้เว็บไซต์เข้าถึงตำแหน่ง เพื่อใช้งานในรัศมี 2 กม.</p>');
+        if (!navigator.geolocation) {
+            showGeoError('<h2>เบราว์เซอร์นี้ไม่รองรับการระบุตำแหน่ง</h2><p>กรุณาใช้เบราว์เซอร์ที่รองรับ หรือเข้าสู่ระบบด้วยบัญชีที่มีอยู่</p>');
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(position => {
+            if (epoch !== ivAccessEpoch) return;
+            const latitude = position.coords.latitude, longitude = position.coords.longitude;
+            if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+                showGeoError('<h2>ไม่สามารถระบุตำแหน่งได้</h2><p>ข้อมูลพิกัดไม่ถูกต้อง กรุณาลองใหม่หรือเข้าสู่ระบบ</p>');
+                return;
+            }
+            const distance = calculateDistance(TARGET_LAT, TARGET_LNG, latitude, longitude);
+            if (distance <= MAX_DISTANCE_KM) allowIvAccess(epoch);
+            else showGeoError(`<h2>อยู่นอกพื้นที่ให้บริการ</h2><p>ห่างจากจุดศูนย์กลาง ${encodeHTML(distance.toFixed(2))} กิโลเมตร ผู้ใช้ทั่วไปใช้ได้ภายในรัศมี 2 กม.</p>`);
+        }, error => {
+            if (epoch !== ivAccessEpoch) return;
+            const explanation = error.code === 1 ? 'ไม่ได้รับสิทธิ์ตำแหน่ง กรุณาตรวจสิทธิ์เว็บไซต์และการตั้งค่า Location ของเครื่อง'
+                : error.code === 3 ? 'หมดเวลารอพิกัด กรุณาลองใหม่ หรือเข้าสู่ระบบหากใช้เครื่องที่หาพิกัดไม่ได้'
+                : 'อุปกรณ์ไม่สามารถหาพิกัดได้ในขณะนี้ กรุณาลองใหม่หรือเข้าสู่ระบบ';
+            showGeoError(`<h2>ไม่สามารถระบุตำแหน่งได้</h2><p>${encodeHTML(explanation)}</p>`);
+        }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+    }
+
+    // Haversine distance, in kilometres.
     function calculateDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371; // รัศมีโลก (กิโลเมตร)
+        const R = 6371;
         const dLat = (lat2 - lat1) * Math.PI / 180;
         const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = 
-            Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-            Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-        return R * c; 
+        const a = Math.sin(dLat/2) ** 2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
-    
-    function showGeoError(htmlContent) {
+
+    function showGeoError(htmlContent, includeLogin = true) {
         const overlay = document.getElementById('geo-overlay');
-        setHTML(overlay, `
-            <div style="text-align: center; padding: 30px; background: white; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 90%;">
-                ${htmlContent}
-            </div>
-        `);
+        overlay.style.display = 'flex';
+        setHTML(overlay, `<div style="padding:24px; background:white; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.1); width:420px; max-width:90%; max-height:90vh; overflow:auto; box-sizing:border-box; text-align:center;">
+            ${htmlContent}
+            ${includeLogin ? `<button type="button" class="btn btn-outline" ${bindHTMLAction('click', function(event) { checkLocationAndInit(); })}>ตรวจสอบอีกครั้ง</button>${ivLoginHTML()}` : ''}
+        </div>`);
     }
-    
-    // 🚀 เปลี่ยนคำสั่งล่างสุดจาก init(); เป็นเรียกฟังก์ชันนี้แทน
+
+    supabaseClient.auth.onAuthStateChange(event => {
+        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+            // Leave the auth callback before calling Auth methods again.
+            setTimeout(() => { checkLocationAndInit(); }, 0);
+        }
+    });
     checkLocationAndInit();
-    
+
     // ==========================================
     // 📱 QR CODE MODAL LOGIC
     // ==========================================

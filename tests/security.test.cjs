@@ -82,12 +82,36 @@ async function openPage(file, run, fixtureOptions = {}) {
             }).then(yes, no);
             return q;
         }
+        window.__verifiedIvUser = fixtureOptions.ivSignedOut ? null : { id: 'user-1', email: 'test@example.test', is_anonymous: !!fixtureOptions.ivAnonymous };
+        window.__ivAuthError = !!fixtureOptions.ivAuthError;
+        window.__authCallbacks = [];
+        window.__geoMode = fixtureOptions.geoMode || 'inside';
+        window.__geoCalls = 0;
+        window.__geoPending = [];
         window.__mockClient = {
             from: query, rpc: async () => ({ data: null, error: null }),
             auth: { getSession: async () => ({ data: { session: { user: { email: 'test@example.test' } } } }),
-                onAuthStateChange: () => ({}), signOut: async () => ({ error: null }) }
+                getUser: async () => {
+                    if (window.__ivAuthError) throw new Error('Auth unavailable');
+                    return { data: { user: window.__verifiedIvUser }, error: null };
+                },
+                onAuthStateChange: callback => { window.__authCallbacks.push(callback); return {}; },
+                signInWithPassword: async ({ email }) => {
+                    if (window.__ivLoginFailure) return { data: {}, error: { message: '<img src=x> invalid credentials' } };
+                    window.__verifiedIvUser = { id: 'user-1', email, is_anonymous: false };
+                    return { data: { session: { user: window.__verifiedIvUser } }, error: null };
+                },
+                signOut: async () => { window.__verifiedIvUser = null; window.__authCallbacks.forEach(callback => callback('SIGNED_OUT', null)); return { error: null }; }
+            }
         };
-        Object.defineProperty(navigator, 'geolocation', { value: { getCurrentPosition: yes => yes({ coords: { latitude: 13.7665, longitude: 100.5272 } }) } });
+        Object.defineProperty(navigator, 'geolocation', { value: fixtureOptions.geoMode === 'unsupported' ? undefined : { getCurrentPosition: (yes, no) => {
+            window.__geoCalls++;
+            if (window.__geoMode === 'deferred') { window.__geoPending.push({ yes, no }); return; }
+            if (window.__geoMode === 'denied') return no({ code: 1 });
+            if (window.__geoMode === 'timeout') return no({ code: 3 });
+            if (window.__geoMode === 'unavailable') return no({ code: 2 });
+            return yes({ coords: window.__geoMode === 'outside' ? { latitude: 14, longitude: 101 } : { latitude: 13.7665, longitude: 100.5272 } });
+        } } });
     }, { text, code, fixtureOptions });
     await page.route('**/*', async route => {
         const url = new URL(route.request().url());
@@ -1788,3 +1812,82 @@ for (const file of ['index', 'enteral_compare']) {
         });
     });
 }
+
+test('IV verified accounts bypass unavailable location and repeated checks do not reload the catalog', async () => {
+    await openPage('iv_compat', async page => {
+        await page.waitForFunction(() => document.getElementById('main-layout').style.display === 'block' && allDrugNames.length > 0);
+        assert.equal(await page.evaluate(() => window.__geoCalls), 0);
+        const count = await page.evaluate(async () => {
+            let reloads = 0; init = async () => { reloads++; };
+            await checkLocationAndInit(); await checkLocationAndInit();
+            return reloads;
+        });
+        assert.equal(count, 0);
+        assert.equal(await page.locator('#main-layout').isVisible(), true);
+    }, { geoMode: 'denied' });
+});
+
+test('IV guests inside the radius keep location-based access', async () => {
+    await openPage('iv_compat', async page => {
+        await page.waitForFunction(() => allDrugNames.length > 0);
+        assert.equal(await page.locator('#main-layout').isVisible(), true);
+        assert.equal(await page.evaluate(() => window.__geoCalls), 1);
+    }, { ivSignedOut: true });
+});
+
+for (const options of [
+    { ivSignedOut: true, geoMode: 'outside' },
+    { ivSignedOut: true, geoMode: 'denied' },
+    { ivSignedOut: true, geoMode: 'timeout' },
+    { ivSignedOut: true, geoMode: 'unavailable' },
+    { ivSignedOut: true, geoMode: 'unsupported' },
+    { ivAnonymous: true, geoMode: 'outside' },
+    { ivAuthError: true, geoMode: 'outside' }
+]) {
+    test(`IV unverified access stays blocked: ${JSON.stringify(options)}`, async () => {
+        await openPage('iv_compat', async page => {
+            await page.waitForSelector('#geo-overlay form');
+            assert.equal(await page.locator('#main-layout').isVisible(), false);
+            assert.equal(await page.evaluate(() => allDrugNames.length), 0);
+            assert.equal(await page.locator('#geo-overlay input[type="password"]').count(), 1);
+            assert.equal(await page.locator('#geo-overlay').isVisible(), true);
+        }, options);
+    });
+}
+
+test('IV login on the location overlay retains errors safely and grants access after verified sign-in', async () => {
+    await openPage('iv_compat', async page => {
+        await page.waitForSelector('#geo-overlay form');
+        await page.evaluate(() => { window.__ivLoginFailure = true; });
+        await page.locator('#geo-overlay input[name="email"]').fill('test@example.test');
+        await page.locator('#geo-overlay input[name="password"]').fill('test-password');
+        await page.locator('#geo-overlay button[type="submit"]').click();
+        await page.waitForSelector('.iv-login-error:not([hidden])');
+        assert.equal(await page.locator('.iv-login-error img').count(), 0);
+        assert.equal(await page.locator('#geo-overlay input[name="password"]').inputValue(), '');
+        assert.equal(await page.locator('#main-layout').isVisible(), false);
+        await page.evaluate(() => { window.__ivLoginFailure = false; });
+        await page.locator('#geo-overlay input[name="password"]').fill('test-password');
+        await page.locator('#geo-overlay button[type="submit"]').click();
+        await page.waitForFunction(() => document.getElementById('main-layout').style.display === 'block' && allDrugNames.length > 0);
+        assert.equal(await page.locator('#geo-overlay').isVisible(), false);
+        assert.equal(await page.evaluate(() => window.__geoCalls), 1, 'login must not need another location attempt');
+    }, { ivSignedOut: true, geoMode: 'denied' });
+});
+
+test('IV sign-out reapplies geofencing and stale GPS callbacks cannot override a newer verified login', async () => {
+    await openPage('iv_compat', async page => {
+        await page.waitForFunction(() => window.__geoPending.length === 1);
+        await page.evaluate(async () => {
+            window.__verifiedIvUser = { id: 'user-1', is_anonymous: false };
+            await checkLocationAndInit();
+            window.__geoPending[0].no({ code: 1 });
+            window.__geoPending[0].yes({ coords: { latitude: 14, longitude: 101 } });
+        });
+        assert.equal(await page.locator('#main-layout').isVisible(), true);
+        assert.equal(await page.locator('#geo-overlay').isVisible(), false);
+        await page.evaluate(async () => { window.__geoMode = 'outside'; await window.__mockClient.auth.signOut(); });
+        await page.waitForSelector('#geo-overlay form');
+        assert.equal(await page.locator('#main-layout').isVisible(), false);
+    }, { ivSignedOut: true, geoMode: 'deferred' });
+});
