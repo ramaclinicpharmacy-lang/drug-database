@@ -2702,6 +2702,11 @@ async function fetchLogs() {
                 ? `<button class="btn btn-sm" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0; padding:2px 8px; font-size:0.75rem; border-radius:20px; font-weight:bold; margin-left:5px;" ${bindHTMLAction("click", function(event) { event.stopPropagation(); openNutriCalc((safeCode)) })}>🍼 คำนวณชงอาหาร</button>` 
                 : '';
                 
+            const documentGenerics = [...new Set((drug.drug_contents || [])
+                .map(content => String(content.generics?.generic_name || '').trim()).filter(Boolean))];
+            const documentQuery = documentGenerics.join(' ');
+            const documentBtn = `<button type="button" class="btn btn-sm" style="background:#ede9fe; color:#6d28d9; border:1px solid #ddd6fe; padding:2px 8px; font-size:0.75rem; border-radius:20px; font-weight:bold; margin-left:5px;" ${documentQuery ? '' : 'disabled title="ยังไม่มีชื่อ Generic สำหรับค้นหา"'} ${bindHTMLAction("click", function(event) { event.stopPropagation(); if (documentQuery) window.open('drug_documents.html?' + new URLSearchParams({ q: documentQuery }).toString(), '_blank', 'noopener'); })}>📄 เอกสารกำกับยา</button>`;
+
             const drugLinks = drug.drug_links || [];
             let hasGenericLinks = false;
             (drug.drug_contents || []).forEach(c => {
@@ -2830,7 +2835,7 @@ async function fetchLogs() {
                                 <span class="toggle-icon" id="icon-${encodeHTML(safeCode)}" style="transform: ${isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'}">▶</span>
                                 <span style="display:flex; align-items:center; flex-wrap:wrap; gap:8px; line-height: 1.4;">
                                     <span class="${encodeHTML(nameCssClass)}">${encodeHTML(generateStandardDrugName(drug))}${alertIcon}</span>
-                                    ${calcBtn} ${adjBtn} ${nutriBtn} ${meBtn} ${linkBtn}
+                                    ${calcBtn} ${adjBtn} ${nutriBtn} ${meBtn} ${linkBtn} ${documentBtn}
                                 </span>
                             </h2>
                             <div style="margin-bottom:5px; padding-left: 28px;">${adminStatusBadge} ${nlemBadges} ${tagsHtml}</div>
@@ -6513,4 +6518,5 @@ async function fetchLogs() {
 </script>
 </body>
 </html>
+
 
