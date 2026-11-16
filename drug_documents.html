@@ -283,8 +283,11 @@ $('clear').addEventListener('click',()=>{$('search').value='';$('type').value=''
 $('previous').addEventListener('click',()=>{page--;render();});$('next').addEventListener('click',()=>{page++;render();});
 $('close-preview').addEventListener('click',()=>$('preview').close());
 $('preview').addEventListener('close',()=>{$('frame').removeAttribute('src');});
+// Card shortcuts prefill the normal search; approved-only remains the default.
+$('search').value=new URLSearchParams(window.location.search).get('q') || '';
 render();loadData();initAuth();
 </script>
 </body>
 </html>
+
 
