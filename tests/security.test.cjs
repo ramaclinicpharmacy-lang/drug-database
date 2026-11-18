@@ -1891,3 +1891,95 @@ test('IV sign-out reapplies geofencing and stale GPS callbacks cannot override a
         assert.equal(await page.locator('#main-layout').isVisible(), false);
     }, { ivSignedOut: true, geoMode: 'deferred' });
 });
+
+async function setupIvOrderTest(page) {
+    await page.waitForFunction(() => allDrugNames.length > 0);
+    await page.evaluate(async () => {
+        window.__fixtures.drug_for_iv_compat = [
+            { drug_name: 'Hydrocortisone Sodium Phosphate', aliases: 'hydro phosphate', display_order: 1000 },
+            { drug_name: 'Hydrocortisone Sodium Succinate', aliases: 'hydrocortisone, solu cortef', display_order: 900 },
+            { drug_name: 'Hydrocortisone Other', aliases: null, display_order: 1000 }
+        ];
+        await init();
+    });
+}
+
+test('IV custom order applies to primary names, aliases, pair selectors, and the admin list', async () => {
+    await openPage('iv_compat', async page => {
+        await setupIvOrderTest(page);
+        await page.locator('#iv-search-input').fill('hydrocortisone');
+        await page.locator('#iv-search-input').press('End');
+        const result = await page.evaluate(async () => {
+            handleIvSearch({ target: document.getElementById('iv-search-input') });
+            const suggestions = [...document.querySelectorAll('#iv-suggestions .suggestion-item')].map(item => item.textContent);
+            const pairNames = [...document.getElementById('admin-drug-a').options].slice(1).map(option => option.value);
+            await fetchAdminDrugList(1, true);
+            const adminNames = [...document.querySelectorAll('#admin-drug-table-container tr')].slice(1).map(row => row.cells[0].textContent);
+            return { suggestions, pairNames, adminNames };
+        });
+        assert.equal(result.suggestions[0], 'Hydrocortisone Sodium Succinate');
+        assert.equal(result.pairNames[0], 'Hydrocortisone Sodium Succinate');
+        assert.equal(result.adminNames[0], 'Hydrocortisone Sodium Succinate');
+        assert.ok(result.pairNames.indexOf('Hydrocortisone Other') < result.pairNames.indexOf('Hydrocortisone Sodium Phosphate'), 'ties sort by name');
+        await page.locator('#iv-search-input').fill('hydro');
+        await page.locator('#iv-search-input').press('End');
+        assert.equal(await page.locator('#iv-suggestions .suggestion-item').first().innerText(), 'Hydrocortisone Sodium Succinate');
+        await page.locator('#iv-suggestions .suggestion-item').first().click();
+        assert.equal(await page.evaluate(() => pendingIvSelection.code), 'Hydrocortisone Sodium Succinate');
+    });
+});
+
+test('IV order editing validates values, retains failed drafts, prevents duplicate writes and refreshes ordering', async () => {
+    await openPage('iv_compat', async page => {
+        await setupIvOrderTest(page);
+        await page.evaluate(async () => {
+            openAdminModal(); await fetchAdminDrugList(1, true);
+            openAdminDrugForm('Hydrocortisone Sodium Phosphate', 'hydro phosphate');
+            for (const value of ['-1', '1.5', '', '2147483648']) {
+                document.getElementById('admin-drug-display-order').value = value; await saveAdminDrug();
+            }
+        });
+        assert.equal(await page.evaluate(() => window.__writes.filter(w => w.table === 'drug_for_iv_compat').length), 0);
+        await page.evaluate(async () => {
+            document.getElementById('admin-drug-display-order').value = '800';
+            const originalFrom = window.__mockClient.from;
+            window.__mockClient.from = table => {
+                const q = originalFrom(table), originalThen = q.then;
+                q.then = (yes, no) => {
+                    if (table === 'drug_for_iv_compat' && q.operation !== 'select') {
+                        if (window.__orderDeferred) return new Promise(resolve => { window.__finishOrder = resolve; }).then(yes, no);
+                        return Promise.resolve({ data: null, error: { message: '<img src=x> denied' } }).then(yes, no);
+                    }
+                    return originalThen(yes, no);
+                };
+                return q;
+            };
+            await saveAdminDrug();
+        });
+        assert.equal(await page.locator('#admin-drug-display-order').inputValue(), '800');
+        assert.equal(await page.locator('#iv-drug-save-error').isVisible(), true);
+        assert.equal(await page.locator('#iv-drug-save-error img').count(), 0);
+        await page.evaluate(async () => { window.__orderDeferred = true; window.__orderSave = saveAdminDrug(); await saveAdminDrug(); });
+        assert.equal(await page.evaluate(() => window.__writes.filter(w => w.table === 'drug_for_iv_compat').length), 2);
+        assert.equal(await page.locator('#admin-drug-display-order').isDisabled(), true);
+        await page.evaluate(async () => {
+            const drug = window.__fixtures.drug_for_iv_compat[0]; drug.display_order = 800;
+            window.__finishOrder({ data: structuredClone(drug), error: null }); await window.__orderSave;
+            document.getElementById('iv-search-input').value = 'hydrocortisone'; showIvSuggestions();
+        });
+        assert.equal(await page.locator('#iv-suggestions .suggestion-item').first().innerText(), 'Hydrocortisone Sodium Phosphate');
+        const writes = await page.evaluate(() => window.__writes.filter(w => w.table === 'drug_for_iv_compat'));
+        assert.equal(writes.at(-1).operation, 'update');
+        assert.deepEqual(writes.at(-1).payload, { aliases: 'hydro phosphate', display_order: 800 });
+        assert.equal(await page.evaluate(() => window.__writes.filter(w => w.table === 'iv_compatibility').length), 0);
+    });
+});
+
+test('IV guests cannot edit display order', async () => {
+    await openPage('iv_compat', async page => {
+        await setupIvOrderTest(page);
+        await page.evaluate(async () => { openAdminModal(); openAdminDrugForm('Hydrocortisone Sodium Succinate', 'hydrocortisone'); await saveAdminDrug(); });
+        assert.equal(await page.locator('#admin-drug-order-group').isVisible(), false);
+        assert.equal(await page.evaluate(() => window.__writes.filter(w => w.table === 'drug_for_iv_compat').length), 0);
+    }, { ivSignedOut: true });
+});

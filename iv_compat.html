@@ -189,6 +189,12 @@
                     <input type="text" id="admin-drug-aliases-input" class="form-control" placeholder="คั่นด้วยลูกน้ำ (,) เช่น Cef-3, Rocephin">
                 </div>
 
+                <div id="admin-drug-order-group" hidden style="margin-bottom:15px;">
+                    <label for="admin-drug-display-order" style="font-weight:bold; font-size:0.85rem;">ลำดับแสดงผล (เลขน้อยขึ้นก่อน)</label>
+                    <input type="number" id="admin-drug-display-order" class="form-control" min="0" max="2147483647" step="1" value="1000" style="max-width:160px;">
+                    <small style="color:#64748b;">ค่าปกติ 1000 เช่น ตั้ง 900 เพื่อให้แสดงก่อนรายการปกติ ถ้าเลขเท่ากันจะเรียงตามชื่อยา</small>
+                </div>
+                <div id="iv-drug-save-error" role="alert" hidden style="white-space:pre-wrap; color:#991b1b; background:#fef2f2; padding:10px; margin-bottom:10px; border:1px solid #dc2626; border-radius:6px;"></div>
                 <div style="display:flex; gap:10px;">
                     <button class="btn btn-success" style="flex:1; height:45px;" onclick="saveAdminDrug()">💾 บันทึกชื่อยา</button>
                     <button class="btn btn-outline" style="flex:1; height:45px;" onclick="closeAdminDrugForm()">❌ ยกเลิก</button>
@@ -417,12 +423,21 @@
         return allData;
     }
 
+    function ivDrugOrder(drug) {
+        const value = drug.display_order == null ? 1000 : Number(drug.display_order);
+        return Number.isSafeInteger(value) && value >= 0 ? value : 1000;
+    }
+    function compareIvDrugs(a, b) {
+        return ivDrugOrder(a) - ivDrugOrder(b) || a.drug_name.localeCompare(b.drug_name);
+    }
+
     async function init() {
         document.getElementById('iv-search-input').placeholder = "⏳ กำลังโหลดฐานข้อมูลยา IV...";
         document.getElementById('iv-search-input').disabled = true; 
         
         const ivData = await fetchAllWithPagination('drug_for_iv_compat', '*');
 
+        ivData.sort(compareIvDrugs);
         let dict = [];
         let nameSet = new Set();
         
@@ -439,7 +454,7 @@
         });
         
         ivAliasDict = dict;
-        allDrugNames = Array.from(nameSet).sort(); 
+        allDrugNames = Array.from(nameSet); 
         
         document.getElementById('iv-search-input').placeholder = "พิมพ์ชื่อยา หรือ ชื่อพ้อง...";
         document.getElementById('iv-search-input').disabled = false;
@@ -689,7 +704,12 @@
         closeAdminDrugForm();
     }
 
-    function openAdminDrugForm(name = null, aliases = null) {
+    function openAdminDrugForm(name = null, aliases = null, displayOrder = null) {
+        if (ivDrugSaveBusy) return;
+        document.getElementById('iv-drug-save-error').hidden = true;
+        document.getElementById('admin-drug-order-group').hidden = !ivCanEditOrder;
+        const existing = allAdminDrugsCache?.find(drug => drug.drug_name === name);
+        document.getElementById('admin-drug-display-order').value = displayOrder ?? ivDrugOrder(existing || {});
         document.getElementById('admin-drug-form-section').style.display = 'block';
         document.getElementById('admin-drug-list-section').style.display = 'none';
 
@@ -697,7 +717,7 @@
         const warning = document.getElementById('admin-drug-name-warning');
 
         if (name) {
-            setHTML(document.getElementById('admin-drug-form-title'), '✏️ แก้ไขชื่อพ้อง (Alias)');
+            setHTML(document.getElementById('admin-drug-form-title'), '✏️ แก้ไขชื่อพ้องและลำดับแสดงผล');
             document.getElementById('admin-drug-is-edit').value = 'true';
             nameInput.value = name;
             nameInput.disabled = true;
@@ -718,36 +738,52 @@
         document.getElementById('admin-drug-list-section').style.display = 'block';
     }
 
+    let ivDrugSaveBusy = false;
     async function saveAdminDrug() {
+        if (ivDrugSaveBusy) return;
+        if (!ivCanEditOrder) return alert('กรุณาเข้าสู่ระบบด้วยบัญชีที่มีสิทธิ์แก้ไข');
         const isEdit = document.getElementById('admin-drug-is-edit').value === 'true';
         const drugName = document.getElementById('admin-drug-name-input').value.trim();
         const aliases = document.getElementById('admin-drug-aliases-input').value.trim();
-
-        if (!drugName) return alert('กรุณาระบุชื่อยาหลัก');
-
-        const payload = { 
-            drug_name: drugName, 
-            aliases: aliases || null 
-        };
-
-        let error;
-        if (isEdit) {
-            const res = await supabaseClient.from('drug_for_iv_compat').update({ aliases: payload.aliases }).eq('drug_name', drugName);
-            error = res.error;
-        } else {
-            const res = await supabaseClient.from('drug_for_iv_compat').insert(payload);
-            error = res.error;
+        const orderInput = document.getElementById('admin-drug-display-order');
+        const rawOrder = orderInput.value.trim();
+        const displayOrder = Number(rawOrder);
+        const errorBox = document.getElementById('iv-drug-save-error');
+        const controls = [...document.querySelectorAll('#admin-drug-form-section input, #admin-drug-form-section button')];
+        const disabled = controls.map(control => control.disabled);
+        const button = document.querySelector('#admin-drug-form-section .btn-success');
+        const originalLabel = button.innerText;
+        errorBox.hidden = true;
+        let saved = false;
+        try {
+            if (!drugName) throw new Error('กรุณาระบุชื่อยาหลัก');
+            if (orderInput.validity.badInput || !rawOrder || !Number.isInteger(displayOrder) || displayOrder < 0 || displayOrder > 2147483647) {
+                throw new Error('ลำดับแสดงผลต้องเป็นจำนวนเต็มตั้งแต่ 0 ถึง 2147483647');
+            }
+            ivDrugSaveBusy = true;
+            controls.forEach(control => control.disabled = true);
+            button.innerText = 'กำลังบันทึก…';
+            const payload = { aliases: aliases || null, display_order: displayOrder };
+            const query = isEdit
+                ? supabaseClient.from('drug_for_iv_compat').update(payload).eq('drug_name', drugName)
+                : supabaseClient.from('drug_for_iv_compat').insert({ drug_name: drugName, ...payload });
+            const { data, error } = await query.select('drug_name,display_order').single();
+            if (error) throw error;
+            if (!data || data.drug_name !== drugName || Number(data.display_order) !== displayOrder) throw new Error('ไม่ได้รับผลยืนยันการบันทึก กรุณาตรวจสอบข้อมูลล่าสุด');
+            saved = true;
+        } catch (error) {
+            errorBox.textContent = '⚠️ ยังบันทึกไม่สำเร็จหรือยืนยันผลไม่ได้ ข้อมูลในฟอร์มยังอยู่ กรุณาตรวจสอบรายการก่อนลองซ้ำ\n' + (error.message || 'ไม่สามารถติดต่อระบบได้');
+            errorBox.hidden = false;
+        } finally {
+            ivDrugSaveBusy = false;
+            controls.forEach((control, i) => control.disabled = disabled[i]);
+            button.innerText = originalLabel;
         }
-
-        if (error) {
-            if (error.code === '23505') return alert('⚠️ มีชื่อยานี้ในระบบแล้ว กรุณาค้นหาแล้วกดแก้ไขแทนครับ');
-            return alert("Error: " + error.message);
+        if (saved) {
+            closeAdminDrugForm();
+            fetchAdminDrugList(1, true);
+            await init();
         }
-        
-        alert(`✅ บันทึกชื่อยา ${drugName} สำเร็จ`);
-        closeAdminDrugForm();
-        fetchAdminDrugList(1, true);
-        init();
     }
 
     // 🌟 ตัวแปรสำหรับระบบ Pagination (หน้าจัดการยา)
@@ -777,7 +813,7 @@
         }
 
         // จัดเรียงตามชื่อยา (A-Z) เสมอ
-        filteredData.sort((a, b) => a.drug_name.localeCompare(b.drug_name));
+        filteredData = [...filteredData].sort(compareIvDrugs);
 
         // 3. ตัดแบ่งข้อมูลให้เหลือหน้าละ 100 แถว (Pagination)
         const totalItems = filteredData.length;
@@ -797,8 +833,9 @@
         let html = `
         <table class="admin-table">
             <tr>
-                <th style="width:35%;">ชื่อยาหลัก (Drug Name)</th>
-                <th style="width:45%;">ชื่อพ้อง (Aliases)</th>
+                <th style="width:30%;">ชื่อยาหลัก (Drug Name)</th>
+                <th style="width:10%;">ลำดับ</th>
+                <th style="width:40%;">ชื่อพ้อง (Aliases)</th>
                 <th style="width:20%; text-align:center;">จัดการ</th>
             </tr>`;
 
@@ -808,9 +845,10 @@
             html += `
             <tr>
                 <td><b>${encodeHTML(safeName)}</b></td>
+                <td>${encodeHTML(ivDrugOrder(item))}</td>
                 <td><span style="color:gray; font-size:0.85rem;">${encodeHTML(safeAliases) || '-'}</span></td>
                 <td style="text-align:center;">
-                    <button class="btn btn-sm" style="background:#f59e0b; color:white;" ${bindHTMLAction("click", function(event) { openAdminDrugForm((safeName), (safeAliases)) })}>✏️ แก้ไข</button>
+                    <button class="btn btn-sm" style="background:#f59e0b; color:white;" ${bindHTMLAction("click", function(event) { openAdminDrugForm((safeName), (safeAliases), (ivDrugOrder(item))) })}>✏️ แก้ไข</button>
                     <button class="btn btn-sm" style="background:#ef4444; color:white;" ${bindHTMLAction("click", function(event) { deleteAdminDrug((safeName)) })}>🗑️ ลบ</button>
                 </td>
             </tr>`;
@@ -1310,6 +1348,7 @@ const statusA = item.admixture_result === 'C' ? '🟢 C' : (item.admixture_resul
     const TARGET_LAT = 13.7665;
     const TARGET_LNG = 100.5272;
     const MAX_DISTANCE_KM = 2.0;
+    let ivCanEditOrder = false;
     let ivAccessEpoch = 0;
     let ivInitialLoad = null;
     let ivLoginBusy = false;
@@ -1372,6 +1411,8 @@ const statusA = item.admixture_result === 'C' ? '🟢 C' : (item.admixture_resul
 
     async function checkLocationAndInit() {
         const epoch = ++ivAccessEpoch;
+        ivCanEditOrder = false;
+        document.getElementById('admin-drug-order-group').hidden = true;
         document.getElementById('main-layout').style.display = 'none';
         document.getElementById('admin-modal').style.display = 'none';
         showGeoError('<h2>กำลังตรวจสอบสิทธิ์เข้าใช้งาน…</h2><p>บัญชีที่เข้าสู่ระบบใช้ได้จากทุกพื้นที่ ผู้ใช้ทั่วไปต้องตรวจพิกัดภายในรัศมี 2 กม.</p>', false);
@@ -1384,6 +1425,8 @@ const statusA = item.admixture_result === 'C' ? '🟢 C' : (item.admixture_resul
             ]);
             if (epoch !== ivAccessEpoch) return;
             if (!error && data?.user?.id && !data.user.is_anonymous) {
+                ivCanEditOrder = true;
+                document.getElementById('admin-drug-order-group').hidden = false;
                 await allowIvAccess(epoch);
                 return;
             }
